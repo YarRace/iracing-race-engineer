@@ -91,6 +91,7 @@
         <div>Топливо <b><span id="fuel">—</span> л</b></div>
         <div>Трасса <b><span id="ttemp">—</span>°</b></div>
         <div>Воздух <b><span id="atemp">—</span>°</b></div>
+        <div>Inc <b><span id="inc">0</span>x</b></div>
       </div>
     </div>
     <div class="card">
@@ -101,10 +102,6 @@
     <div class="card">
       <h2>Стратегия</h2>
       <div id="strategy"><div class="empty">Поедь несколько кругов — появится расход и прогноз.</div></div>
-    </div>
-    <div class="card">
-      <h2>Повреждения</h2>
-      <div id="damage"><div class="empty">Состояние машины появится на трассе.</div></div>
     </div>
   </div>
 
@@ -285,30 +282,16 @@ async function tickStrategy(){
   $('strategy').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>`;
 }
 
-async function tickDamage(){
+async function tickInc(){
   let d; try{ d = await (await fetch('/api/damage')).json(); }catch{ return; }
-  if(!d || d.damaged==null){ return; }
-  const col = d.damaged ? '#e74c3c' : '#2ecc71';
-  const incCol = (d.incidents||0)>0 ? '#f1c40f' : '#2ecc71';
-  const blocks = [];
-  // инциденты — всегда работают (live-счётчик вылетов/контактов)
-  blocks.push(`<div class="tire" style="border-color:${incCol}"><div class="cn">Инциденты</div>
-    <div style="font-size:20px;font-weight:700;margin:2px 0;color:${incCol}">${d.incidents||0}x</div>
-    <div class="why">вылеты / контакты</div></div>`);
-  // состояние/ремонт — только если в сессии включены повреждения
-  blocks.push(`<div class="tire" style="border-color:${col}"><div class="cn">Состояние</div>
-    <div style="font-size:18px;font-weight:700;margin:2px 0;color:${col}">${d.damaged?'Повреждена':'Цела'}</div>
-    <div class="why">${d.damaged?`ремонт ${fix(d.repair_sec,0)} c`+(d.opt_repair_sec>0?` (+опц. ${fix(d.opt_repair_sec,0)})`:''):'нет ремонта'}</div></div>`);
-  blocks.push(card('Фаст-ремонт', `${d.fast_repair_available} дост.`,
-    `использовано ${d.fast_repair_used}`));
-  $('damage').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>`;
+  if(d && d.incidents!=null) $('inc').textContent = d.incidents;
 }
 
-tickLive(); tickResult(); tickStrategy(); tickDamage();
+tickLive(); tickResult(); tickStrategy(); tickInc();
 setInterval(tickLive, 250);
 setInterval(tickResult, 1500);
 setInterval(tickStrategy, 1000);
-setInterval(tickDamage, 1000);
+setInterval(tickInc, 1000);
 </script>
 </body>
 </html>
