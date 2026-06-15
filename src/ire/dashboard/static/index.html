@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>Race Engineer</title>
+<style>body{background:#111;color:#eee;font:18px system-ui;margin:0;padding:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:#1c1c1c;border-radius:12px;padding:16px}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid #333;text-align:left}</style>
+<div class="grid">
+  <div class="card"><h2>Живьё</h2><div id="live"></div></div>
+  <div class="card"><h2>Разбор заезда</h2><div id="result"></div></div>
+</div>
+<script>
+async function tick(){
+  const l = await (await fetch('/api/live')).json();
+  document.getElementById('live').textContent = JSON.stringify(l, null, 1);
+  const r = await (await fetch('/api/result')).json();
+  document.getElementById('result').textContent = JSON.stringify(r, null, 1);
+}
+setInterval(tick, 250); tick();
+</script>
