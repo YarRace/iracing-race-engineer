@@ -10,7 +10,9 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(_ROOT, "src"))   # пакет ire
+sys.path.insert(0, _ROOT)                          # пакет config (в корне)
 
 import irsdk
 from ire.collector.live_state import live_frame, is_on_track
