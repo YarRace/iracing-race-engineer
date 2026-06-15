@@ -1,4 +1,5 @@
-from ire.collector.live_state import parse_temp, make_get, is_on_track, strategy_inputs, fuel_capacity
+from ire.collector.live_state import (parse_temp, make_get, is_on_track,
+                                       strategy_inputs, fuel_capacity, damage_status)
 from config import channels
 
 
@@ -53,3 +54,16 @@ def test_fuel_capacity_from_driverinfo():
     ir = _FakeIR({"DriverInfo": {"DriverCarFuelMaxLtr": 89.0}}, {})
     assert fuel_capacity(ir) == 89.0
     assert fuel_capacity(_FakeIR({"DriverInfo": {}}, {})) == 89.0
+
+
+def test_damage_status_detects_repair_time():
+    intact = _FakeIR({"PitRepairLeft": 0.0, "PitOptRepairLeft": 0.0,
+                      "FastRepairAvailable": 1, "FastRepairUsed": 0}, {})
+    d = damage_status(intact)
+    assert d["damaged"] is False and d["repair_sec"] == 0.0
+    assert d["fast_repair_available"] == 1
+
+    hit = _FakeIR({"PitRepairLeft": 12.5, "PitOptRepairLeft": 3.0,
+                   "FastRepairAvailable": 0, "FastRepairUsed": 1}, {})
+    d2 = damage_status(hit)
+    assert d2["damaged"] is True and d2["repair_sec"] == 12.5 and d2["opt_repair_sec"] == 3.0

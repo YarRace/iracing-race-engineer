@@ -57,3 +57,18 @@ def fuel_capacity(ir, default=89.0):
     """Ёмкость бака из DriverInfo (DriverCarFuelMaxLtr), с запасным значением."""
     di = ir["DriverInfo"] or {}
     return di.get(channels.DRIVER_FUEL_MAX, default)
+
+
+def damage_status(ir):
+    """Состояние повреждений из SDK. iRacing даёт только время ремонта (сек),
+    не карту по зонам. damaged=True, если требуется обязательный/опц. ремонт."""
+    D = channels.DAMAGE_SCALAR
+    repair = ir[D["repair_sec"]] or 0.0
+    opt = ir[D["opt_repair_sec"]] or 0.0
+    return {
+        "repair_sec": round(repair, 1),
+        "opt_repair_sec": round(opt, 1),
+        "fast_repair_available": int(ir[D["fast_repair_available"]] or 0),
+        "fast_repair_used": int(ir[D["fast_repair_used"]] or 0),
+        "damaged": (repair + opt) > 0,
+    }

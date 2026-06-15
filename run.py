@@ -20,7 +20,8 @@ import uvicorn
 from ire import orchestrator
 from ire.metrics.symptoms import build_symptoms
 from ire.metrics.strategy import StrategyTracker
-from ire.collector.live_state import live_frame, is_on_track, strategy_inputs, fuel_capacity
+from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
+                                       fuel_capacity, damage_status)
 from ire.collector.stint_recorder import StintDetector
 from ire.dashboard.server import app, STATE
 
@@ -60,9 +61,10 @@ def main():
             try:
                 tracker.update(**strategy_inputs(ir))
                 STATE["strategy"] = tracker.snapshot()
+                STATE["damage"] = damage_status(ir)
             except Exception as e:
                 if not getattr(main, "_strat_warned", False):
-                    print("Стратегия: ошибка чтения каналов:", e)
+                    print("Стратегия/повреждения: ошибка чтения каналов:", e)
                     main._strat_warned = True
             state = det.update(on_track=is_on_track(ir))
             if state == "running":

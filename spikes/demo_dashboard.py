@@ -60,5 +60,10 @@ STATE["strategy"] = {
     "tire_min": 0.62, "tire_wear_per_lap": 0.05, "tire_laps_left": 6.4, "change_tires": False,
 }
 
+STATE["damage"] = {
+    "repair_sec": 0.0, "opt_repair_sec": 0.0,
+    "fast_repair_available": 1, "fast_repair_used": 0, "damaged": False,
+}
+
 print("Демо-дашборд: http://localhost:8000  (Ctrl+C — выход)")
 uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")

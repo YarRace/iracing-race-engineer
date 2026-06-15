@@ -50,3 +50,12 @@ TIRE_WEAR = {
 }
 # Ёмкость бака — из DriverInfo: ir["DriverInfo"]["DriverCarFuelMaxLtr"] (89.0 для Cadillac GTP).
 DRIVER_FUEL_MAX = "DriverCarFuelMaxLtr"
+
+# Повреждения: iRacing НЕ отдаёт карту по зонам кузова — только время ремонта (сек)
+# и статус фаст-ремонта. PitRepairLeft > 0 ⇒ машина побита и требует ремонта в боксе.
+DAMAGE_SCALAR = {
+    "repair_sec": "PitRepairLeft",            # обязательный ремонт, сек
+    "opt_repair_sec": "PitOptRepairLeft",     # опциональный ремонт, сек
+    "fast_repair_available": "FastRepairAvailable",
+    "fast_repair_used": "FastRepairUsed",
+}
