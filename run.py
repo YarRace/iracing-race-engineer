@@ -27,16 +27,29 @@ def _serve():
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
 
 
+def _connected(ir):
+    """Подключён ли SDK к живой сессии iRacing (без падения процесса)."""
+    if not (ir.is_initialized and ir.is_connected):
+        ir.startup()                                     # пытаемся (пере)подключиться
+    return ir.is_initialized and ir.is_connected
+
+
 def main():
+    # Сервер дашборда поднимается СРАЗУ и работает независимо от состояния сима,
+    # поэтому http://localhost:8000 открывается ещё до выезда на трассу.
     threading.Thread(target=_serve, daemon=True).start()
-    print("Дашборд: http://localhost:8000")
+    print("Дашборд: http://localhost:8000  (ждёт подключения iRacing…)")
+    STATE["live"] = {"status": "ожидание iRacing…"}
 
     ir = irsdk.IRSDK()
-    assert ir.startup(), "iRacing не запущен / SDK недоступен"
     det = StintDetector()
     frames = []
     try:
         while True:
+            if not _connected(ir):
+                STATE["live"] = {"status": "ожидание iRacing… (запусти сим и сядь в машину)"}
+                time.sleep(1)
+                continue
             ir.freeze_var_buffer_latest()
             state = det.update(on_track=is_on_track(ir))
             if state == "running":
@@ -45,13 +58,17 @@ def main():
                 frames.append(f)
             elif state == "closed" and frames:
                 print(f"Стинт закрыт ({len(frames)} кадров) → анализ…")
-                res = orchestrator.analyze_stint(
-                    frames,
-                    setup_path=ir["CarSetup"],            # живой CarSetup как dict
-                    conditions={"track_temp": frames[0]["track_temp"]},
-                )
-                STATE["result"] = res
-                print("Готово. Разбор на дашборде.")
+                try:
+                    res = orchestrator.analyze_stint(
+                        frames,
+                        setup_path=ir["CarSetup"],        # живой CarSetup как dict
+                        conditions={"track_temp": frames[0]["track_temp"]},
+                    )
+                    STATE["result"] = res
+                    print("Готово. Разбор на дашборде.")
+                except Exception as e:                    # анализ не должен ронять цикл
+                    STATE["result"] = {"error": f"анализ не удался: {e}"}
+                    print("Ошибка анализа:", e)
                 frames = []
                 det = StintDetector()                    # готов к следующему стинту
             time.sleep(1 / 60)
