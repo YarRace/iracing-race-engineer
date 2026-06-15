@@ -123,7 +123,7 @@ git add -A && git commit -m "chore: project scaffold"
 **Files:**
 - Create: `spikes/dump_channels.py`, `spikes/OUT_channels.txt` (артефакт)
 
-- [ ] **Step 1: Скрипт дампа**
+- [x] **Step 1: Скрипт дампа**
 
 `spikes/dump_channels.py`:
 ```python
@@ -146,12 +146,12 @@ print(f"Готово: {len(keys)} каналов → spikes/OUT_channels.txt")
 ir.shutdown()
 ```
 
-- [ ] **Step 2: Запустить в симе** (сесть на трассу за Cadillac GTP на Watkins, выехать)
+- [x] **Step 2: Запустить в симе** — 349 каналов выгружено; Watkins Glen + Cadillac V-Series.R подтверждены
 
 Run: `python spikes/dump_channels.py`
 Expected: файл `spikes/OUT_channels.txt` с 200+ каналами; внутри есть `Speed`, `Throttle`, `Brake`, `SteeringWheelAngle`, `LatAccel`, `YawRate`, `FuelLevel`, температуры шин (имена вида `LFtemp*`), прогибы амортизаторов (`*shockDefl`), а в `WeekendInfo` — `TrackName`, `TrackSurfaceTemp`/`TrackAirTemp`.
 
-- [ ] **Step 3: Заполнить `config/channels.py` найденными именами**
+- [x] **Step 3: Заполнить `config/channels.py` найденными именами** — шины: carcass-набор `*tempCL/CM/CR` (tread в SDK отсутствует); темп. трассы/воздуха в `WeekendInfo` как строки `"39.82 C"`
 
 `config/channels.py` (значения суффиксов взять из `OUT_channels.txt` — НЕ угадывать):
 ```python
@@ -176,7 +176,7 @@ WEEKEND_AIR_TEMP = "TrackAirTemp"
 ```
 > Плейсхолдеры `<...>` ОБЯЗАТЕЛЬНО заменить реальными именами из `OUT_channels.txt`. Это и есть смысл спайка — добыть факт, а не выдумать.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 ```bash
 git add spikes/dump_channels.py config/channels.py
 git commit -m "spike: dump live SDK channels, fill channel map"
