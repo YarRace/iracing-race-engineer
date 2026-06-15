@@ -1,0 +1,87 @@
+{
+  "tire": {
+    "LF": {
+      "tl": 104.9,
+      "tm": 97.9,
+      "tr": 90.9,
+      "spread": 14.0,
+      "bias": "inner_hot"
+    },
+    "RF": {
+      "tl": 104.9,
+      "tm": 97.9,
+      "tr": 90.9,
+      "spread": 14.0,
+      "bias": "outer_hot"
+    },
+    "LR": {
+      "tl": 92.9,
+      "tm": 89.9,
+      "tr": 86.9,
+      "spread": 6.0,
+      "bias": "even"
+    },
+    "RR": {
+      "tl": 92.9,
+      "tm": 89.9,
+      "tr": 86.9,
+      "spread": 6.0,
+      "bias": "even"
+    },
+    "front_rear_balance": 8.0
+  },
+  "balance": {
+    "entry": {
+      "tendency": "understeer",
+      "samples": 6396
+    },
+    "mid": {
+      "tendency": "understeer",
+      "samples": 2736
+    },
+    "exit": {
+      "tendency": "understeer",
+      "samples": 6552
+    }
+  },
+  "suspension": {
+    "LF": {
+      "min": 0.02,
+      "max": 0.03,
+      "range": 0.01,
+      "bottoming_pct": 0.0
+    },
+    "RF": {
+      "min": 0.02,
+      "max": 0.03,
+      "range": 0.01,
+      "bottoming_pct": 0.0
+    },
+    "LR": {
+      "min": 0.035,
+      "max": 0.045,
+      "range": 0.01,
+      "bottoming_pct": 0.0
+    },
+    "RR": {
+      "min": 0.035,
+      "max": 0.045,
+      "range": 0.01,
+      "bottoming_pct": 0.0
+    }
+  },
+  "inputs": {
+    "trail_brake_pct": 36.3,
+    "throttle_smoothness": 0.999
+  },
+  "consistency": {
+    "lap_count": 2,
+    "best_lap": 100.0,
+    "spread": 0.0,
+    "mean": 100.0
+  },
+  "conditions": {
+    "track_temp": 39.82
+  },
+  "frame_count": 18000
+}
