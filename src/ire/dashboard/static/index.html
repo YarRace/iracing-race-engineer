@@ -147,6 +147,14 @@ const lapTime = sec => {
   const m = Math.floor(sec/60), s = sec - m*60;
   return m + ":" + s.toFixed(2).padStart(5,'0');
 };
+// склонение: plural(1,'круг','круга','кругов') -> 'круг'
+const plural = (n, one, few, many) => {
+  const a = Math.abs(n)%100, b = a%10;
+  if(a>10 && a<20) return many;
+  if(b>1 && b<5) return few;
+  if(b===1) return one;
+  return many;
+};
 
 // цвет температуры шины (GT: оптимум ~85-100°C)
 function tempColor(t){
@@ -239,7 +247,7 @@ function shortField(f){ return (f||'').split('.').slice(-2).join(' · '); }
 function renderMetrics(s){
   const blocks=[];
   if(s.consistency){const c=s.consistency;
-    blocks.push(card('Круги',`${c.lap_count||0} зачёт.`,`лучший ${lapTime(c.best_lap)} · разброс ${fix(c.spread,2)}с`));}
+    blocks.push(card('Круги',`${c.lap_count||0} ${plural(c.lap_count||0,'круг','круга','кругов')}`,`лучший ${lapTime(c.best_lap)} · разброс ${fix(c.spread,2)}с`));}
   if(s.inputs){const i=s.inputs;
     blocks.push(card('Датчики',`trail ${fix(i.trail_brake_pct,1)}%`,`плавность газа ${fix(i.throttle_smoothness*100,0)}%`));}
   if(s.tire){blocks.push(card('Баланс шин',`${s.tire.front_rear_balance>0?'перёд':'зад'} теплее`,`Δ ${fix(Math.abs(s.tire.front_rear_balance),1)}°`));}
