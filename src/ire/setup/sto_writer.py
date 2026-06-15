@@ -31,3 +31,40 @@ def build_manual_changes(
         {"field": field, "from": fields.get(field), "to": to}
         for field, to in delta.items()
     ]
+
+
+def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
+    """Полный читаемый лист сетапа: ВСЕ поля по секциям, изменённые помечены.
+
+    `.sto` загрузить в iRacing нельзя (формат закрыт), поэтому это «шпаргалка» —
+    текст со всеми текущими значениями, где правки видны как
+    ``← ИЗМЕНИТЬ (было …)``. Удобно держать рядом и внести в гараже.
+
+    Args:
+        setup: результат :func:`ire.setup.sto_reader.read_sto` (`{"fields", ...}`).
+        delta: ``{плоский_путь: новое_значение}`` — рекомендованные правки.
+
+    Returns:
+        Многострочный текст, сгруппированный по секциям.
+    """
+    fields = setup["fields"]
+    n = len(delta)
+    lines = [
+        "РЕКОМЕНДОВАННЫЙ СЕТАП — Cadillac GTP",
+        f"Изменений: {n}. Строки с пометкой ИЗМЕНИТЬ внести в гараже iRacing вручную.",
+        "(.sto-файл закрыт и не загружается — это справочный лист.)",
+        "",
+    ]
+    last_section = object()
+    for path, val in fields.items():
+        parts = path.split(".")
+        section = ".".join(parts[:-1]) if len(parts) > 1 else "(прочее)"
+        name = parts[-1]
+        if section != last_section:
+            lines.append(f"[{section}]")
+            last_section = section
+        if path in delta:
+            lines.append(f"  {name}: {delta[path]}   <- ИЗМЕНИТЬ (было {val})")
+        else:
+            lines.append(f"  {name}: {val}")
+    return "\n".join(lines)

@@ -13,6 +13,8 @@ sys.path.insert(0, _ROOT)
 
 import uvicorn
 from ire.dashboard.server import app, STATE
+from ire.setup.sto_reader import read_sto
+from ire.setup.sto_writer import build_setup_sheet
 
 # живой кадр — самый быстрый момент реального стинта (для наглядных приборов)
 frames = [json.loads(l) for l in open(
@@ -41,6 +43,14 @@ STATE["result"] = {
          "why": "ужесточить задний стабилизатор против недоруля"},
     ],
 }
+
+# полный сетап-лист (шпаргалка) на основе реального CarSetup + те же правки
+_setup = read_sto(os.path.join(_ROOT, "tests/fixtures/sample_setup.json"))
+STATE["result"]["setup_sheet"] = build_setup_sheet(_setup, {
+    "TiresAero.LeftFront.StartingPressure": "148 kPa",
+    "TiresAero.RightFront.StartingPressure": "148 kPa",
+    "Chassis.Rear.ArbSize": "Hard",
+})
 
 print("Демо-дашборд: http://localhost:8000  (Ctrl+C — выход)")
 uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
