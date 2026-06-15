@@ -128,7 +128,7 @@
       <div class="empty" id="sheet-empty">Появится после разбора — все поля сетапа, правки помечены.</div>
     </div>
     <div class="card">
-      <h2>Сводка метрик</h2>
+      <h2>Все данные</h2>
       <div class="mini" id="metrics"><div class="empty">—</div></div>
     </div>
   </div>
@@ -257,7 +257,7 @@ async function tickStrategy(){
   blocks.push(card('Расход', `${fix(g.avg_burn,2)} л/круг`,
     `последний ${fix(g.last_burn,2)} л`));
   blocks.push(card('Осталось гонки', g.laps_to_go!=null ? `${g.laps_to_go} кругов` : 'без лимита',
-    g.avg_lap_time ? `темп ${fix(g.avg_lap_time,1)}с` : ''));
+    g.avg_lap_time ? `темп ${lapTime(g.avg_lap_time)}` : ''));
   if(g.fuel_to_add!=null){
     const big = g.fuel_to_add>0 ? `+${fix(g.fuel_to_add,1)} л` : 'не нужно';
     blocks.push(`<div class="tire" style="border-color:${refuelColor}"><div class="cn">Долить на пите</div>
