@@ -74,7 +74,7 @@ iracing-race-engineer/
 **Files:**
 - Create: `requirements.txt`, `pytest.ini`, `src/ire/__init__.py`, `tests/test_smoke.py`
 
-- [ ] **Step 1: Создать `requirements.txt`**
+- [x] **Step 1: Создать `requirements.txt`**
 ```
 pyirsdk
 fastapi
@@ -83,14 +83,14 @@ anthropic
 pytest
 ```
 
-- [ ] **Step 2: Создать `pytest.ini`**
+- [x] **Step 2: Создать `pytest.ini`** (изменено: `pythonpath = . src` — нужны и `src/ire`, и корневой `config/`)
 ```ini
 [pytest]
 pythonpath = .
 testpaths = tests
 ```
 
-- [ ] **Step 3: Создать пакет и smoke-тест**
+- [x] **Step 3: Создать пакет и smoke-тест**
 
 `src/ire/__init__.py`:
 ```python
@@ -104,12 +104,12 @@ def test_version():
     assert __version__ == "0.1.0"
 ```
 
-- [ ] **Step 4: Поставить зависимости и прогнать тест**
+- [x] **Step 4: Поставить зависимости и прогнать тест** (pip install прошёл полностью, включая pyirsdk-1.3.6; smoke-тест PASS)
 
 Run: `pip install -r requirements.txt && pytest tests/test_smoke.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 ```bash
 git add -A && git commit -m "chore: project scaffold"
 ```
