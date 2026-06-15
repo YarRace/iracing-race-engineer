@@ -1,0 +1,5 @@
+pyirsdk
+fastapi
+uvicorn[standard]
+anthropic
+pytest
