@@ -289,12 +289,16 @@ async function tickDamage(){
   let d; try{ d = await (await fetch('/api/damage')).json(); }catch{ return; }
   if(!d || d.damaged==null){ return; }
   const col = d.damaged ? '#e74c3c' : '#2ecc71';
+  const incCol = (d.incidents||0)>0 ? '#f1c40f' : '#2ecc71';
   const blocks = [];
+  // инциденты — всегда работают (live-счётчик вылетов/контактов)
+  blocks.push(`<div class="tire" style="border-color:${incCol}"><div class="cn">Инциденты</div>
+    <div style="font-size:20px;font-weight:700;margin:2px 0;color:${incCol}">${d.incidents||0}x</div>
+    <div class="why">вылеты / контакты</div></div>`);
+  // состояние/ремонт — только если в сессии включены повреждения
   blocks.push(`<div class="tire" style="border-color:${col}"><div class="cn">Состояние</div>
     <div style="font-size:18px;font-weight:700;margin:2px 0;color:${col}">${d.damaged?'Повреждена':'Цела'}</div>
-    <div class="why">${d.damaged?'нужен ремонт в боксе':'без повреждений'}</div></div>`);
-  blocks.push(card('Ремонт', `${fix(d.repair_sec,1)} c`,
-    d.opt_repair_sec>0 ? `+ опц. ${fix(d.opt_repair_sec,1)} c` : 'обязательный'));
+    <div class="why">${d.damaged?`ремонт ${fix(d.repair_sec,0)} c`+(d.opt_repair_sec>0?` (+опц. ${fix(d.opt_repair_sec,0)})`:''):'нет ремонта'}</div></div>`);
   blocks.push(card('Фаст-ремонт', `${d.fast_repair_available} дост.`,
     `использовано ${d.fast_repair_used}`));
   $('damage').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>`;

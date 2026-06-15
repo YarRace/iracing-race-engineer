@@ -58,12 +58,15 @@ def test_fuel_capacity_from_driverinfo():
 
 def test_damage_status_detects_repair_time():
     intact = _FakeIR({"PitRepairLeft": 0.0, "PitOptRepairLeft": 0.0,
-                      "FastRepairAvailable": 1, "FastRepairUsed": 0}, {})
+                      "FastRepairAvailable": 1, "FastRepairUsed": 0,
+                      "PlayerCarMyIncidentCount": 0}, {})
     d = damage_status(intact)
     assert d["damaged"] is False and d["repair_sec"] == 0.0
-    assert d["fast_repair_available"] == 1
+    assert d["fast_repair_available"] == 1 and d["incidents"] == 0
 
     hit = _FakeIR({"PitRepairLeft": 12.5, "PitOptRepairLeft": 3.0,
-                   "FastRepairAvailable": 0, "FastRepairUsed": 1}, {})
+                   "FastRepairAvailable": 0, "FastRepairUsed": 1,
+                   "PlayerCarMyIncidentCount": 4}, {})
     d2 = damage_status(hit)
     assert d2["damaged"] is True and d2["repair_sec"] == 12.5 and d2["opt_repair_sec"] == 3.0
+    assert d2["incidents"] == 4

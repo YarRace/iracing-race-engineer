@@ -70,5 +70,6 @@ def damage_status(ir):
         "opt_repair_sec": round(opt, 1),
         "fast_repair_available": int(ir[D["fast_repair_available"]] or 0),
         "fast_repair_used": int(ir[D["fast_repair_used"]] or 0),
+        "incidents": int(ir[D["incidents"]] or 0),
         "damaged": (repair + opt) > 0,
     }

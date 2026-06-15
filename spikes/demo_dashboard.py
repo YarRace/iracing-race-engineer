@@ -62,7 +62,7 @@ STATE["strategy"] = {
 
 STATE["damage"] = {
     "repair_sec": 0.0, "opt_repair_sec": 0.0,
-    "fast_repair_available": 1, "fast_repair_used": 0, "damaged": False,
+    "fast_repair_available": 1, "fast_repair_used": 0, "incidents": 2, "damaged": False,
 }
 
 print("Демо-дашборд: http://localhost:8000  (Ctrl+C — выход)")
