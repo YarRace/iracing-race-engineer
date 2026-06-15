@@ -1,18 +1,227 @@
-<!doctype html><meta charset="utf-8"><title>Race Engineer</title>
-<style>body{background:#111;color:#eee;font:18px system-ui;margin:0;padding:16px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.card{background:#1c1c1c;border-radius:12px;padding:16px}
-table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid #333;text-align:left}</style>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Race Engineer</title>
+<style>
+  :root{
+    --bg:#0d0f12; --panel:#15181d; --panel2:#1b1f26; --line:#2a2f38;
+    --txt:#e8eaed; --muted:#9099a6; --accent:#3ea6ff;
+    --good:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; --cool:#3498db;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:16px/1.4 system-ui,Segoe UI,Roboto,sans-serif;padding:14px}
+  h1{margin:0 0 12px;font-size:20px;letter-spacing:.5px;display:flex;align-items:center;gap:10px}
+  .dot{width:11px;height:11px;border-radius:50%;background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  .dot.live{background:var(--good);box-shadow:0 0 10px var(--good);animation:pulse 1.4s infinite}
+  @keyframes pulse{50%{opacity:.45}}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)}
+
+  /* приборы */
+  .gauges{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:12px;align-items:end}
+  .big{font-variant-numeric:tabular-nums;font-weight:700;line-height:1}
+  .speed{font-size:60px} .unit{font-size:16px;color:var(--muted);font-weight:500}
+  .gear{font-size:48px;text-align:center}
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
+
+  .bar{height:12px;background:#0a0c0f;border-radius:6px;overflow:hidden;margin-top:6px}
+  .bar>span{display:block;height:100%;width:0%}
+  .thr>span{background:linear-gradient(90deg,#1e7e34,#2ecc71)}
+  .brk>span{background:linear-gradient(90deg,#922,#e74c3c)}
+  .inputs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+
+  /* шины */
+  .tires{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:430px;margin:0 auto}
+  .tire{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .tire .cn{font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:8px}
+  .pads{display:flex;gap:5px}
+  .pad{flex:1;text-align:center;border-radius:6px;padding:8px 2px;font-weight:700;
+    font-variant-numeric:tabular-nums;font-size:15px;color:#0d0f12}
+  .stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .stat:last-child{border-bottom:0}
+  .stat .k{color:var(--muted)} .stat .v{font-variant-numeric:tabular-nums;font-weight:600}
+  .cond{display:flex;gap:18px;margin-top:6px;flex-wrap:wrap}
+  .cond div{font-size:13px;color:var(--muted)} .cond b{color:var(--txt);font-size:18px;display:block}
+
+  /* разбор */
+  .phases{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
+  .phase{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .phase .pn{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .phase .pv{font-weight:700;margin-top:6px;font-size:15px}
+  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600}
+  .t-understeer{background:#3a2a12;color:#f1c40f} .t-oversteer{background:#3a1717;color:#e74c3c}
+  .t-neutral{background:#15321f;color:#2ecc71} .t-na{background:#222;color:#888}
+
+  ul.drv{margin:6px 0 0;padding-left:18px} ul.drv li{margin:6px 0}
+  table{width:100%;border-collapse:collapse;margin-top:4px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .chg{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chg .from{color:var(--muted)} .chg .arrow{color:var(--accent);margin:0 6px} .chg .to{color:var(--good);font-weight:700}
+  .why{color:var(--muted);font-size:13px}
+  .err{background:#2a1414;border:1px solid #5a2020;color:#e8a0a0;padding:10px 12px;border-radius:10px;font-size:13px}
+  .empty{color:var(--muted);font-style:italic;padding:8px 0}
+  .mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+</style>
+</head>
+<body>
+<h1><span id="dot" class="dot"></span> Race Engineer <span id="hdr" style="color:var(--muted);font-weight:400;font-size:14px"></span></h1>
 <div class="grid">
-  <div class="card"><h2>Живьё</h2><div id="live"></div></div>
-  <div class="card"><h2>Разбор заезда</h2><div id="result"></div></div>
+  <!-- ЛЕВО: ЖИВЬЁ -->
+  <div class="col">
+    <div class="card">
+      <h2>Живьё</h2>
+      <div class="gauges">
+        <div><div class="label">Скорость</div><div class="big speed"><span id="speed">—</span><span class="unit"> км/ч</span></div></div>
+        <div><div class="label">Передача</div><div class="big gear" id="gear">—</div></div>
+        <div><div class="label">Круг</div><div class="big gear" id="lap" style="font-size:34px">—</div></div>
+      </div>
+      <div class="inputs">
+        <div><div class="label">Газ <span id="thrv" style="float:right"></span></div><div class="bar thr"><span id="thr"></span></div></div>
+        <div><div class="label">Тормоз <span id="brkv" style="float:right"></span></div><div class="bar brk"><span id="brk"></span></div></div>
+      </div>
+      <div class="cond">
+        <div>Топливо <b><span id="fuel">—</span> л</b></div>
+        <div>Трасса <b><span id="ttemp">—</span>°</b></div>
+        <div>Воздух <b><span id="atemp">—</span>°</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Температуры шин (°C)</h2>
+      <div class="tires" id="tires"></div>
+      <div class="empty" id="tires-empty" style="text-align:center">ожидание данных…</div>
+    </div>
+  </div>
+
+  <!-- ПРАВО: РАЗБОР -->
+  <div class="col">
+    <div class="card">
+      <h2>Баланс по фазам поворота</h2>
+      <div class="phases" id="phases">
+        <div class="phase"><div class="pn">Вход</div><div class="pv"><span class="tag t-na">—</span></div></div>
+        <div class="phase"><div class="pn">Середина</div><div class="pv"><span class="tag t-na">—</span></div></div>
+        <div class="phase"><div class="pn">Выход</div><div class="pv"><span class="tag t-na">—</span></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Разбор пилотирования</h2>
+      <div id="driving"><div class="empty">Проедь стинт и заедь в бокс — здесь появится разбор.</div></div>
+    </div>
+    <div class="card">
+      <h2>Изменения сетапа (ввести в гараже)</h2>
+      <div id="setup"><div class="empty">—</div></div>
+    </div>
+    <div class="card">
+      <h2>Сводка метрик</h2>
+      <div class="mini" id="metrics"><div class="empty">—</div></div>
+    </div>
+  </div>
 </div>
+
 <script>
-async function tick(){
-  const l = await (await fetch('/api/live')).json();
-  document.getElementById('live').textContent = JSON.stringify(l, null, 1);
-  const r = await (await fetch('/api/result')).json();
-  document.getElementById('result').textContent = JSON.stringify(r, null, 1);
+const $ = id => document.getElementById(id);
+const fix = (v,d=0)=> (v==null||isNaN(v)) ? "—" : Number(v).toFixed(d);
+
+// цвет температуры шины (GT: оптимум ~85-100°C)
+function tempColor(t){
+  if(t==null) return "#333";
+  if(t<70) return "#3498db";        // холодно
+  if(t<85) return "#27ae60";        // прогрев
+  if(t<100) return "#2ecc71";       // оптимум
+  if(t<108) return "#f1c40f";       // тепло
+  return "#e74c3c";                  // перегрев
 }
-setInterval(tick, 250); tick();
+function tag(t){
+  const m={understeer:["t-understeer","недоруль"],oversteer:["t-oversteer","переруль"],
+           neutral:["t-neutral","нейтр."]};
+  const x=m[t]||["t-na", t||"—"];
+  return `<span class="tag ${x[0]}">${x[1]}</span>`;
+}
+
+async function tickLive(){
+  let l; try{ l = await (await fetch('/api/live')).json(); }catch{ return; }
+  const live = l && l.speed!=null;
+  $('dot').className = 'dot' + (live?' live':'');
+  $('hdr').textContent = live ? 'на трассе' : (l && l.status ? l.status : '');
+  if(!live){ return; }
+  $('speed').textContent = fix(l.speed*3.6,0);          // м/с → км/ч
+  $('gear').textContent = l.gear>0 ? l.gear : (l.gear===0?'N':'R');
+  $('lap').textContent = l.lap ?? '—';
+  $('fuel').textContent = fix(l.fuel,1);
+  $('ttemp').textContent = fix(l.track_temp,1);
+  $('atemp').textContent = fix(l.air_temp,1);
+  $('thr').style.width = (l.throttle*100||0)+'%'; $('thrv').textContent = fix(l.throttle*100,0)+'%';
+  $('brk').style.width = (l.brake*100||0)+'%';   $('brkv').textContent = fix(l.brake*100,0)+'%';
+  if(l.tires){ renderTires(l.tires); }
+}
+
+function renderTires(t){
+  $('tires-empty').style.display='none';
+  const order=[["LF","Перед лев"],["RF","Перед прав"],["LR","Зад лев"],["RR","Зад прав"]];
+  $('tires').innerHTML = order.map(([c,name])=>{
+    const x=t[c]||{}; const pads=["tl","tm","tr"].map(k=>{
+      const v=x[k]; return `<div class="pad" style="background:${tempColor(v)}">${fix(v,0)}</div>`;
+    }).join('');
+    return `<div class="tire"><div class="cn">${name}</div><div class="pads">${pads}</div></div>`;
+  }).join('');
+}
+
+async function tickResult(){
+  let r; try{ r = await (await fetch('/api/result')).json(); }catch{ return; }
+  const s = r.symptoms;
+  // баланс
+  if(s && s.balance){
+    const ph=[["Вход","entry"],["Середина","mid"],["Выход","exit"]];
+    $('phases').innerHTML = ph.map(([n,k])=>{
+      const b=s.balance[k]||{}; return `<div class="phase"><div class="pn">${n}</div>
+        <div class="pv">${tag(b.tendency)}</div></div>`;
+    }).join('');
+  }
+  // пилотирование
+  const exp = r.explanation;
+  if(r.explanation_error){
+    $('driving').innerHTML = `<div class="err">Разбор от модели недоступен: ${r.explanation_error}.<br>Метрики ниже посчитаны.</div>`;
+  } else if(exp && exp.driving && exp.driving.length){
+    $('driving').innerHTML = '<ul class="drv">'+exp.driving.map(d=>`<li>${d}</li>`).join('')+'</ul>';
+  }
+  // изменения сетапа
+  const ch = r.manual_changes || (exp && exp.setup_changes) || [];
+  if(ch.length){
+    const rows = ch.map(c=>`<tr><td>${shortField(c.field)}</td>
+      <td class="chg"><span class="from">${c.from??'?'}</span><span class="arrow">→</span><span class="to">${c.to}</span></td>
+      <td class="why">${c.why||''}</td></tr>`).join('');
+    $('setup').innerHTML = `<table><tr><th>Параметр</th><th>Изменение</th><th>Почему</th></tr>${rows}</table>`;
+  } else if(s){ $('setup').innerHTML = '<div class="empty">Модель не предложила правок.</div>'; }
+  // метрики
+  if(s){ renderMetrics(s); }
+}
+
+function shortField(f){ return (f||'').split('.').slice(-2).join(' · '); }
+
+function renderMetrics(s){
+  const blocks=[];
+  if(s.consistency){const c=s.consistency;
+    blocks.push(card('Круги',`${c.lap_count||0} зачёт.`,`лучший ${fix(c.best_lap,2)}с · разброс ${fix(c.spread,2)}с`));}
+  if(s.inputs){const i=s.inputs;
+    blocks.push(card('Инпуты',`trail ${fix(i.trail_brake_pct,1)}%`,`плавность газа ${fix(i.throttle_smoothness*100,0)}%`));}
+  if(s.tire){blocks.push(card('Баланс шин',`${s.tire.front_rear_balance>0?'перёд':'зад'} теплее`,`Δ ${fix(Math.abs(s.tire.front_rear_balance),1)}°`));}
+  if(s.suspension){const b=Object.values(s.suspension).map(x=>x.bottoming_pct||0);
+    blocks.push(card('Пробои подвески',`${fix(Math.max(...b),1)}%`,'макс. по углам'));}
+  $('metrics').innerHTML = blocks.join('');
+}
+function card(t,big,sub){return `<div class="tire"><div class="cn">${t}</div>
+  <div style="font-size:18px;font-weight:700;margin:2px 0">${big}</div>
+  <div class="why">${sub}</div></div>`;}
+
+tickLive(); tickResult();
+setInterval(tickLive, 250);
+setInterval(tickResult, 1500);
 </script>
+</body>
+</html>
