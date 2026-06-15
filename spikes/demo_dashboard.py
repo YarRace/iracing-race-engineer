@@ -52,5 +52,13 @@ STATE["result"]["setup_sheet"] = build_setup_sheet(_setup, {
     "Chassis.Rear.ArbSize": "Hard",
 })
 
+# пример стратегии (как считал бы StrategyTracker на ходу)
+STATE["strategy"] = {
+    "fuel": 38.0, "tank": 89.0, "avg_burn": 3.05, "last_burn": 3.1,
+    "avg_lap_time": 96.5, "laps_to_go": 14, "laps_on_fuel": 12.5,
+    "fuel_to_add": 6.2, "pit_needed_for_fuel": True,
+    "tire_min": 0.62, "tire_wear_per_lap": 0.05, "tire_laps_left": 6.4, "change_tires": False,
+}
+
 print("Демо-дашборд: http://localhost:8000  (Ctrl+C — выход)")
 uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")

@@ -37,3 +37,23 @@ def live_frame(ir):
 def is_on_track(ir):
     """True, если машина на трассе и не на пит-лейне (граница стинта)."""
     return bool(ir["IsOnTrack"]) and not bool(ir["OnPitRoad"])
+
+
+def strategy_inputs(ir):
+    """Считывает стратегические каналы из живого ir для StrategyTracker.update()."""
+    S = channels.STRATEGY_SCALAR
+    wear = {
+        c: {"wl": ir[t[0]], "wm": ir[t[1]], "wr": ir[t[2]]}
+        for c, t in channels.TIRE_WEAR.items()
+    }
+    return {
+        "lap": ir[S["lap"]], "t": ir[S["t"]], "fuel": ir[S["fuel"]],
+        "laps_remain": ir[S["laps_remain"]], "time_remain": ir[S["time_remain"]],
+        "tire_wear": wear,
+    }
+
+
+def fuel_capacity(ir, default=89.0):
+    """Ёмкость бака из DriverInfo (DriverCarFuelMaxLtr), с запасным значением."""
+    di = ir["DriverInfo"] or {}
+    return di.get(channels.DRIVER_FUEL_MAX, default)

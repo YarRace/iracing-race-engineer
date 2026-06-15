@@ -19,7 +19,8 @@ import uvicorn
 
 from ire import orchestrator
 from ire.metrics.symptoms import build_symptoms
-from ire.collector.live_state import live_frame, is_on_track
+from ire.metrics.strategy import StrategyTracker
+from ire.collector.live_state import live_frame, is_on_track, strategy_inputs, fuel_capacity
 from ire.collector.stint_recorder import StintDetector
 from ire.dashboard.server import app, STATE
 
@@ -44,6 +45,7 @@ def main():
 
     ir = irsdk.IRSDK()
     det = StintDetector()
+    tracker = None
     frames = []
     try:
         while True:
@@ -52,6 +54,14 @@ def main():
                 time.sleep(1)
                 continue
             ir.freeze_var_buffer_latest()
+            if tracker is None:                              # инициализация на первом подключении
+                tracker = StrategyTracker(tank_capacity=fuel_capacity(ir))
+            # стратегия считается всегда, пока в сессии (топливо/износ по кругам)
+            try:
+                tracker.update(**strategy_inputs(ir))
+                STATE["strategy"] = tracker.snapshot()
+            except Exception:
+                pass
             state = det.update(on_track=is_on_track(ir))
             if state == "running":
                 f = live_frame(ir)

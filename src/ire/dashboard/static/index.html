@@ -98,6 +98,10 @@
       <div class="tires" id="tires"></div>
       <div class="empty" id="tires-empty" style="text-align:center">ожидание данных…</div>
     </div>
+    <div class="card">
+      <h2>Стратегия</h2>
+      <div id="strategy"><div class="empty">Поедь несколько кругов — появится расход и прогноз.</div></div>
+    </div>
   </div>
 
   <!-- ПРАВО: РАЗБОР -->
@@ -237,9 +241,38 @@ function card(t,big,sub){return `<div class="tire"><div class="cn">${t}</div>
   <div style="font-size:18px;font-weight:700;margin:2px 0">${big}</div>
   <div class="why">${sub}</div></div>`;}
 
-tickLive(); tickResult();
+async function tickStrategy(){
+  let g; try{ g = await (await fetch('/api/strategy')).json(); }catch{ return; }
+  if(!g || g.avg_burn==null){ return; }
+  const refuelColor = g.pit_needed_for_fuel ? '#f1c40f' : '#2ecc71';
+  const blocks = [];
+  blocks.push(card('Топливо', `${fix(g.fuel,1)} / ${fix(g.tank,0)} л`,
+    `хватит на ${fix(g.laps_on_fuel,1)} кругов`));
+  blocks.push(card('Расход', `${fix(g.avg_burn,2)} л/круг`,
+    `последний ${fix(g.last_burn,2)} л`));
+  blocks.push(card('Осталось гонки', g.laps_to_go!=null ? `${g.laps_to_go} кругов` : 'без лимита',
+    g.avg_lap_time ? `темп ${fix(g.avg_lap_time,1)}с` : ''));
+  if(g.fuel_to_add!=null){
+    const big = g.fuel_to_add>0 ? `+${fix(g.fuel_to_add,1)} л` : 'не нужно';
+    blocks.push(`<div class="tire" style="border-color:${refuelColor}"><div class="cn">Долить на пите</div>
+      <div style="font-size:20px;font-weight:700;margin:2px 0;color:${refuelColor}">${big}</div>
+      <div class="why">${g.pit_needed_for_fuel?'без пита не доедешь':'до финиша хватает'}</div></div>`);
+  }
+  // шины
+  if(g.tire_min!=null){
+    const ch = g.change_tires;
+    const col = ch ? '#e74c3c' : '#2ecc71';
+    blocks.push(`<div class="tire" style="border-color:${col}"><div class="cn">Шины</div>
+      <div style="font-size:18px;font-weight:700;margin:2px 0;color:${col}">${ch?'менять':'оставить'}</div>
+      <div class="why">износ ${fix(g.tire_min*100,0)}%${g.tire_laps_left!=null?` · ещё ~${fix(g.tire_laps_left,0)} кр.`:''}</div></div>`);
+  }
+  $('strategy').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>`;
+}
+
+tickLive(); tickResult(); tickStrategy();
 setInterval(tickLive, 250);
 setInterval(tickResult, 1500);
+setInterval(tickStrategy, 1000);
 </script>
 </body>
 </html>

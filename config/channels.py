@@ -31,3 +31,22 @@ SHOCK_DEFL = {"LF": "LFshockDefl", "RF": "RFshockDefl", "LR": "LRshockDefl", "RR
 # Значения — строки с единицами, например "39.82 C" / "25.57 C" — требуют парсинга.
 WEEKEND_TRACK_TEMP = "TrackSurfaceTemp"
 WEEKEND_AIR_TEMP = "TrackAirTemp"
+
+# --- Стратегические каналы (топливо/остаток гонки/износ шин) ---
+# Отдельно от SCALAR, чтобы не менять контракт нормализованного кадра метрик.
+STRATEGY_SCALAR = {
+    "fuel": "FuelLevel",                  # литры в баке (live)
+    "laps_remain": "SessionLapsRemain",   # кругов до конца (32767 = без лимита)
+    "time_remain": "SessionTimeRemain",   # секунд до конца сессии
+    "fuel_per_hour": "FuelUsePerHour",    # мгновенный расход (л/час)
+    "lap": "Lap", "t": "SessionTime", "on_pit": "OnPitRoad",
+}
+# Износ шин: 3 точки на угол (L/M/R протектора), 1.0 = новые, 0.0 = стёрты (live).
+TIRE_WEAR = {
+    "LF": ("LFwearL", "LFwearM", "LFwearR"),
+    "RF": ("RFwearL", "RFwearM", "RFwearR"),
+    "LR": ("LRwearL", "LRwearM", "LRwearR"),
+    "RR": ("RRwearL", "RRwearM", "RRwearR"),
+}
+# Ёмкость бака — из DriverInfo: ir["DriverInfo"]["DriverCarFuelMaxLtr"] (89.0 для Cadillac GTP).
+DRIVER_FUEL_MAX = "DriverCarFuelMaxLtr"
