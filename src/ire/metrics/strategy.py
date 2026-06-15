@@ -39,6 +39,8 @@ class StrategyTracker:
 
     def update(self, lap, t, fuel, laps_remain=None, time_remain=None, tire_wear=None):
         """Один live-кадр. На смене номера круга фиксирует расход/износ за круг."""
+        if lap is None or t is None or fuel is None:
+            return                              # неполный кадр — пропускаем
         self._fuel = fuel
         self._laps_remain = laps_remain
         self._time_remain = time_remain

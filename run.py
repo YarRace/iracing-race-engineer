@@ -60,8 +60,10 @@ def main():
             try:
                 tracker.update(**strategy_inputs(ir))
                 STATE["strategy"] = tracker.snapshot()
-            except Exception:
-                pass
+            except Exception as e:
+                if not getattr(main, "_strat_warned", False):
+                    print("Стратегия: ошибка чтения каналов:", e)
+                    main._strat_warned = True
             state = det.update(on_track=is_on_track(ir))
             if state == "running":
                 f = live_frame(ir)

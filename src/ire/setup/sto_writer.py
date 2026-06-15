@@ -13,7 +13,7 @@ from typing import Any
 
 
 def build_manual_changes(
-    setup: dict[str, Any], delta: dict[str, Any]
+    setup: dict[str, Any], delta: dict[str, Any], setup_changes=None
 ) -> list[dict[str, Any]]:
     """Собирает список ручных изменений ``from -> to`` по дельте.
 
@@ -21,14 +21,18 @@ def build_manual_changes(
         setup: результат :func:`ire.setup.sto_reader.read_sto` с ключом
             ``"fields"`` (плоский dict ``{путь_через_точку: значение}``).
         delta: ``{плоский_путь: новое_значение}`` — что нужно изменить.
+        setup_changes: список ``{"field", "why", ...}`` из ответа модели —
+            берём из него пояснение ``why`` для каждого поля (опционально).
 
     Returns:
-        Список dict-ов ``{"field": путь, "from": текущее, "to": новое}``.
+        Список dict-ов ``{"field", "from", "to", "why"}``.
         Никаких файловых операций не выполняется; ``setup`` не мутируется.
     """
     fields = setup["fields"]
+    why_by_field = {c.get("field"): c.get("why", "") for c in (setup_changes or [])}
     return [
-        {"field": field, "from": fields.get(field), "to": to}
+        {"field": field, "from": fields.get(field), "to": to,
+         "why": why_by_field.get(field, "")}
         for field, to in delta.items()
     ]
 

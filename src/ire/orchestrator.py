@@ -10,7 +10,8 @@ def analyze_stint(frames, setup_path, conditions):
     manual_changes = []
     setup_sheet = None
     if explanation.get("delta"):               # .sto не пишем — дельта для ручного ввода
-        manual_changes = build_manual_changes(setup, explanation["delta"])
+        manual_changes = build_manual_changes(
+            setup, explanation["delta"], explanation.get("setup_changes"))
         setup_sheet = build_setup_sheet(setup, explanation["delta"])  # полный лист-шпаргалка
     return {"symptoms": symptoms, "explanation": explanation,
             "manual_changes": manual_changes, "setup_sheet": setup_sheet}

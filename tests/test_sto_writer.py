@@ -13,6 +13,14 @@ def test_delta_becomes_manual_change_list():
     assert ch["to"] == "155 kPa"
 
 
+def test_manual_changes_include_why_from_setup_changes():
+    setup = read_sto("tests/fixtures/sample_setup.json")
+    key = "TiresAero.LeftFront.StartingPressure"
+    setup_changes = [{"field": key, "from": "152 kPa", "to": "148 kPa", "why": "против недоруля"}]
+    changes = build_manual_changes(setup, {key: "148 kPa"}, setup_changes)
+    assert changes[0]["why"] == "против недоруля"
+
+
 def test_setup_sheet_lists_all_fields_and_marks_changes():
     setup = read_sto("tests/fixtures/sample_setup.json")
     key = "TiresAero.LeftFront.StartingPressure"
