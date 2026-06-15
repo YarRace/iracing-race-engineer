@@ -13,4 +13,8 @@ def result(): return STATE["result"]
 
 @app.get("/")
 def index():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "index.html"))
+    # no-store: браузер не кеширует страницу — всегда свежий UI без Ctrl+F5
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "static", "index.html"),
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"},
+    )
