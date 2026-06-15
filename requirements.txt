@@ -1,5 +1,6 @@
 pyirsdk
 fastapi
 uvicorn[standard]
+httpx
 anthropic
 pytest
