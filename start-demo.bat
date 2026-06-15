@@ -1,15 +1,9 @@
 @echo off
-chcp 65001 >nul
-title Race Engineer - Демо
+title Race Engineer - Demo launcher
 cd /d "%~dp0"
-echo ============================================
-echo   Race Engineer - демо (без iRacing)
-echo   Данные реального заезда. Браузер откроется сам.
-echo   Чтобы остановить - закрой это окно или Ctrl+C
-echo ============================================
-echo.
-start "" /min cmd /c "timeout /t 4 /nobreak >nul & start "" http://localhost:8000"
-python spikes\demo_dashboard.py
-echo.
-echo Демо остановлено.
-pause
+echo Starting demo dashboard (no sim needed)...
+echo A server window will open. Browser opens automatically.
+start "Race Engineer (server)" cmd /k python spikes\demo_dashboard.py
+timeout /t 4 /nobreak >nul
+start "" http://localhost:8000
+exit

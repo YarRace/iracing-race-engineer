@@ -1,15 +1,10 @@
 @echo off
-chcp 65001 >nul
-title Race Engineer - Гонка
+title Race Engineer - Race launcher
 cd /d "%~dp0"
-echo ============================================
-echo   Race Engineer - боевой режим (живой iRacing)
-echo   Браузер откроется сам: http://localhost:8000
-echo   Чтобы остановить - закрой это окно или Ctrl+C
-echo ============================================
-echo.
-start "" /min cmd /c "timeout /t 4 /nobreak >nul & start "" http://localhost:8000"
-python run.py
-echo.
-echo Дашборд остановлен.
-pause
+echo Starting dashboard (live iRacing)...
+echo A server window will open. Browser opens automatically.
+echo Get in the car and drive. Close the server window to stop.
+start "Race Engineer (server)" cmd /k python run.py
+timeout /t 4 /nobreak >nul
+start "" http://localhost:8000
+exit
