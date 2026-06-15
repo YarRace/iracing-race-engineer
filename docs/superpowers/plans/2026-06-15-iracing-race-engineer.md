@@ -184,78 +184,35 @@ git commit -m "spike: dump live SDK channels, fill channel map"
 
 ---
 
-## Task 3: `[НУЖЕН СИМ]` SPIKE — формат `.sto` Cadillac
+## Task 3: `[НУЖЕН СИМ]` SPIKE — формат `.sto` Cadillac → источник сетапа
 
-**Цель:** определить, текстовый или бинарный `.sto`, и как закодированы поля. Без этого `sto_reader`/`sto_writer` писать нельзя.
+> **⚠️ ПЕРЕОРИЕНТИРОВАНО по факту спайка (2026-06-15).** Современный `.sto` оказался
+> закрытым бинарным форматом v3 (`03 00 00 00`, тело сжато/зашифровано) — парсить
+> ненадёжно. Найдено лучшее решение: **сетап читается из живого SDK `ir["CarSetup"]`**
+> (открытый YAML). Детали — `spikes/NOTES_sto_format.md`. Согласовано с пользователем.
 
 **Files:**
-- Create: `spikes/inspect_sto.py`, `spikes/NOTES_sto_format.md` (артефакт), `tests/fixtures/sample_setup.sto` (копия реального файла)
+- Create: `spikes/inspect_sto.py`, `spikes/dump_carsetup.py`, `spikes/NOTES_sto_format.md` (артефакт), `spikes/OUT_carsetup.json` (артефакт), `tests/fixtures/sample_setup.json` (дамп CarSetup вместо `.sto`)
 
-- [ ] **Step 1: Найти и скопировать реальный сетап**
-
-Run (Windows):
-```bash
-dir "%USERPROFILE%\Documents\iRacing\setups\cadillacvr"
-```
-Скопировать любой существующий `.sto` Кадиллака в `tests/fixtures/sample_setup.sto`.
-
-- [ ] **Step 2: Скрипт-инспектор**
-
-`spikes/inspect_sto.py`:
-```python
-import sys
-p = sys.argv[1] if len(sys.argv) > 1 else "tests/fixtures/sample_setup.sto"
-raw = open(p, "rb").read()
-printable = sum(32 <= b < 127 or b in (9, 10, 13) for b in raw)
-print(f"размер={len(raw)} печатных_байт={printable} ({printable/len(raw):.0%})")
-print("--- первые 512 байт как текст ---")
-print(raw[:512].decode("latin-1"))
-print("--- hex первых 64 байт ---")
-print(raw[:64].hex(" "))
-```
-
-- [ ] **Step 3: Запустить, задокументировать формат**
-
-Run: `python spikes/inspect_sto.py`
-В `spikes/NOTES_sto_format.md` зафиксировать: текст/бинарь; есть ли заголовок; как выглядят пары «параметр = значение» (например `Front tire pressure: 138 kPa`); единицы. Это вход для Task 8/9.
-
-- [ ] **Step 4: Commit**
-```bash
-git add spikes/inspect_sto.py spikes/NOTES_sto_format.md tests/fixtures/sample_setup.sto
-git commit -m "spike: determine .sto file format"
-```
+- [x] **Step 1: Инспекция `.sto`** — все файлы на диске бинарные (P1Doks ~48% печатных + watermark; даже Save As из заводского сетапа → бинарь v3, текстовых секций нет)
+- [x] **Step 2: Скрипт-инспектор** `spikes/inspect_sto.py` — подтвердил бинарность
+- [x] **Step 3: Дамп сетапа из SDK** `spikes/dump_carsetup.py` → `spikes/OUT_carsetup.json`; формат зафиксирован в `NOTES_sto_format.md` (3 секции `TiresAero`/`Chassis`/`BrakesDriveUnit`, значения-строки с единицами `"152 kPa"`). Фикстура → `tests/fixtures/sample_setup.json`
+- [x] **Step 4: Commit** — `spike: .sto is binary v3 → read setup from SDK CarSetup`
 
 ---
 
-## Task 4: `[НУЖЕН СИМ]` SPIKE — round-trip записи `.sto`
+## Task 4: `[НУЖЕН СИМ]` SPIKE — режим записи сетапа
 
-**Цель:** разрешить ЕДИНСТВЕННЫЙ риск проекта — примет ли iRacing программно-изменённый `.sto`.
+> **⚠️ РАЗРЕШЕНО спайком Задачи 3.** `.sto` — закрытый бинарь, программная запись файла
+> невозможна → **режим «значения для ручного ввода»** (это и был fallback-вердикт ❌).
+> Round-trip записи файла не выполнялся, т.к. отпал сам путь записи `.sto`.
 
-**Files:**
-- Create: `spikes/roundtrip_sto.py`, дополнить `spikes/NOTES_sto_format.md`
+**Вердикт:** ❌ `sto_writer` НЕ пишет `.sto`-файлы. Работает в режиме «дельта для ручного
+ввода»: возвращает изменения `from → to`, дашборд их показывает, пользователь вводит в
+гараже руками. Исходники никогда не перезаписываются. Зафиксировано в `NOTES_sto_format.md`.
 
-- [ ] **Step 1: Скрипт round-trip** (логика правки — по NOTES из Task 3)
-```python
-# spikes/roundtrip_sto.py
-# 1. читает sample_setup.sto, 2. меняет ОДНО поле (напр. давление в шине на +1),
-# 3. пишет cadillacvr/SPIKE_TEST.sto. Реализация парс/правки — по NOTES_sto_format.md.
-```
-
-- [ ] **Step 2: Записать тестовый файл в папку сетапов**
-
-Run: `python spikes/roundtrip_sto.py`
-
-- [ ] **Step 3: Проверить в симе** — в гараже загрузить `SPIKE_TEST` и убедиться, что значение применилось.
-
-- [ ] **Step 4: Записать ВЕРДИКТ в `NOTES_sto_format.md`**
-  - ✅ грузит → `sto_writer` пишет файлы (Task 9 в полном режиме).
-  - ❌ отверг → `sto_writer` работает в режиме «значения для ручного ввода», дашборд их показывает. Никогда не перезаписываем исходники.
-
-- [ ] **Step 5: Commit**
-```bash
-git add spikes/roundtrip_sto.py spikes/NOTES_sto_format.md
-git commit -m "spike: .sto write round-trip verdict"
-```
+- [x] **Step 1-4:** разрешено находкой Задачи 3 (CarSetup-источник + бинарный `.sto`)
+- [x] **Step 5: Commit** (вместе с Задачей 3)
 
 ---
 
@@ -402,65 +359,76 @@ git commit -m "test: real Watkins stint fixture"
 
 ---
 
-## Task 8: `sto_reader` — парсинг `.sto`
+## Task 8: `sto_reader` — чтение сетапа из CarSetup
+
+> **⚠️ Источник — SDK `CarSetup` (JSON), а не `.sto`** (см. вердикт Задач 3/4). Тесты идут
+> на фикстуре `tests/fixtures/sample_setup.json` (реальный дамп CarSetup Cadillac GTP).
 
 **Files:**
 - Create: `src/ire/setup/sto_reader.py`, `tests/test_sto_reader.py`
-- Использует: `tests/fixtures/sample_setup.sto` (Task 3) и `spikes/NOTES_sto_format.md`
+- Использует: `tests/fixtures/sample_setup.json` (Task 3) и `spikes/NOTES_sto_format.md`
 
-- [ ] **Step 1: Тест на реальном файле** (ожидаемые поля/значения взять из NOTES — НЕ выдумывать)
+- [ ] **Step 1: Тест на реальной фикстуре**
 ```python
 # tests/test_sto_reader.py
 from ire.setup.sto_reader import read_sto
 
 def test_reads_known_fields_from_fixture():
-    s = read_sto("tests/fixtures/sample_setup.sto")
-    # имена полей и хотя бы одно значение сверить с тем, что показал inspect_sto.py
+    s = read_sto("tests/fixtures/sample_setup.json")
     assert "fields" in s and len(s["fields"]) > 0
+    # поля адресуются плоским путём, напр. "TiresAero.LeftFront.StartingPressure"
     assert any("pressure" in k.lower() for k in s["fields"])
+    assert s["fields"]["TiresAero.LeftFront.StartingPressure"] == "152 kPa"
 ```
 
 - [ ] **Step 2: FAIL** — Run: `pytest tests/test_sto_reader.py -v`
 
-- [ ] **Step 3: Реализация по NOTES_sto_format.md.** Возвращает `{"fields": {<имя>: <значение>}, "raw": <исходные данные для записи>}`. Если формат текстовый — парсить строки `имя: значение единицы`; если бинарный — по задокументированной структуре.
+- [ ] **Step 3: Реализация.** `read_sto(source)`: `source` — путь к JSON-дампу CarSetup
+  (тесты) ИЛИ уже готовый dict `ir["CarSetup"]` (живьё). Рекурсивно расплющивает
+  вложенные секции в `fields` с ключом-путём через точку (`TiresAero.LeftFront.StartingPressure`).
+  Возвращает `{"fields": {<плоский_путь>: <значение>}, "raw": <исходная вложенная структура>}`.
 
 - [ ] **Step 4: PASS** — Run: `pytest tests/test_sto_reader.py -v`
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: .sto reader"`
+- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: setup reader (SDK CarSetup)"`
 
 ---
 
-## Task 9: `sto_writer` — применение дельты
+## Task 9: `sto_writer` — дельта для ручного ввода
+
+> **⚠️ Режим «ручной ввод»** (вердикт Задачи 4 ❌): `.sto` не пишем, формат закрыт.
+> Возвращаем список изменений `from → to` для дашборда. Исходники не трогаем.
 
 **Files:**
 - Create: `src/ire/setup/sto_writer.py`, `tests/test_sto_writer.py`
-- Режим (файл vs «ручной ввод») — по вердикту Task 4.
 
-- [ ] **Step 1: Тест round-trip чтение→правка→чтение**
+- [ ] **Step 1: Тест — дельта оформляется как изменения для ввода**
 ```python
 # tests/test_sto_writer.py
-import os
 from ire.setup.sto_reader import read_sto
-from ire.setup.sto_writer import write_sto
+from ire.setup.sto_writer import build_manual_changes
 
-def test_delta_applied_and_originals_untouched(tmp_path):
-    base = "tests/fixtures/sample_setup.sto"
-    before = read_sto(base)
-    key = next(k for k in before["fields"] if "pressure" in k.lower())
-    out = tmp_path / "AI_v1.sto"
-    write_sto(base, {key: before["fields"][key] + 1}, str(out))
-    after = read_sto(str(out))
-    assert after["fields"][key] == before["fields"][key] + 1
-    assert os.path.exists(base)  # исходник цел
+def test_delta_becomes_manual_change_list():
+    setup = read_sto("tests/fixtures/sample_setup.json")
+    key = "TiresAero.LeftFront.StartingPressure"
+    changes = build_manual_changes(setup, {key: "155 kPa"})
+    assert len(changes) == 1
+    ch = changes[0]
+    assert ch["field"] == key
+    assert ch["from"] == setup["fields"][key]   # "152 kPa"
+    assert ch["to"] == "155 kPa"
 ```
 
 - [ ] **Step 2: FAIL** — `pytest tests/test_sto_writer.py -v`
 
-- [ ] **Step 3: Реализация.** `write_sto(base_path, delta: dict, out_path)`: читает base, применяет дельту, пишет НОВЫЙ файл `out_path`. Никогда не перезаписывает `base_path`. Если Task 4 = «отверг» — вместо записи в папку сетапов возвращает дельту как текст для дашборда.
+- [ ] **Step 3: Реализация.** `build_manual_changes(setup, delta) -> [{"field","from","to"}]`:
+  для каждого поля в `delta` берёт текущее значение из `setup["fields"]` как `from`,
+  новое — как `to`. НЕ пишет никаких файлов, исходный сетап неизменен. (Опционально
+  хелпер форматирования строки для дашборда.)
 
 - [ ] **Step 4: PASS** — `pytest tests/test_sto_writer.py -v`
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: .sto writer (new-file-only)"`
+- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: setup writer (manual-entry delta)"`
 
 ---
 
@@ -906,8 +874,8 @@ def test_analyze_stint_produces_result(monkeypatch):
     frames = [json.loads(l) for l in open("tests/fixtures/sample_stint.jsonl", encoding="utf-8")]
     monkeypatch.setattr(orch, "explain",
         lambda sym, setup, **kw: {"driving": ["ok"], "setup_changes": [], "delta": {}})
-    res = orch.analyze_stint(frames, setup_path="tests/fixtures/sample_setup.sto",
-                             out_dir=".", conditions={"track_temp": 40})
+    res = orch.analyze_stint(frames, setup_path="tests/fixtures/sample_setup.json",
+                             conditions={"track_temp": 40})
     assert "symptoms" in res and res["explanation"]["driving"] == ["ok"]
 ```
 
@@ -916,21 +884,19 @@ def test_analyze_stint_produces_result(monkeypatch):
 - [ ] **Step 3: Реализация**
 ```python
 # src/ire/orchestrator.py
-import os
 from ire.metrics.symptoms import build_symptoms
 from ire.setup.sto_reader import read_sto
-from ire.setup.sto_writer import write_sto
+from ire.setup.sto_writer import build_manual_changes
 from ire.explainer.explainer import explain
 
-def analyze_stint(frames, setup_path, out_dir, conditions):
+def analyze_stint(frames, setup_path, conditions):
     symptoms = build_symptoms(frames, conditions)
-    setup = read_sto(setup_path)
+    setup = read_sto(setup_path)               # источник: CarSetup JSON (или ir["CarSetup"])
     explanation = explain(symptoms, setup["fields"])
-    new_path = None
-    if explanation.get("delta"):
-        new_path = os.path.join(out_dir, "cadillacvr_watkinsglen_ai.sto")
-        write_sto(setup_path, explanation["delta"], new_path)
-    return {"symptoms": symptoms, "explanation": explanation, "new_setup": new_path}
+    manual_changes = []
+    if explanation.get("delta"):               # .sto не пишем — дельта для ручного ввода
+        manual_changes = build_manual_changes(setup, explanation["delta"])
+    return {"symptoms": symptoms, "explanation": explanation, "manual_changes": manual_changes}
 ```
 
 - [ ] **Step 4: PASS** — `pytest tests/test_orchestrator.py -v`
@@ -941,8 +907,8 @@ def analyze_stint(frames, setup_path, out_dir, conditions):
 ## Task 20: `[НУЖЕН СИМ]` Сквозной прогон
 
 - [ ] **Step 1:** Собрать `run.py`: запустить uvicorn-сервер в потоке + live-цикл сборщика (Task 7) пишет `STATE["live"]`; на закрытии стинта вызвать `orchestrator.analyze_stint`, положить в `STATE["result"]`.
-- [ ] **Step 2:** В симе: проехать стинт на Watkins → заехать в бокс → на втором экране увидеть разбор и (если Task 4 ✅) новый `.sto` в папке сетапов.
-- [ ] **Step 3:** Проверить в гараже, что новый сетап грузится.
+- [ ] **Step 2:** В симе: проехать стинт на Watkins → заехать в бокс → на втором экране увидеть разбор и список изменений сетапа `from → to` (ручной ввод; `.sto` не пишем — формат закрыт).
+- [ ] **Step 3:** Ввести предложенные значения в гараже руками, проверить, что машина изменилась как ожидалось.
 - [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: end-to-end run"`
 
 ---

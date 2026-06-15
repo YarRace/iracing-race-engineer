@@ -1,0 +1,161 @@
+{
+  "UpdateCount": 14,
+  "TiresAero": {
+    "TireType": {
+      "TireType": "Dry"
+    },
+    "LeftFront": {
+      "StartingPressure": "152 kPa",
+      "LastHotPressure": "152 kPa",
+      "LastTempsOMI": "40C, 40C, 40C",
+      "TreadRemaining": "100%, 100%, 100%"
+    },
+    "LeftRearTire": {
+      "StartingPressure": "152 kPa",
+      "LastHotPressure": "152 kPa",
+      "LastTempsOMI": "40C, 40C, 40C",
+      "TreadRemaining": "100%, 100%, 100%"
+    },
+    "RightFront": {
+      "StartingPressure": "152 kPa",
+      "LastHotPressure": "152 kPa",
+      "LastTempsIMO": "40C, 40C, 40C",
+      "TreadRemaining": "100%, 100%, 100%"
+    },
+    "RightRearTire": {
+      "StartingPressure": "152 kPa",
+      "LastHotPressure": "152 kPa",
+      "LastTempsIMO": "40C, 40C, 40C",
+      "TreadRemaining": "100%, 100%, 100%"
+    },
+    "AeroSettings": {
+      "RearWingAngle": "17 deg"
+    },
+    "AeroCalculator": {
+      "FrontRhAtSpeed": "12.0 mm",
+      "RearRhAtSpeed": "25.0 mm",
+      "DownforceBalance": "52.33%",
+      "LD": 3.659
+    }
+  },
+  "Chassis": {
+    "Front": {
+      "HeaveSpring": "60 N/mm",
+      "HeavePerchOffset": "-22.0 mm",
+      "HeaveSpringDefl": "16.0 mm 87.3 mm",
+      "HeaveSliderDefl": "41.6 mm 200.0 mm",
+      "ArbSize": "Soft",
+      "ArbBlades": 3,
+      "ToeIn": "-1.3 mm",
+      "PushrodLengthOffset": "-24.5 mm",
+      "PowerSteeringAssist": "8 (EPAS)"
+    },
+    "LeftFront": {
+      "CornerWeight": "2809 N",
+      "RideHeight": "30.0 mm",
+      "ShockDefl": "15.0 mm 100.0 mm",
+      "TorsionBarDefl": "14.3 mm",
+      "TorsionBarTurns": "0.088 Turns",
+      "TorsionBarOD": "14.34 mm",
+      "LsCompDamping": "5 clicks",
+      "HsCompDamping": "7 clicks",
+      "HsCompDampSlope": "8 clicks",
+      "LsRbdDamping": "5 clicks",
+      "HsRbdDamping": "8 clicks",
+      "Camber": "-2.9 deg"
+    },
+    "LeftRear": {
+      "CornerWeight": "2977 N",
+      "RideHeight": "44.6 mm",
+      "ShockDefl": "21.8 mm 150.0 mm",
+      "SpringDefl": "19.6 mm 86.5 mm",
+      "SpringPerchOffset": "30.0 mm",
+      "SpringRate": "120 N/mm",
+      "LsCompDamping": "7 clicks",
+      "HsCompDamping": "6 clicks",
+      "HsCompDampSlope": "8 clicks",
+      "LsRbdDamping": "7 clicks",
+      "HsRbdDamping": "5 clicks",
+      "Camber": "-1.8 deg",
+      "ToeIn": "+0.1 mm"
+    },
+    "RightFront": {
+      "CornerWeight": "2809 N",
+      "RideHeight": "30.0 mm",
+      "ShockDefl": "15.0 mm 100.0 mm",
+      "TorsionBarDefl": "14.3 mm",
+      "TorsionBarTurns": "0.088 Turns",
+      "TorsionBarOD": "14.34 mm",
+      "LsCompDamping": "5 clicks",
+      "HsCompDamping": "7 clicks",
+      "HsCompDampSlope": "8 clicks",
+      "LsRbdDamping": "5 clicks",
+      "HsRbdDamping": "8 clicks",
+      "Camber": "-2.9 deg"
+    },
+    "RightRear": {
+      "CornerWeight": "2977 N",
+      "RideHeight": "44.6 mm",
+      "ShockDefl": "21.8 mm 150.0 mm",
+      "SpringDefl": "19.6 mm 86.5 mm",
+      "SpringPerchOffset": "30.0 mm",
+      "SpringRate": "120 N/mm",
+      "LsCompDamping": "7 clicks",
+      "HsCompDamping": "6 clicks",
+      "HsCompDampSlope": "8 clicks",
+      "LsRbdDamping": "7 clicks",
+      "HsRbdDamping": "5 clicks",
+      "Camber": "-1.8 deg",
+      "ToeIn": "+0.1 mm"
+    },
+    "Rear": {
+      "ThirdSpring": "580 N/mm",
+      "ThirdPerchOffset": "45.5 mm",
+      "ThirdSpringDefl": "5.4 mm 42.5 mm",
+      "ThirdSliderDefl": "23.1 mm 150.0 mm",
+      "ArbSize": "Medium",
+      "ArbBlades": 4,
+      "PushrodLengthOffset": "-27.0 mm",
+      "CrossWeight": "50.0%"
+    }
+  },
+  "BrakesDriveUnit": {
+    "Lighting": {
+      "RoofIdLightColor": "White"
+    },
+    "BrakeSpec": {
+      "PadCompound": "Medium",
+      "FrontMasterCyl": "19.1 mm",
+      "RearMasterCyl": "20.6 mm",
+      "BrakePressureBias": "51.25%",
+      "BrakeBiasTarget": 0,
+      "BrakeBiasMigration": -3
+    },
+    "Fuel": {
+      "FuelLevel": "89.0 L",
+      "FuelTarget": "2.00 L",
+      "FuelLowWarning": "10.0 L"
+    },
+    "TcAndThrottle": {
+      "TractionControlGain": "5 (TC B)",
+      "TractionControlSlip": "6 (TC A)",
+      "ThrottleShape": 12
+    },
+    "GearRatios": {
+      "GearStack": "Short",
+      "SpeedInFirst": "127.6 Km/h",
+      "SpeedInSecond": "158.6 Km/h",
+      "SpeedInThird": "187.4 Km/h",
+      "SpeedInFourth": "223.4 Km/h",
+      "SpeedInFifth": "261.2 Km/h",
+      "SpeedInSixth": "293.4 Km/h",
+      "SpeedInSeventh": "322.2 Km/h"
+    },
+    "DiffSpec": {
+      "DiffCoastRampAngle": "40 deg",
+      "DiffDriveRampAngle": "65 deg",
+      "ClutchFrictionPlates": 4,
+      "Preload": "70 Nm"
+    }
+  }
+}
