@@ -237,10 +237,8 @@ function renderMetrics(s){
   if(s.consistency){const c=s.consistency;
     blocks.push(card('Круги',`${c.lap_count||0} зачёт.`,`лучший ${lapTime(c.best_lap)} · разброс ${fix(c.spread,2)}с`));}
   if(s.inputs){const i=s.inputs;
-    blocks.push(card('Инпуты',`trail ${fix(i.trail_brake_pct,1)}%`,`плавность газа ${fix(i.throttle_smoothness*100,0)}%`));}
+    blocks.push(card('Датчики',`trail ${fix(i.trail_brake_pct,1)}%`,`плавность газа ${fix(i.throttle_smoothness*100,0)}%`));}
   if(s.tire){blocks.push(card('Баланс шин',`${s.tire.front_rear_balance>0?'перёд':'зад'} теплее`,`Δ ${fix(Math.abs(s.tire.front_rear_balance),1)}°`));}
-  if(s.suspension){const b=Object.values(s.suspension).map(x=>x.bottoming_pct||0);
-    blocks.push(card('Пробои подвески',`${fix(Math.max(...b),1)}%`,'макс. по углам'));}
   $('metrics').innerHTML = blocks.join('');
 }
 function card(t,big,sub){return `<div class="tire"><div class="cn">${t}</div>
