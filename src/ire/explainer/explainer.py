@@ -87,7 +87,7 @@ def _explain_ollama(prompt):
             "stream": False,
             "format": "json",
             "keep_alive": "30m",            # модель не выгружается между стинтами
-            "options": {"temperature": 0.3, "num_predict": 700},
+            "options": {"temperature": 0.3, "num_predict": 2048},
         },
         timeout=timeout,
     )
