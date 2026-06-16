@@ -18,6 +18,7 @@ import irsdk
 import uvicorn
 
 from ire import orchestrator
+from ire.explainer.explainer import warm_up
 from ire.metrics.symptoms import build_symptoms
 from ire.metrics.strategy import StrategyTracker
 from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
@@ -57,6 +58,9 @@ def main():
             ir.freeze_var_buffer_latest()
             if tracker is None:                              # инициализация на первом подключении
                 tracker = StrategyTracker(tank_capacity=fuel_capacity(ir))
+                # прогрев LLM в фоне, пока едешь — первый разбор будет быстрым
+                threading.Thread(target=warm_up, daemon=True).start()
+                print("Прогрев модели в фоне…")
             # стратегия считается всегда, пока в сессии (топливо/износ по кругам)
             try:
                 tracker.update(**strategy_inputs(ir))

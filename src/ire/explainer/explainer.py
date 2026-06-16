@@ -74,6 +74,8 @@ def _explain_claude(prompt):
 def _explain_ollama(prompt):
     host = os.environ.get("IRE_OLLAMA_HOST", "http://localhost:11434")
     model = os.environ.get("IRE_OLLAMA_MODEL", "qwen2.5:7b")
+    # GPU делится с iRacing → инференс медленный; большой таймаут + держим модель в VRAM
+    timeout = float(os.environ.get("IRE_OLLAMA_TIMEOUT", "600"))
     resp = httpx.post(
         f"{host}/api/chat",
         json={
@@ -84,9 +86,26 @@ def _explain_ollama(prompt):
             ],
             "stream": False,
             "format": "json",
-            "options": {"temperature": 0.3},
+            "keep_alive": "30m",            # модель не выгружается между стинтами
+            "options": {"temperature": 0.3, "num_predict": 700},
         },
-        timeout=120,
+        timeout=timeout,
     )
     resp.raise_for_status()
     return parse_response(resp.json()["message"]["content"])
+
+
+def warm_up():
+    """Прогрев: грузит модель в VRAM заранее (чтобы первый разбор был быстрым).
+    Безопасно — при недоступном Ollama просто молча выходит."""
+    if os.environ.get("IRE_LLM", "ollama").lower() == "claude":
+        return
+    host = os.environ.get("IRE_OLLAMA_HOST", "http://localhost:11434")
+    model = os.environ.get("IRE_OLLAMA_MODEL", "qwen2.5:7b")
+    try:
+        httpx.post(f"{host}/api/chat", json={
+            "model": model, "messages": [{"role": "user", "content": "ok"}],
+            "stream": False, "keep_alive": "30m",
+        }, timeout=600)
+    except Exception:
+        pass
