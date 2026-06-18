@@ -1,4 +1,4 @@
-from ire.collector.race_state import decode_flags, decode_warnings, _relative
+from ire.collector.race_state import decode_flags, decode_warnings, _relative, _standing_gaps
 
 
 def test_decode_flags_picks_active():
@@ -37,3 +37,15 @@ def test_relative_picks_nearest_on_track_skips_pit():
     ahead, behind = _relative(ir)
     assert ahead == 2.0      # ближайшая впереди — idx4 (0.02*100)
     assert behind == 5.0     # сзади — idx2 (0.05*100)
+
+
+def test_standing_gaps_by_position():
+    # я P6 (idx0), F2 100с. P5 (idx1) F2 92с → впереди 8с; P7 (idx2) F2 105с → сзади 5с
+    ir = _FakeIR({
+        "DriverInfo": {"DriverCarIdx": 0},
+        "CarIdxPosition": [6, 5, 7, 0, 0, 0],
+        "CarIdxF2Time": [100.0, 92.0, 105.0, 0.0, 0.0, 0.0],
+    })
+    ahead, behind = _standing_gaps(ir)
+    assert ahead == 8.0
+    assert behind == 5.0

@@ -134,11 +134,39 @@ class SectorTimer:
         self._times = {}
 
 
+def _standing_gaps(ir):
+    """Разрыв (сек) до соперника на позицию ВПЕРЕДИ/СЗАДИ в стендинге (для эндуранса).
+    По CarIdxF2Time (время до лидера) — разница даёт интервал по гонке."""
+    try:
+        di = ir["DriverInfo"] or {}
+        my_idx = di.get(channels.DRIVER_CAR_IDX)
+        pos = ir[channels.RACE_ARRAYS["pos"]]
+        f2 = ir["CarIdxF2Time"]
+        if my_idx is None or not pos:
+            return None, None
+        my_pos = pos[my_idx]
+        if not my_pos:
+            return None, None
+        my_f2 = f2[my_idx]
+        ahead = behind = None
+        for i, p in enumerate(pos):
+            if p == 0 or i == my_idx:
+                continue
+            if p == my_pos - 1:
+                ahead = round(abs(f2[i] - my_f2), 1)
+            elif p == my_pos + 1:
+                behind = round(abs(f2[i] - my_f2), 1)
+        return ahead, behind
+    except Exception:
+        return None, None
+
+
 def race_extras(ir):
     """Снимок гоночной телеметрии для дашборда."""
     R = channels.RACE_SCALAR
     g = {k: ir[v] for k, v in R.items()}
     ahead, behind = _relative(ir)
+    st_ahead, st_behind = _standing_gaps(ir)
     best = g["best_lap_time"]
     delta = g["delta_best"]
     predicted = round(best + delta, 2) if best and best > 0 else None  # прогноз круга
@@ -156,5 +184,6 @@ def race_extras(ir):
         "skies": g["skies"], "track_wetness": g["track_wetness"],
         "energy_pct": g["energy_pct"], "deploy_pct": g["deploy_pct"],
         "gap_ahead": ahead, "gap_behind": behind,
+        "standing_ahead": st_ahead, "standing_behind": st_behind,
         "lap": g["lap"], "on_pit": bool(g["on_pit"]),
     }
