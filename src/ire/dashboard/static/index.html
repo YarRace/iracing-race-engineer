@@ -345,7 +345,7 @@ async function tickRace(){
   $('timing').innerHTML = timing;
 
   const rb = [card('Позиция', `P${r.position}`, r.class_position?`в классе P${r.class_position}`:''),
-              card('Разрыв', r.gap_ahead!=null?`▲ ${fix(r.gap_ahead,1)} c`:'▲ —', r.gap_behind!=null?`▼ ${fix(r.gap_behind,1)} c назад`:'▼ —')];
+              card('Разрыв на трассе', r.gap_ahead!=null?`▲ ${fix(r.gap_ahead,1)} c`:'▲ —', r.gap_behind!=null?`▼ ${fix(r.gap_behind,1)} c`:'▼ —')];
   let race = `<div class="mini" style="grid-template-columns:1fr 1fr">${rb.join('')}</div>`;
   if(r.flags && r.flags.length){
     race += `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">` +

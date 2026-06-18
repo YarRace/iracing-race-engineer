@@ -42,25 +42,46 @@ def decode_warnings(bits):
     return [{"key": k, "label": lbl} for mask, k, lbl in _ENGINE_WARNINGS if bits & mask]
 
 
-def _gaps(ir, my_pos):
-    """Разрыв (сек) до соперника впереди и сзади по позиции. Грубо, по CarIdxEstTime."""
+def _relative(ir):
+    """Relative-разрыв (сек) до ФИЗИЧЕСКИ ближайшей машины на трассе впереди и сзади,
+    по положению на круге (CarIdxLapDistPct) — а не по позиции в стендинге.
+    Машины в боксе и вне мира исключаются (чтобы разрыв не «прыгал»)."""
     try:
         di = ir["DriverInfo"] or {}
         my_idx = di.get(channels.DRIVER_CAR_IDX)
-        pos = ir[channels.RACE_ARRAYS["pos"]]
-        est = ir[channels.RACE_ARRAYS["est_time"]]
-        if my_idx is None or not pos or not my_pos:
+        dist = ir[channels.RACE_ARRAYS["lap_dist"]]   # CarIdxLapDistPct
+        pit = ir["CarIdxOnPitRoad"]
+        surf = ir["CarIdxTrackSurface"]
+        if my_idx is None or not dist:
             return None, None
-        my_est = est[my_idx]
+        my_d = dist[my_idx]
+        if my_d is None or my_d < 0:
+            return None, None
+        lap_t = (ir["LapBestLapTime"] or 0) or (ir["LapLastLapTime"] or 0)
+        if lap_t <= 0:                                # нет ещё времени круга для пересчёта
+            return None, None
         ahead = behind = None
-        for i, p in enumerate(pos):
-            if p == 0 or i == my_idx:
+        for i, d in enumerate(dist):
+            if i == my_idx or d is None or d < 0:
                 continue
-            if p == my_pos - 1:
-                ahead = round(abs(est[i] - my_est), 1)
-            elif p == my_pos + 1:
-                behind = round(abs(est[i] - my_est), 1)
-        return ahead, behind
+            if pit and i < len(pit) and pit[i]:       # соперник в боксе — пропустить
+                continue
+            if surf and i < len(surf) and surf[i] < 0:  # не в мире
+                continue
+            rel = d - my_d                            # доля круга
+            if rel > 0.5:
+                rel -= 1.0
+            elif rel < -0.5:
+                rel += 1.0
+            t = rel * lap_t                           # в секундах
+            if t > 0:                                 # впереди
+                if ahead is None or t < ahead:
+                    ahead = t
+            elif t < 0:                               # сзади
+                if behind is None or -t < behind:
+                    behind = -t
+        return (round(ahead, 1) if ahead else None,
+                round(behind, 1) if behind else None)
     except Exception:
         return None, None
 
@@ -117,7 +138,7 @@ def race_extras(ir):
     """Снимок гоночной телеметрии для дашборда."""
     R = channels.RACE_SCALAR
     g = {k: ir[v] for k, v in R.items()}
-    ahead, behind = _gaps(ir, g.get("position"))
+    ahead, behind = _relative(ir)
     best = g["best_lap_time"]
     delta = g["delta_best"]
     predicted = round(best + delta, 2) if best and best > 0 else None  # прогноз круга
