@@ -57,7 +57,7 @@ from faster_whisper import WhisperModel
 
 SAMPLE_RATE = 16000
 LANGUAGE = "ru"
-WHISPER_MODEL = os.environ.get("DMITRY_WHISPER", "small")   # small=быстро; large-v3=точно
+WHISPER_MODEL = os.environ.get("DMITRY_WHISPER", "large-v3")   # точное распознавание
 BUTTON_INDEX = int(os.environ.get("DMITRY_BUTTON", "19"))   # кнопка 20 на руле = индекс 19
 VOICE = "ru-RU-DmitryNeural"
 VOL_FILE = os.path.join(_ROOT, "dmitry_volume.txt")   # запоминаем громкость между запусками
@@ -362,6 +362,46 @@ def execute(decision):
     return p or "Не понял, повтори"
 
 
+def quick_match(text):
+    """Быстрый матч типичных команд БЕЗ LLM (мгновенно). None — если не распознано."""
+    t = text.lower()
+    about_self = any(w in t for w in ["голос", "говори", "себя", "тебя", "дим"])
+    if about_self and any(w in t for w in ["тише", "потише", "убавь"]):
+        _set_volume(_vol_num() - 15); return "Сделал тише"
+    if about_self and any(w in t for w in ["громче", "погромче", "прибавь"]):
+        _set_volume(_vol_num() + 15); return "Сделал громче"
+    if "клип" in t:
+        import keyboard
+        if _switch_chrome_tab("twitch"):
+            time.sleep(0.3); keyboard.send("alt+x"); return "Делаю клип"
+        return "Не нашёл вкладку Твич"
+    launch_trig = any(w in t for w in ("открой", "открыть", "запусти", "запускай",
+                                       "включи", "врубай", "разверни", "давай"))
+    if launch_trig:
+        for keys, target, name in SITES:                  # вкладки сайтов
+            if any(k in t for k in keys):
+                return f"Переключаюсь на {name}" if _switch_chrome_tab(target) else f"Не нашёл вкладку {name}"
+        for keys, launcher, disp, win in APPS:            # приложения
+            if any(k in t for k in keys):
+                if win and _focus_window(win):
+                    return f"Разворачиваю {disp}"
+                ok = launcher() if callable(launcher) else _launch_path(launcher)
+                return f"Открываю {disp}" if ok else "Не нашёл это приложение"
+    if ("следующ" in t or "переключи" in t) and ("трек" in t or "музык" in t or "песн" in t):
+        _media("next track"); return "Следующий трек"
+    if "предыдущ" in t and ("трек" in t or "музык" in t):
+        _media("previous track"); return "Предыдущий трек"
+    if "пауза" in t or ("стоп" in t and "музык" in t):
+        _media("play/pause media"); return "Пауза"
+    if ("играй" in t or "включи музык" in t or "продолжи музык" in t):
+        _media("play/pause media"); return "Играю"
+    if not about_self and ("громче" in t or "погромче" in t):
+        _media("volume up"); _media("volume up"); return "Громче"
+    if not about_self and ("тише" in t or "потише" in t):
+        _media("volume down"); _media("volume down"); return "Тише"
+    return None
+
+
 def route_intent(text):
     """Ollama решает намерение по свободной речи → dict {action, param}."""
     import json
@@ -409,7 +449,10 @@ def process(frames):
     if not text:
         speak("Повтори, не расслышал"); return
     print("Ты:", text, flush=True)
-    decision = route_intent(text)                 # Ollama понимает свободную речь
+    quick = quick_match(text)                      # сначала быстрый матч (без LLM)
+    if quick is not None:
+        print("Дмитрий (быстро):", quick, flush=True); speak(quick); return
+    decision = route_intent(text)                 # иначе Ollama (свободная речь/вопросы)
     print("  намерение:", decision, flush=True)
     reply = execute(decision)
     print("Дмитрий:", reply, flush=True)
