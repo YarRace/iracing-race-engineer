@@ -173,6 +173,26 @@ def _media(key):
     keyboard.send(key)
 
 
+def set_chrome_volume(delta):
+    """Меняет громкость ИМЕННО Chrome (где играет Яндекс.Музыка), не системную.
+    Через микшер Windows (pycaw). Возвращает True, если нашёл звук Chrome."""
+    try:
+        from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+    except Exception:
+        return False
+    changed = False
+    for s in AudioUtilities.GetAllSessions():
+        if s.Process and s.Process.name().lower() == "chrome.exe":
+            try:
+                vol = s._ctl.QueryInterface(ISimpleAudioVolume)
+                cur = vol.GetMasterVolume()
+                vol.SetMasterVolume(max(0.0, min(1.0, cur + delta)), None)
+                changed = True
+            except Exception:
+                pass
+    return changed
+
+
 def _focus_window(title_substr):
     """Если окно с таким текстом в заголовке уже открыто — развернуть и вывести вперёд.
     Возвращает True, если нашли и активировали."""
@@ -348,7 +368,8 @@ ROUTER_SYSTEM = (
     "kapps — гоночный оверлей (если просят 'оверлей' или 'капс').\n"
     "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
     "- make_clip — сделать клип на твиче. param пустой\n"
-    "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
+    "- media — музыка (Яндекс.Музыка в браузере). param: [next, prev, playpause, volup, voldown]. "
+    "volup/voldown — громкость МУЗЫКИ в браузере (не системная).\n"
     "- self_volume — громкость голоса самого Дмитрия. param: [up, down]\n"
     "- answer — это вопрос или реплоса без действия. В param помести КОРОТКИЙ ответ "
     "по-русски (1-2 фразы), используя данные гонки если они есть.\n"
@@ -391,8 +412,11 @@ def execute(decision):
             time.sleep(0.3); keyboard.send("alt+x"); return "Делаю клип"
         return "Не нашёл вкладку Твич"
     if a == "media":
-        m = {"next": "next track", "prev": "previous track", "playpause": "play/pause media",
-             "volup": "volume up", "voldown": "volume down"}
+        if pl == "volup":
+            return "Громче" if set_chrome_volume(+0.12) else "Музыка не играет"
+        if pl == "voldown":
+            return "Тише" if set_chrome_volume(-0.12) else "Музыка не играет"
+        m = {"next": "next track", "prev": "previous track", "playpause": "play/pause media"}
         if pl in m:
             _media(m[pl]); return "Готово"
         return "Не понял по музыке"
@@ -441,18 +465,19 @@ def quick_match(text):
                     return f"Разворачиваю {disp}"
                 ok = launcher() if callable(launcher) else _launch_path(launcher)
                 return f"Открываю {disp}" if ok else "Не нашёл это приложение"
+    # громкость МУЗЫКИ — крутим именно Chrome (не системную, не весь комп)
+    if "музык" in t and ("громче" in t or "погромче" in t):
+        return "Громче" if set_chrome_volume(+0.12) else "Музыка не играет"
+    if "музык" in t and ("тише" in t or "потише" in t):
+        return "Тише" if set_chrome_volume(-0.12) else "Музыка не играет"
     if ("следующ" in t or "переключи" in t) and ("трек" in t or "музык" in t or "песн" in t):
         _media("next track"); return "Следующий трек"
     if "предыдущ" in t and ("трек" in t or "музык" in t):
         _media("previous track"); return "Предыдущий трек"
-    if "пауза" in t or ("стоп" in t and "музык" in t):
+    if "пауза" in t or "остановись" in t or ("стоп" in t and "музык" in t):
         _media("play/pause media"); return "Пауза"
     if ("играй" in t or "включи музык" in t or "продолжи музык" in t):
         _media("play/pause media"); return "Играю"
-    if not about_self and ("громче" in t or "погромче" in t):
-        _media("volume up"); _media("volume up"); return "Громче"
-    if not about_self and ("тише" in t or "потише" in t):
-        _media("volume down"); _media("volume down"); return "Тише"
     return None
 
 

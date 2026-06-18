@@ -9,3 +9,5 @@ playsound==1.2.2
 pygame
 pygetwindow
 pytest
+pycaw
+comtypes
