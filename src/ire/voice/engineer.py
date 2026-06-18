@@ -17,6 +17,7 @@ class VoiceEngineer:
     def __init__(self):
         self.enabled = os.environ.get("IRE_VOICE", "on").lower() != "off"
         self.voice_name = os.environ.get("IRE_VOICE_NAME", DEFAULT_VOICE)
+        self.volume = os.environ.get("IRE_VOICE_VOLUME", "-75%")   # тише
         self._q = queue.Queue()
         self._last = {}            # key -> последняя сказанная фраза (антиспам)
         if self.enabled:
@@ -28,7 +29,7 @@ class VoiceEngineer:
         import edge_tts
         from playsound import playsound
         path = os.path.join(tempfile.gettempdir(), "ire_voice.mp3")
-        asyncio.run(edge_tts.Communicate(text, self.voice_name).save(path))
+        asyncio.run(edge_tts.Communicate(text, self.voice_name, volume=self.volume).save(path))
         playsound(path)
         try:
             os.remove(path)

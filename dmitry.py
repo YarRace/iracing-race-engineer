@@ -60,6 +60,34 @@ LANGUAGE = "ru"
 WHISPER_MODEL = os.environ.get("DMITRY_WHISPER", "small")   # small=быстро; large-v3=точно
 BUTTON_INDEX = int(os.environ.get("DMITRY_BUTTON", "19"))   # кнопка 20 на руле = индекс 19
 VOICE = "ru-RU-DmitryNeural"
+VOL_FILE = os.path.join(_ROOT, "dmitry_volume.txt")   # запоминаем громкость между запусками
+
+
+def _load_volume():
+    try:
+        return open(VOL_FILE, encoding="utf-8").read().strip() or "-75%"
+    except Exception:
+        return os.environ.get("DMITRY_VOLUME", "-75%")
+
+
+VOLUME = _load_volume()
+
+
+def _vol_num():
+    try:
+        return int(VOLUME.replace("%", "").replace("+", ""))
+    except Exception:
+        return -75
+
+
+def _set_volume(pct):
+    global VOLUME
+    pct = max(-95, min(0, int(pct)))
+    VOLUME = "+0%" if pct == 0 else f"{pct}%"
+    try:
+        open(VOL_FILE, "w", encoding="utf-8").write(VOLUME)
+    except Exception:
+        pass
 OLLAMA = os.environ.get("IRE_OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("IRE_OLLAMA_MODEL", "qwen2.5:7b")
 DASH = "http://localhost:8000"
@@ -79,7 +107,7 @@ _lock = threading.Lock()
 def speak(text):
     try:
         path = os.path.join(os.environ.get("TEMP", "."), "dmitry_say.mp3")
-        asyncio.run(edge_tts.Communicate(text, VOICE).save(path))
+        asyncio.run(edge_tts.Communicate(text, VOICE, volume=VOLUME).save(path))
         playsound(path)
         os.remove(path)
     except Exception as e:
@@ -156,6 +184,12 @@ def _open_telegram():
 def handle_command(text):
     """Возвращает фразу-ответ, если это команда; иначе None (значит вопрос)."""
     t = text.lower()
+    # громкость САМОГО Дмитрия (голос) — отличаем от системной по словам про него
+    about_self = any(w in t for w in ["голос", "говори", "себя", "тебя", "ты ", "дим"])
+    if about_self and ("тише" in t or "потише" in t or "убавь" in t or "слишком громк" in t):
+        _set_volume(_vol_num() - 15); return "Сделал тише"
+    if about_self and ("громче" in t or "погромче" in t or "прибавь" in t):
+        _set_volume(_vol_num() + 15); return "Сделал громче"
     if "телеграм" in t and ("открой" in t or "запусти" in t):
         return "Открываю Телеграм" if _open_telegram() else "Не нашёл Телеграм"
     if ("следующ" in t or "переключи" in t) and ("трек" in t or "музык" in t or "песн" in t):
