@@ -275,43 +275,80 @@ def _try_launch_app(text):
     return None
 
 
-def handle_command(text):
-    """Возвращает фразу-ответ, если это команда; иначе None (значит вопрос)."""
-    t = text.lower()
-    # громкость САМОГО Дмитрия (голос) — отличаем от системной по словам про него
-    about_self = any(w in t for w in ["голос", "говори", "себя", "тебя", "ты ", "дим"])
-    if about_self and ("тише" in t or "потише" in t or "убавь" in t or "слишком громк" in t):
-        _set_volume(_vol_num() - 15); return "Сделал тише"
-    if about_self and ("громче" in t or "погромче" in t or "прибавь" in t):
-        _set_volume(_vol_num() + 15); return "Сделал громче"
-    # клип на Twitch (Alt+X) — нужна открытая вкладка Twitch + включённый хоткей клипов
-    if "клип" in t:
+ROUTER_SYSTEM = (
+    "Ты — Дмитрий, голосовой ассистент гонщика в iRacing. По реплике гонщика реши, "
+    "что он хочет, и верни СТРОГО JSON: {\"action\": \"...\", \"param\": \"...\"}.\n"
+    "Возможные action и param:\n"
+    "- open_app — открыть/развернуть программу. param: одно из "
+    "[steam, rutonychat, obs, moza, discord, chrome, iracing, amnezia]\n"
+    "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
+    "- make_clip — сделать клип на твиче. param пустой\n"
+    "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
+    "- self_volume — громкость голоса самого Дмитрия. param: [up, down]\n"
+    "- answer — это вопрос или реплоса без действия. В param помести КОРОТКИЙ ответ "
+    "по-русски (1-2 фразы), используя данные гонки если они есть.\n"
+    "Выбирай open_app/switch_tab/media/make_clip/self_volume ТОЛЬКО если гонщик явно "
+    "просит сделать действие. Иначе action=answer."
+)
+
+
+def _open_named_app(name):
+    name = (name or "").lower()
+    for keys, launcher, disp, win in APPS:
+        if name and (name in keys or name in disp.lower()
+                     or any(name in k or k in name for k in keys)):
+            if win and _focus_window(win):
+                return f"Разворачиваю {disp}"
+            ok = launcher() if callable(launcher) else _launch_path(launcher)
+            return f"Открываю {disp}" if ok else "Не нашёл это приложение"
+    return "Не знаю такое приложение"
+
+
+def execute(decision):
+    """Выполняет решение роутера и возвращает фразу для озвучки."""
+    a = (decision.get("action") or "answer").lower()
+    p = (decision.get("param") or "")
+    pl = p.lower()
+    if a == "open_app":
+        return _open_named_app(pl)
+    if a == "switch_tab":
+        target = "twitch" if ("twi" in pl or "твич" in pl) else "youtube"
+        nm = "Твич" if target == "twitch" else "Ютуб"
+        return f"Переключаюсь на {nm}" if _switch_chrome_tab(target) else f"Не нашёл вкладку {nm}"
+    if a == "make_clip":
         import keyboard
         if _switch_chrome_tab("twitch"):
-            time.sleep(0.3); keyboard.send("alt+x")
-            return "Делаю клип"
+            time.sleep(0.3); keyboard.send("alt+x"); return "Делаю клип"
         return "Не нашёл вкладку Твич"
-    # переключение на уже открытую вкладку сайта
-    if any(w in t for w in ("открой", "переключись", "покажи", "перейди")):
-        for keys, target, name in SITES:
-            if any(k in t for k in keys):
-                return f"Переключаюсь на {name}" if _switch_chrome_tab(target) else f"Не нашёл вкладку {name}"
-    app = _try_launch_app(t)                       # открой/запусти <приложение>
-    if app is not None:
-        return app
-    if ("следующ" in t or "переключи" in t) and ("трек" in t or "музык" in t or "песн" in t):
-        _media("next track"); return "Следующий трек"
-    if "предыдущ" in t and ("трек" in t or "музык" in t):
-        _media("previous track"); return "Предыдущий трек"
-    if ("пауза" in t or "поставь на паузу" in t) or (("стоп" in t) and "музык" in t):
-        _media("play/pause media"); return "Пауза"
-    if "играй" in t or "продолжи музык" in t or "включи музык" in t:
-        _media("play/pause media"); return "Играю"
-    if "громче" in t or "погромче" in t:
-        _media("volume up"); _media("volume up"); return "Громче"
-    if "тише" in t or "потише" in t:
-        _media("volume down"); _media("volume down"); return "Тише"
-    return None
+    if a == "media":
+        m = {"next": "next track", "prev": "previous track", "playpause": "play/pause media",
+             "volup": "volume up", "voldown": "volume down"}
+        if pl in m:
+            _media(m[pl]); return "Готово"
+        return "Не понял по музыке"
+    if a == "self_volume":
+        _set_volume(_vol_num() + (15 if pl == "up" else -15))
+        return "Сделал громче" if pl == "up" else "Сделал тише"
+    return p or "Не понял, повтори"
+
+
+def route_intent(text):
+    """Ollama решает намерение по свободной речи → dict {action, param}."""
+    import json
+    ctx = race_context()
+    prompt = f'Данные гонки сейчас: {ctx}.\nРеплика гонщика: "{text}"\nВерни JSON-решение.'
+    try:
+        r = httpx.post(f"{OLLAMA}/api/chat", json={
+            "model": OLLAMA_MODEL,
+            "messages": [{"role": "system", "content": ROUTER_SYSTEM},
+                         {"role": "user", "content": prompt}],
+            "stream": False, "format": "json", "keep_alive": "30m",
+            "options": {"temperature": 0.2, "num_predict": 300},
+        }, timeout=120)
+        r.raise_for_status()
+        return json.loads(r.json()["message"]["content"])
+    except Exception as e:
+        return {"action": "answer", "param": f"Не смог обработать: {e}"}
 
 
 def ask_ollama(question):
@@ -342,12 +379,11 @@ def process(frames):
     if not text:
         speak("Повтори, не расслышал"); return
     print("Ты:", text, flush=True)
-    cmd = handle_command(text)
-    if cmd is not None:
-        print("Дмитрий (команда):", cmd, flush=True); speak(cmd); return
-    answer = ask_ollama(text)
-    print("Дмитрий:", answer, flush=True)
-    speak(answer)
+    decision = route_intent(text)                 # Ollama понимает свободную речь
+    print("  намерение:", decision, flush=True)
+    reply = execute(decision)
+    print("Дмитрий:", reply, flush=True)
+    speak(reply)
 
 
 def toggle():
