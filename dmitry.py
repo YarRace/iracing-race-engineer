@@ -173,12 +173,41 @@ def _media(key):
     keyboard.send(key)
 
 
-def _open_telegram():
-    for p in [os.path.expandvars(r"%APPDATA%\Telegram Desktop\Telegram.exe"),
-              os.path.expandvars(r"%LOCALAPPDATA%\Programs\Telegram Desktop\Telegram.exe")]:
-        if os.path.exists(p):
-            subprocess.Popen([p]); return True
+def _launch_path(path):
+    if path and os.path.exists(path):
+        subprocess.Popen([path]); return True
     return False
+
+
+def _launch_discord():
+    upd = os.path.expandvars(r"%LOCALAPPDATA%\Discord\Update.exe")
+    if os.path.exists(upd):
+        subprocess.Popen([upd, "--processStart", "Discord.exe"]); return True
+    return False
+
+
+# Каталог приложений: (ключевые слова в фразе, чем запускать, что сказать).
+# Запуск: строка-путь ИЛИ функция. Добавлять новые — просто дописать строку сюда.
+APPS = [
+    (["стим", "steam"], r"C:\Program Files (x86)\Steam\Steam.exe", "Открываю Стим"),
+    (["обс", "о бэ эс", "о б с", "obs"], r"C:\Program Files\obs-studio\bin\64bit\obs64.exe", "Запускаю О Б С"),
+    (["моза", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Запускаю Моза Питхаус"),
+    (["дискорд", "discord"], _launch_discord, "Открываю Дискорд"),
+    (["хром", "chrome", "гугл", "браузер"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "Открываю Хром"),
+    (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"D:\SteamLibrary\steamapps\common\iRacing\ui\iRacingUI.exe", "Запускаю Айрейсинг"),
+    (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Открываю Амнезию"),
+]
+
+
+def _try_launch_app(text):
+    """Если фраза — «открой/запусти/включи <приложение>», запускает его. Иначе None."""
+    if not any(w in text for w in ("открой", "запусти", "включи", "запой", "открыть")):
+        return None
+    for keys, launcher, phrase in APPS:
+        if any(k in text for k in keys):
+            ok = launcher() if callable(launcher) else _launch_path(launcher)
+            return phrase if ok else "Не нашёл это приложение"
+    return None
 
 
 def handle_command(text):
@@ -190,8 +219,9 @@ def handle_command(text):
         _set_volume(_vol_num() - 15); return "Сделал тише"
     if about_self and ("громче" in t or "погромче" in t or "прибавь" in t):
         _set_volume(_vol_num() + 15); return "Сделал громче"
-    if "телеграм" in t and ("открой" in t or "запусти" in t):
-        return "Открываю Телеграм" if _open_telegram() else "Не нашёл Телеграм"
+    app = _try_launch_app(t)                       # открой/запусти <приложение>
+    if app is not None:
+        return app
     if ("следующ" in t or "переключи" in t) and ("трек" in t or "музык" in t or "песн" in t):
         _media("next track"); return "Следующий трек"
     if "предыдущ" in t and ("трек" in t or "музык" in t):
