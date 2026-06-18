@@ -361,8 +361,7 @@ async function tickRace(){
 
   const wb = [card('Ветер', `${fix(r.wind_vel,1)} м/с`, windDir(r.wind_dir)),
               card('Влажность', `${fix(r.humidity*100,0)}%`, skiesTxt(r.skies)),
-              card('Покрытие', wetnessTxt(r.track_wetness), 'трасса'),
-              card('Деплой GTP', `${fix(r.deploy_pct*100,0)}%`, `за круг`)];
+              card('Покрытие', wetnessTxt(r.track_wetness), 'трасса')];
   $('weather').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">${wb.join('')}</div>`;
 }
 
