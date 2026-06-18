@@ -23,6 +23,7 @@ from ire.metrics.symptoms import build_symptoms
 from ire.metrics.strategy import StrategyTracker
 from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        fuel_capacity, damage_status)
+from ire.collector.race_state import race_extras
 from ire.collector.stint_recorder import StintDetector
 from ire.dashboard.server import app, STATE
 
@@ -49,6 +50,8 @@ def main():
     det = StintDetector()
     tracker = None
     frames = []
+    lap_log = []          # история времён кругов (для блока «Лог кругов»)
+    last_logged_lap = None
     try:
         while True:
             if not _connected(ir):
@@ -66,9 +69,17 @@ def main():
                 tracker.update(**strategy_inputs(ir))
                 STATE["strategy"] = tracker.snapshot()
                 STATE["damage"] = damage_status(ir)
+                race = race_extras(ir)
+                # лог кругов: при смене номера круга фиксируем время последнего
+                if race["lap"] != last_logged_lap:
+                    if last_logged_lap is not None and race["last_lap_time"] and race["last_lap_time"] > 0:
+                        lap_log.append({"lap": last_logged_lap, "time": round(race["last_lap_time"], 2)})
+                    last_logged_lap = race["lap"]
+                race["lap_log"] = lap_log[-20:]              # последние 20 кругов
+                STATE["race"] = race
             except Exception as e:
                 if not getattr(main, "_strat_warned", False):
-                    print("Стратегия/повреждения: ошибка чтения каналов:", e)
+                    print("Стратегия/гонка: ошибка чтения каналов:", e)
                     main._strat_warned = True
             state = det.update(on_track=is_on_track(ir))
             if state == "running":

@@ -60,3 +60,35 @@ DAMAGE_SCALAR = {
     "fast_repair_used": "FastRepairUsed",
     "incidents": "PlayerCarMyIncidentCount",  # live-счётчик вылетов/контактов (x-очки)
 }
+
+# --- Гоночные «помощники» (тайминг, флаги, машина, погода) ---
+RACE_SCALAR = {
+    "lap": "Lap",
+    "cur_lap_time": "LapCurrentLapTime",      # текущий круг, сек (live)
+    "last_lap_time": "LapLastLapTime",        # последний завершённый круг
+    "best_lap_time": "LapBestLapTime",        # лучший круг сессии
+    "delta_best": "LapDeltaToBestLap",        # дельта к лучшему, сек (+медленнее/-быстрее)
+    "delta_optimal": "LapDeltaToOptimalLap",  # дельта к оптимальному
+    "position": "PlayerCarPosition",
+    "class_position": "PlayerCarClassPosition",
+    "rpm": "RPM",
+    "shift_pct": "ShiftIndicatorPct",         # 0..1 заполнение шифт-лампы
+    "shift_rpm": "PlayerCarSLShiftRPM",       # обороты переключения
+    "blink_rpm": "PlayerCarSLBlinkRPM",       # обороты «мигай и переключайся»
+    "abs_active": "BrakeABSactive",
+    "session_flags": "SessionFlags",          # битовая маска флагов трассы
+    "engine_warnings": "EngineWarnings",      # битовая маска предупреждений
+    "wind_vel": "WindVel",                    # м/с
+    "wind_dir": "WindDir",                    # рад
+    "humidity": "RelativeHumidity",           # 0..1
+    "skies": "Skies",                         # 0=ясно..3=пасмурно
+    "track_wetness": "TrackWetness",          # 1=сухо..7
+    "energy_pct": "EnergyERSBatteryPct",      # заряд гибридной батареи 0..1 (GTP)
+    "deploy_pct": "EnergyMGU_KLapDeployPct",  # деплой энергии за круг 0..1
+    "on_pit": "OnPitRoad",
+}
+# Для gap до соперников — массивы по индексам машин + свой индекс из DriverInfo.
+RACE_ARRAYS = {
+    "pos": "CarIdxPosition", "lap_dist": "CarIdxLapDistPct", "est_time": "CarIdxEstTime",
+}
+DRIVER_CAR_IDX = "DriverCarIdx"  # ir["DriverInfo"]["DriverCarIdx"] — индекс своей машины

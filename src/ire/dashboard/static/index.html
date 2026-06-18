@@ -87,6 +87,8 @@
         <div><div class="label">Газ <span id="thrv" style="float:right"></span></div><div class="bar thr"><span id="thr"></span></div></div>
         <div><div class="label">Тормоз <span id="brkv" style="float:right"></span></div><div class="bar brk"><span id="brk"></span></div></div>
       </div>
+      <div style="margin-top:12px"><div class="label">Обороты <span id="rpmv" style="float:right"></span></div>
+        <div class="bar" style="height:14px"><span id="rpmbar" style="background:#2ecc71"></span></div></div>
       <div class="cond">
         <div>Топливо <b><span id="fuel">—</span> л</b></div>
         <div>Трасса <b><span id="ttemp">—</span>°</b></div>
@@ -102,6 +104,18 @@
     <div class="card">
       <h2>Стратегия</h2>
       <div id="strategy"><div class="empty">Поедь несколько кругов — появится расход и прогноз.</div></div>
+    </div>
+    <div class="card">
+      <h2>Тайминг</h2>
+      <div id="timing"><div class="empty">Появится на трассе.</div></div>
+    </div>
+    <div class="card">
+      <h2>Гонка</h2>
+      <div id="race"><div class="empty">Позиция, разрывы и флаги — на трассе.</div></div>
+    </div>
+    <div class="card">
+      <h2>Погода</h2>
+      <div id="weather"><div class="empty">Появится на трассе.</div></div>
     </div>
   </div>
 
@@ -289,11 +303,63 @@ async function tickInc(){
   if(d && d.incidents!=null) $('inc').textContent = d.incidents;
 }
 
-tickLive(); tickResult(); tickStrategy(); tickInc();
+const flagColor = k => ({green:'#2ecc71',yellow:'#f1c40f',yellow_waving:'#f1c40f',caution:'#f1c40f',
+  caution_waving:'#f1c40f',blue:'#3498db',white:'#e8e8ee',checkered:'#cfcfcf',red:'#e74c3c',
+  black:'#555',repair:'#e67e22',disqualify:'#e74c3c'}[k] || '#888');
+const windDir = rad => { if(rad==null) return ''; const d=['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'];
+  return 'с ' + d[Math.round((rad*180/Math.PI)/45)%8]; };
+const skiesTxt = s => ['ясно','малооблачно','облачно','пасмурно'][s] || '—';
+const wetnessTxt = w => w<=1 ? 'сухо' : (w<=3?'подсыхает':(w<=5?'влажно':'мокро'));
+
+async function tickRace(){
+  let r; try{ r = await (await fetch('/api/race')).json(); }catch{ return; }
+  if(!r || r.position==null){ return; }
+
+  if(r.rpm!=null && r.blink_rpm){
+    const pct = Math.max(0, Math.min(100, r.rpm/r.blink_rpm*100));
+    const bar = $('rpmbar'); bar.style.width = pct+'%';
+    bar.style.background = r.rpm>=r.blink_rpm ? '#e74c3c' : (r.rpm>=r.shift_rpm ? '#f1c40f' : '#2ecc71');
+    $('rpmv').textContent = Math.round(r.rpm) + (r.rpm>=r.shift_rpm ? '  ↑ переключай' : '');
+  }
+
+  const tb = [card('Текущий круг', lapTime(r.cur_lap_time), 'идёт'),
+              card('Лучший круг', lapTime(r.best_lap_time), 'сессии')];
+  let timing = `<div class="mini" style="grid-template-columns:1fr 1fr">${tb.join('')}</div>`;
+  if(r.lap_log && r.lap_log.length){
+    const best = Math.min(...r.lap_log.map(x=>x.time));
+    const rows = r.lap_log.slice().reverse().map(x=>`<tr><td>круг ${x.lap}</td>
+      <td class="chg" style="text-align:right;color:${x.time===best?'#2ecc71':'#e8eaed'}">${lapTime(x.time)}</td></tr>`).join('');
+    timing += `<table style="margin-top:8px">${rows}</table>`;
+  }
+  $('timing').innerHTML = timing;
+
+  const rb = [card('Позиция', `P${r.position}`, r.class_position?`в классе P${r.class_position}`:''),
+              card('Разрыв', r.gap_ahead!=null?`▲ ${fix(r.gap_ahead,1)} c`:'▲ —', r.gap_behind!=null?`▼ ${fix(r.gap_behind,1)} c назад`:'▼ —')];
+  let race = `<div class="mini" style="grid-template-columns:1fr 1fr">${rb.join('')}</div>`;
+  if(r.flags && r.flags.length){
+    race += `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">` +
+      r.flags.map(f=>`<span style="background:${flagColor(f.key)};color:#0d0f12;padding:4px 11px;border-radius:8px;font-weight:700;font-size:13px">${f.label}</span>`).join('') + `</div>`;
+  }
+  const ind = [];
+  if(r.abs_active) ind.push('<span style="background:#f1c40f;color:#0d0f12;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">ABS</span>');
+  (r.warnings||[]).forEach(w=>ind.push(`<span style="background:#e74c3c;color:#fff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚠ ${w.label}</span>`));
+  if(r.energy_pct!=null) ind.push(`<span style="background:#1b1f26;border:1px solid #2a2f38;color:#3ea6ff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚡ батарея ${fix(r.energy_pct*100,0)}%</span>`);
+  if(ind.length) race += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${ind.join('')}</div>`;
+  $('race').innerHTML = race;
+
+  const wb = [card('Ветер', `${fix(r.wind_vel,1)} м/с`, windDir(r.wind_dir)),
+              card('Влажность', `${fix(r.humidity*100,0)}%`, skiesTxt(r.skies)),
+              card('Покрытие', wetnessTxt(r.track_wetness), 'трасса'),
+              card('Деплой GTP', `${fix(r.deploy_pct*100,0)}%`, `за круг`)];
+  $('weather').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">${wb.join('')}</div>`;
+}
+
+tickLive(); tickResult(); tickStrategy(); tickInc(); tickRace();
 setInterval(tickLive, 250);
 setInterval(tickResult, 1500);
 setInterval(tickStrategy, 1000);
 setInterval(tickInc, 1000);
+setInterval(tickRace, 400);
 </script>
 </body>
 </html>

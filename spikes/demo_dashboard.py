@@ -65,5 +65,18 @@ STATE["damage"] = {
     "fast_repair_available": 1, "fast_repair_used": 0, "incidents": 2, "damaged": False,
 }
 
+STATE["race"] = {
+    "position": 4, "class_position": 2,
+    "cur_lap_time": 38.2, "last_lap_time": 95.81, "best_lap_time": 94.32, "delta_best": 0.4,
+    "rpm": 8100, "shift_pct": 0.7, "shift_rpm": 8550, "blink_rpm": 8725, "abs_active": False,
+    "flags": [{"key": "green", "label": "зелёный"}],
+    "warnings": [],
+    "wind_vel": 2.4, "wind_dir": 1.2, "humidity": 0.45, "skies": 1, "track_wetness": 1,
+    "energy_pct": 0.82, "deploy_pct": 0.35,
+    "gap_ahead": 1.8, "gap_behind": 0.9, "lap": 12, "on_pit": False,
+    "lap_log": [{"lap": 9, "time": 96.1}, {"lap": 10, "time": 95.4},
+                {"lap": 11, "time": 94.32}, {"lap": 12, "time": 95.81}],
+}
+
 print("Демо-дашборд: http://localhost:8000  (Ctrl+C — выход)")
 uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
