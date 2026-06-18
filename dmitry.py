@@ -335,7 +335,9 @@ ROUTER_SYSTEM = (
     "Ты — Дмитрий, голосовой ассистент гонщика в iRacing. По реплике гонщика реши, "
     "что он хочет, и верни СТРОГО JSON: {\"action\": \"...\", \"param\": \"...\"}.\n"
     "Возможные action и param:\n"
-    "- minimize_app — свернуть окно программы. param: то же имя из списка ниже (или 'all' — свернуть всё).\n"
+    "- minimize_app — свернуть окно ЛЮБОЙ программы из списка ниже. param: то же имя из списка "
+    "(steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer, "
+    "gopro, trading_paints) или 'all' — свернуть все окна.\n"
     "- open_app — открыть/развернуть программу. param: одно из "
     "[steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, "
     "race_engineer, gopro, trading_paints]\n"
@@ -411,6 +413,11 @@ def quick_match(text):
         if _switch_chrome_tab("twitch"):
             time.sleep(0.3); keyboard.send("alt+x"); return "Делаю клип"
         return "Не нашёл вкладку Твич"
+    # развернуть все свёрнутые окна
+    if ("все окна" in t or "всё окна" in t or "все окошк" in t) and \
+       any(w in t for w in ("открой", "разверни", "восстанов", "покажи", "верни")):
+        import keyboard
+        keyboard.send("windows+shift+m"); return "Развернул все окна"
     if any(w in t for w in ("сверни", "свернуть", "сворачивай", "скрой")):
         if "все" in t or "всё" in t:                      # свернуть все окна
             import keyboard
