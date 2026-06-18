@@ -248,6 +248,14 @@ def _launch_discord():
     return False
 
 
+def _launch_race_engineer():
+    """Запускает наш дашборд Race Engineer (сервер + браузер) через start-dashboard.bat."""
+    bat = os.path.join(_ROOT, "start-dashboard.bat")
+    if os.path.exists(bat):
+        os.startfile(bat); return True
+    return False
+
+
 # Каталог приложений: (ключевые слова, чем запускать, что сказать, текст-заголовка-окна).
 # Сначала Дима ищет уже открытое окно (даже свёрнутое) и разворачивает; если нет — запускает.
 APPS = [
@@ -259,6 +267,7 @@ APPS = [
     (["браузер", "хром", "chrome", "гугл"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "браузер", "Chrome"),
     (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"C:\Program Files (x86)\Steam\steamapps\common\iRacing\ui\iRacingUI.exe", "Айрейсинг", "iRacing"),
     (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Амнезию", "Amnezia"),
+    (["инженер", "гоночн", "рейс инженер", "race engineer", "race_engineer", "дашборд"], _launch_race_engineer, "Гоночного инженера", "Race Engineer"),
 ]
 
 
@@ -280,7 +289,8 @@ ROUTER_SYSTEM = (
     "что он хочет, и верни СТРОГО JSON: {\"action\": \"...\", \"param\": \"...\"}.\n"
     "Возможные action и param:\n"
     "- open_app — открыть/развернуть программу. param: одно из "
-    "[steam, rutonychat, obs, moza, discord, chrome, iracing, amnezia]\n"
+    "[steam, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer]\n"
+    "  (race_engineer — наш гоночный инженер/дашборд в браузере)\n"
     "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
     "- make_clip — сделать клип на твиче. param пустой\n"
     "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
