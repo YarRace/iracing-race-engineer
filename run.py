@@ -109,6 +109,7 @@ def main():
                 # прогрев LLM в фоне, пока едешь — первый разбор будет быстрым
                 threading.Thread(target=warm_up, daemon=True).start()
                 print("Прогрев модели в фоне…")
+                voice.say("Инженер Дмитрий на связи. Поехали.")
             # стратегия считается всегда, пока в сессии (топливо/износ по кругам)
             try:
                 tracker.update(**strategy_inputs(ir))

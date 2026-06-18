@@ -1,41 +1,69 @@
-"""Голосовой гоночный инженер: озвучивает события вслух (русский голос Irina).
+"""Голосовой гоночный инженер «Дмитрий»: озвучивает события вслух.
 
-Фоновый поток-воркер с очередью фраз — не блокирует live-цикл. Антиспам по
-ключу события (одно и то же не повторяется подряд). Отключается IRE_VOICE=off;
-при отсутствии pyttsx3/голоса молча выключается.
+Основной голос — edge-tts «ru-RU-DmitryNeural» (нейросетевой мужской русский,
+нужен интернет). Если edge недоступен (нет сети/пакета) — авто-откат на системный
+SAPI-голос (pyttsx3), чтобы инженер не замолчал. Фоновый поток-воркер + очередь,
+не блокирует live-цикл. Антиспам по ключу. Отключается IRE_VOICE=off.
 """
 import os
 import queue
+import tempfile
 import threading
+
+DEFAULT_VOICE = "ru-RU-DmitryNeural"
 
 
 class VoiceEngineer:
     def __init__(self):
         self.enabled = os.environ.get("IRE_VOICE", "on").lower() != "off"
+        self.voice_name = os.environ.get("IRE_VOICE_NAME", DEFAULT_VOICE)
         self._q = queue.Queue()
         self._last = {}            # key -> последняя сказанная фраза (антиспам)
         if self.enabled:
             threading.Thread(target=self._worker, daemon=True).start()
 
-    def _worker(self):
+    def _speak_edge(self, text):
+        """edge-tts (Dmitry) → mp3 → проигрывание. Бросает исключение при ошибке/без сети."""
+        import asyncio
+        import edge_tts
+        from playsound import playsound
+        path = os.path.join(tempfile.gettempdir(), "ire_voice.mp3")
+        asyncio.run(edge_tts.Communicate(text, self.voice_name).save(path))
+        playsound(path)
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    def _init_sapi(self):
+        """Запасной системный голос (pyttsx3), если edge недоступен."""
         try:
             import pyttsx3
             eng = pyttsx3.init()
             eng.setProperty("rate", 185)
-            for v in eng.getProperty("voices"):     # предпочитаем русский голос
+            for v in eng.getProperty("voices"):
                 if "RU" in v.id.upper() or "irina" in v.name.lower():
                     eng.setProperty("voice", v.id)
                     break
+            return eng
         except Exception:
-            self.enabled = False
-            return
+            return None
+
+    def _worker(self):
+        sapi = None
         while True:
             text = self._q.get()
             try:
-                eng.say(text)
-                eng.runAndWait()
+                self._speak_edge(text)              # основной путь — Дмитрий
             except Exception:
-                pass
+                if sapi is None:                    # откат на системный голос
+                    sapi = self._init_sapi()
+                if sapi is not None:
+                    try:
+                        sapi.say(text)
+                        sapi.runAndWait()
+                    except Exception:
+                        pass
 
     def say(self, text, key=None):
         """Поставить фразу в очередь. key — для антиспама (не повторять то же подряд)."""
