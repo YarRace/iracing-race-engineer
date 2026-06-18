@@ -23,7 +23,7 @@ from ire.metrics.symptoms import build_symptoms
 from ire.metrics.strategy import StrategyTracker
 from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        fuel_capacity, damage_status)
-from ire.collector.race_state import race_extras
+from ire.collector.race_state import race_extras, SectorTimer, sector_starts
 from ire.voice.engineer import VoiceEngineer, announce
 from ire.collector.stint_recorder import StintDetector
 from ire.dashboard.server import app, STATE
@@ -50,6 +50,7 @@ def main():
     ir = irsdk.IRSDK()
     det = StintDetector()
     tracker = None
+    sector_timer = None
     frames = []
     lap_log = []          # история времён кругов (для блока «Лог кругов»)
     last_logged_lap = None
@@ -64,6 +65,7 @@ def main():
             ir.freeze_var_buffer_latest()
             if tracker is None:                              # инициализация на первом подключении
                 tracker = StrategyTracker(tank_capacity=fuel_capacity(ir))
+                sector_timer = SectorTimer(sector_starts(ir))  # [] если трасса без секторов
                 # прогрев LLM в фоне, пока едешь — первый разбор будет быстрым
                 threading.Thread(target=warm_up, daemon=True).start()
                 print("Прогрев модели в фоне…")
@@ -73,10 +75,13 @@ def main():
                 STATE["strategy"] = tracker.snapshot()
                 STATE["damage"] = damage_status(ir)
                 race = race_extras(ir)
-                # лог кругов: при смене номера круга фиксируем время последнего
+                sector_timer.update(ir["LapDistPct"], ir["SessionTime"])
+                # лог кругов: при смене номера круга фиксируем время + сектора
                 if race["lap"] != last_logged_lap:
                     if last_logged_lap is not None and race["last_lap_time"] and race["last_lap_time"] > 0:
-                        lap_log.append({"lap": last_logged_lap, "time": round(race["last_lap_time"], 2)})
+                        lap_log.append({"lap": last_logged_lap, "time": round(race["last_lap_time"], 2),
+                                        "sectors": sector_timer.lap_sectors()})
+                    sector_timer.reset()
                     last_logged_lap = race["lap"]
                 race["lap_log"] = lap_log[-20:]              # последние 20 кругов
                 STATE["race"] = race

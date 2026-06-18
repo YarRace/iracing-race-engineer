@@ -323,12 +323,21 @@ async function tickRace(){
   }
 
   const tb = [card('Текущий круг', lapTime(r.cur_lap_time), 'идёт'),
+              card('Прогноз круга', lapTime(r.predicted), 'к финишу по темпу'),
               card('Лучший круг', lapTime(r.best_lap_time), 'сессии')];
-  let timing = `<div class="mini" style="grid-template-columns:1fr 1fr">${tb.join('')}</div>`;
+  let timing = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">${tb.join('')}</div>`;
   if(r.lap_log && r.lap_log.length){
     const best = Math.min(...r.lap_log.map(x=>x.time));
-    const rows = r.lap_log.slice().reverse().map(x=>`<tr><td>круг ${x.lap}</td>
-      <td class="chg" style="text-align:right;color:${x.time===best?'#2ecc71':'#e8eaed'}">${lapTime(x.time)}</td></tr>`).join('');
+    const rows = r.lap_log.slice().reverse().map(x=>{
+      let sct = '';
+      if(x.sectors && x.sectors.length){
+        sct = `<tr><td colspan="2" style="padding-top:2px;padding-bottom:6px;border-bottom:1px solid #333">` +
+          x.sectors.map((s,i)=>`<span style="color:#9099a6;font-size:12px;margin-right:12px">С${i+1} <span style="color:#cdd3dc">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
+          `</td></tr>`;
+      }
+      return `<tr><td>круг ${x.lap}</td>
+        <td class="chg" style="text-align:right;color:${x.time===best?'#2ecc71':'#e8eaed'}">${lapTime(x.time)}</td></tr>${sct}`;
+    }).join('');
     timing += `<table style="margin-top:8px">${rows}</table>`;
   }
   $('timing').innerHTML = timing;

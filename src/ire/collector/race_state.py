@@ -65,15 +65,67 @@ def _gaps(ir, my_pos):
         return None, None
 
 
+def sector_starts(ir):
+    """Доли круга, где начинаются сектора, из ir['SplitTimeInfo']. [] если нет."""
+    try:
+        info = ir["SplitTimeInfo"] or {}
+        secs = info.get("Sectors") or []
+        starts = sorted(float(s["SectorStartPct"]) for s in secs)
+        return starts if len(starts) >= 2 else []
+    except Exception:
+        return []
+
+
+class SectorTimer:
+    """Засекает время по секторам круга, отслеживая LapDistPct."""
+    def __init__(self, starts):
+        self.starts = sorted(starts)              # напр. [0.0, 0.33, 0.66]
+        self._cur = None
+        self._entry_t = None
+        self._times = {}
+
+    def _sector_of(self, pct):
+        idx = 0
+        for i, s in enumerate(self.starts):
+            if pct >= s:
+                idx = i
+        return idx
+
+    def update(self, lap_dist_pct, t):
+        if not self.starts or lap_dist_pct is None:
+            return
+        idx = self._sector_of(lap_dist_pct)
+        if self._cur is None:
+            self._cur, self._entry_t = idx, t
+            return
+        if idx != self._cur:                      # сменился сектор → зафиксировать прошлый
+            dt = t - self._entry_t
+            if 0 < dt < 600:
+                self._times[self._cur] = round(dt, 2)
+            self._cur, self._entry_t = idx, t
+
+    def lap_sectors(self):
+        return [self._times.get(i) for i in range(len(self.starts))]
+
+    def reset(self):
+        self._cur = None
+        self._entry_t = None
+        self._times = {}
+
+
 def race_extras(ir):
     """Снимок гоночной телеметрии для дашборда."""
     R = channels.RACE_SCALAR
     g = {k: ir[v] for k, v in R.items()}
     ahead, behind = _gaps(ir, g.get("position"))
+    best = g["best_lap_time"]
+    delta = g["delta_best"]
+    predicted = round(best + delta, 2) if best and best > 0 else None  # прогноз круга
     return {
         "position": g["position"], "class_position": g["class_position"],
         "cur_lap_time": g["cur_lap_time"], "last_lap_time": g["last_lap_time"],
         "best_lap_time": g["best_lap_time"], "delta_best": g["delta_best"],
+        "predicted": predicted,
         "rpm": g["rpm"], "shift_pct": g["shift_pct"],
         "shift_rpm": g["shift_rpm"], "blink_rpm": g["blink_rpm"],
         "abs_active": bool(g["abs_active"]),

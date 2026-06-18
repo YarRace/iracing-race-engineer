@@ -74,8 +74,11 @@ STATE["race"] = {
     "wind_vel": 2.4, "wind_dir": 1.2, "humidity": 0.45, "skies": 1, "track_wetness": 1,
     "energy_pct": 0.82, "deploy_pct": 0.35,
     "gap_ahead": 1.8, "gap_behind": 0.9, "lap": 12, "on_pit": False,
-    "lap_log": [{"lap": 9, "time": 96.1}, {"lap": 10, "time": 95.4},
-                {"lap": 11, "time": 94.32}, {"lap": 12, "time": 95.81}],
+    "predicted": 94.9,
+    "lap_log": [{"lap": 9, "time": 96.1, "sectors": [28.5, 34.2, 33.4]},
+                {"lap": 10, "time": 95.4, "sectors": [28.1, 34.0, 33.3]},
+                {"lap": 11, "time": 94.32, "sectors": [27.8, 33.6, 32.9]},
+                {"lap": 12, "time": 95.81, "sectors": [28.3, 34.1, 33.4]}],
 }
 
 print("Демо-дашборд: http://localhost:8000  (Ctrl+C — выход)")
