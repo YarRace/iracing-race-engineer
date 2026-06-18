@@ -197,6 +197,44 @@ def _focus_window(title_substr):
     return False
 
 
+def _switch_chrome_tab(target):
+    """Активирует Chrome и перебирает вкладки (Ctrl+Tab), пока в заголовке не найдёт target.
+    Хрупко: если вкладки нет — остановится не на той. Возвращает True при успехе."""
+    try:
+        import pygetwindow as gw
+        import keyboard
+    except Exception:
+        return False
+    chrome = None
+    for w in gw.getAllWindows():
+        if "chrome" in (w.title or "").lower():
+            chrome = w
+            break
+    if chrome is None:
+        return False
+    try:
+        if chrome.isMinimized:
+            chrome.restore()
+        chrome.activate()
+    except Exception:
+        pass
+    time.sleep(0.35)
+    for _ in range(25):                       # перебор вкладок Chrome
+        act = gw.getActiveWindow()
+        if act and target.lower() in (act.title or "").lower():
+            return True
+        keyboard.send("ctrl+tab")
+        time.sleep(0.18)
+    return False
+
+
+# Сайты, на которые Дима переключается среди открытых вкладок Chrome.
+SITES = [
+    (["твич", "twitch", "твитч"], "twitch", "Твич"),
+    (["ютуб", "youtube", "ютьюб"], "youtube", "Ютуб"),
+]
+
+
 def _launch_path(path):
     if path and os.path.exists(path):
         subprocess.Popen([path]); return True
@@ -246,6 +284,18 @@ def handle_command(text):
         _set_volume(_vol_num() - 15); return "Сделал тише"
     if about_self and ("громче" in t or "погромче" in t or "прибавь" in t):
         _set_volume(_vol_num() + 15); return "Сделал громче"
+    # клип на Twitch (Alt+X) — нужна открытая вкладка Twitch + включённый хоткей клипов
+    if "клип" in t:
+        import keyboard
+        if _switch_chrome_tab("twitch"):
+            time.sleep(0.3); keyboard.send("alt+x")
+            return "Делаю клип"
+        return "Не нашёл вкладку Твич"
+    # переключение на уже открытую вкладку сайта
+    if any(w in t for w in ("открой", "переключись", "покажи", "перейди")):
+        for keys, target, name in SITES:
+            if any(k in t for k in keys):
+                return f"Переключаюсь на {name}" if _switch_chrome_tab(target) else f"Не нашёл вкладку {name}"
     app = _try_launch_app(t)                       # открой/запусти <приложение>
     if app is not None:
         return app
