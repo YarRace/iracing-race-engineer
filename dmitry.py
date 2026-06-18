@@ -427,7 +427,8 @@ def quick_match(text):
                 return f"Свернул {disp}" if (win and _minimize_window(win)) else f"{disp} не открыт"
         return None
     launch_trig = any(w in t for w in ("открой", "открыть", "запусти", "запускай",
-                                       "включи", "врубай", "разверни", "давай"))
+                                       "включи", "врубай", "разверни", "разверня",
+                                       "раскрой", "покажи", "верни", "давай"))
     if launch_trig:
         for keys, target, name in SITES:                  # вкладки сайтов
             if any(k in t for k in keys):
