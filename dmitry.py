@@ -173,6 +173,30 @@ def _media(key):
     keyboard.send(key)
 
 
+def _focus_window(title_substr):
+    """Если окно с таким текстом в заголовке уже открыто — развернуть и вывести вперёд.
+    Возвращает True, если нашли и активировали."""
+    try:
+        import pygetwindow as gw
+    except Exception:
+        return False
+    sub = title_substr.lower()
+    for w in gw.getAllWindows():
+        title = (w.title or "").strip()
+        if title and sub in title.lower():
+            try:
+                if w.isMinimized:
+                    w.restore()
+                w.activate()
+                return True
+            except Exception:
+                try:
+                    w.maximize(); return True
+                except Exception:
+                    pass
+    return False
+
+
 def _launch_path(path):
     if path and os.path.exists(path):
         subprocess.Popen([path]); return True
@@ -186,28 +210,30 @@ def _launch_discord():
     return False
 
 
-# Каталог приложений: (ключевые слова в фразе, чем запускать, что сказать).
-# Запуск: строка-путь ИЛИ функция. Добавлять новые — просто дописать строку сюда.
+# Каталог приложений: (ключевые слова, чем запускать, что сказать, текст-заголовка-окна).
+# Сначала Дима ищет уже открытое окно (даже свёрнутое) и разворачивает; если нет — запускает.
 APPS = [
-    (["стим", "steam"], r"C:\Program Files (x86)\Steam\Steam.exe", "Открываю Стим"),
-    (["рутони", "рутон", "рута не", "рутэни", "rutony", "рутони чат"], r"D:\SteamLibrary\steamapps\common\RutonyChat\RutonyChat.exe", "Запускаю Рутони чат"),
-    (["обс", "о бэ эс", "о б с", "obs"], r"C:\Program Files\obs-studio\bin\64bit\obs64.exe", "Запускаю О Б С"),
-    (["мозу", "моза", "мозы", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Открываю Мозу"),
-    (["дискорд", "discord"], _launch_discord, "Открываю Дискорд"),
-    (["браузер", "хром", "chrome", "гугл"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "Открываю браузер"),
-    (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"D:\SteamLibrary\steamapps\common\iRacing\ui\iRacingUI.exe", "Запускаю Айрейсинг"),
-    (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Открываю Амнезию"),
+    (["стим", "steam"], r"C:\Program Files (x86)\Steam\Steam.exe", "Стим", "Steam"),
+    (["рутони", "рутон", "рута не", "рутэни", "rutony", "рутони чат"], r"D:\SteamLibrary\steamapps\common\RutonyChat\RutonyChat.exe", "Рутони чат", "RutonyChat"),
+    (["обс", "о бэ эс", "о б с", "obs"], r"C:\Program Files\obs-studio\bin\64bit\obs64.exe", "О Б С", "OBS"),
+    (["мозу", "моза", "мозы", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Мозу", "Pit House"),
+    (["дискорд", "discord"], _launch_discord, "Дискорд", "Discord"),
+    (["браузер", "хром", "chrome", "гугл"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "браузер", "Chrome"),
+    (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"D:\SteamLibrary\steamapps\common\iRacing\ui\iRacingUI.exe", "Айрейсинг", "iRacing"),
+    (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Амнезию", "Amnezia"),
 ]
 
 
 def _try_launch_app(text):
-    """Если фраза — «открой/запусти/включи <приложение>», запускает его. Иначе None."""
-    if not any(w in text for w in ("открой", "запусти", "включи", "запой", "открыть")):
+    """«открой/запусти/включи <приложение>»: развернуть открытое окно или запустить. Иначе None."""
+    if not any(w in text for w in ("открой", "запусти", "включи", "разверни", "открыть")):
         return None
-    for keys, launcher, phrase in APPS:
+    for keys, launcher, name, win_title in APPS:
         if any(k in text for k in keys):
+            if win_title and _focus_window(win_title):       # уже открыто → развернуть
+                return f"Разворачиваю {name}"
             ok = launcher() if callable(launcher) else _launch_path(launcher)
-            return phrase if ok else "Не нашёл это приложение"
+            return f"Открываю {name}" if ok else "Не нашёл это приложение"
     return None
 
 
