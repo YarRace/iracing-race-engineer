@@ -8,4 +8,5 @@ edge-tts
 playsound==1.2.2
 pygame
 pygetwindow
+telethon
 pytest
