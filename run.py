@@ -40,6 +40,28 @@ def _connected(ir):
     return ir.is_initialized and ir.is_connected
 
 
+def _session_key(ir):
+    """Идентификатор сессии — меняется при заходе в другую сессию/смене фазы."""
+    wk = ir["WeekendInfo"] or {}
+    return (ir["SessionNum"], wk.get("SubSessionID"), ir["SessionUniqueID"])
+
+
+def _analyze_bg(frames, setup, conditions, voice):
+    """Разбор стинта В ФОНЕ — не блокирует live-цикл (LLM считается минуты)."""
+    try:
+        STATE["result"] = {"symptoms": build_symptoms(frames, conditions), "analyzing": True}
+        res = orchestrator.analyze_stint(frames, setup_path=setup, conditions=conditions)
+        STATE["result"] = res
+        print("Готово. Разбор на дашборде.")
+        voice.say("Разбор заезда готов")
+    except Exception as e:
+        r = STATE.get("result") or {}
+        r["analyzing"] = False
+        r["explanation_error"] = str(e)
+        STATE["result"] = r
+        print("Разбор от модели недоступен (метрики есть):", e)
+
+
 def main():
     # Сервер дашборда поднимается СРАЗУ и работает независимо от состояния сима,
     # поэтому http://localhost:8000 открывается ещё до выезда на трассу.
@@ -56,6 +78,7 @@ def main():
     last_logged_lap = None
     voice = VoiceEngineer()
     best_seen = None      # для озвучки личного рекорда
+    last_sess = None      # ключ сессии — для авто-сброса при смене
     try:
         while True:
             if not _connected(ir):
@@ -63,6 +86,23 @@ def main():
                 time.sleep(1)
                 continue
             ir.freeze_var_buffer_latest()
+            # авто-сброс при заходе в ДРУГУЮ сессию (новая гонка/практика/смена пилота)
+            sess = _session_key(ir)
+            if sess != last_sess:
+                if last_sess is not None:
+                    print("Новая сессия — сбрасываю данные дашборда.")
+                    voice.say("Новая сессия")
+                tracker = None
+                sector_timer = None
+                frames = []
+                lap_log = []
+                last_logged_lap = None
+                best_seen = None
+                det = StintDetector()
+                STATE["result"] = {}
+                STATE["strategy"] = {}
+                STATE["race"] = {}
+                last_sess = sess
             if tracker is None:                              # инициализация на первом подключении
                 tracker = StrategyTracker(tank_capacity=fuel_capacity(ir))
                 sector_timer = SectorTimer(sector_starts(ir))  # [] если трасса без секторов
@@ -103,23 +143,14 @@ def main():
                 STATE["live"] = f
                 frames.append(f)
             elif state == "closed" and frames:
-                print(f"Стинт закрыт ({len(frames)} кадров) → анализ…")
+                # разбор уходит В ФОН — живой цикл не зависает на время инференса LLM
+                print(f"Стинт закрыт ({len(frames)} кадров) → разбор в фоне…")
                 conditions = {"track_temp": frames[0]["track_temp"]}
-                # симптомы (метрики) считаем всегда — они не зависят от Claude
-                STATE["result"] = {"symptoms": build_symptoms(frames, conditions)}
-                print("Метрики посчитаны. Запрашиваю разбор у Claude…")
-                try:                                      # explainer опционален (нужен ключ)
-                    res = orchestrator.analyze_stint(
-                        frames,
-                        setup_path=ir["CarSetup"],        # живой CarSetup как dict
-                        conditions=conditions,
-                    )
-                    STATE["result"] = res
-                    print("Готово. Разбор на дашборде.")
-                    voice.say("Разбор заезда готов")
-                except Exception as e:                    # анализ не должен ронять цикл
-                    STATE["result"]["explanation_error"] = str(e)
-                    print("Разбор от Claude недоступен (метрики на дашборде есть):", e)
+                threading.Thread(
+                    target=_analyze_bg,
+                    args=(list(frames), ir["CarSetup"], conditions, voice),
+                    daemon=True,
+                ).start()
                 frames = []
                 det = StintDetector()                    # готов к следующему стинту
             time.sleep(1 / 60)

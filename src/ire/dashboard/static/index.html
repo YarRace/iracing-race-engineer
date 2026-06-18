@@ -224,7 +224,9 @@ async function tickResult(){
   }
   // пилотирование
   const exp = r.explanation;
-  if(r.explanation_error){
+  if(r.analyzing && !exp){
+    $('driving').innerHTML = `<div class="empty">⏳ Считаю разбор… (модель думает, дашборд работает)</div>`;
+  } else if(r.explanation_error){
     $('driving').innerHTML = `<div class="err">Разбор от модели недоступен: ${r.explanation_error}.<br>Метрики ниже посчитаны.</div>`;
   } else if(exp && exp.driving && exp.driving.length){
     $('driving').innerHTML = '<ul class="drv">'+exp.driving.map(d=>`<li>${d}</li>`).join('')+'</ul>';
