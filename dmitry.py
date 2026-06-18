@@ -287,6 +287,7 @@ APPS = [
     (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Амнезию", "Amnezia"),
     (["инженер", "гоночн", "рейс инженер", "race engineer", "race_engineer", "дашборд"], _launch_race_engineer, "Гоночного инженера", "Race Engineer"),
     (["камер", "гопро", "gopro", "вебкам", "webcam"], _launch_gopro, "Камеру", "GoPro Webcam"),
+    (["трейдинг", "пейнтс", "пэйнтс", "ливре", "trading paints", "trading_paints", "трейдинг пейнтс"], r"C:\Program Files (x86)\Rhinode LLC\Trading Paints\Trading Paints.exe", "Трейдинг Пейнтс", "Trading Paints"),
 ]
 
 
@@ -308,9 +309,11 @@ ROUTER_SYSTEM = (
     "что он хочет, и верни СТРОГО JSON: {\"action\": \"...\", \"param\": \"...\"}.\n"
     "Возможные action и param:\n"
     "- open_app — открыть/развернуть программу. param: одно из "
-    "[steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer, gopro]\n"
+    "[steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, "
+    "race_engineer, gopro, trading_paints]\n"
     "  ВАЖНО различай: telegram — мессенджер Телеграм; rutonychat — отдельная программа "
-    "для чата стрима (НЕ телеграм). race_engineer — наш дашборд; gopro — камера.\n"
+    "для чата стрима (НЕ телеграм). race_engineer — наш дашборд; gopro — камера; "
+    "trading_paints — программа для ливрей/раскрасок машин (если просят 'ливреи').\n"
     "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
     "- make_clip — сделать клип на твиче. param пустой\n"
     "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
