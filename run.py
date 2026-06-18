@@ -24,6 +24,7 @@ from ire.metrics.strategy import StrategyTracker
 from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        fuel_capacity, damage_status)
 from ire.collector.race_state import race_extras
+from ire.voice.engineer import VoiceEngineer, announce
 from ire.collector.stint_recorder import StintDetector
 from ire.dashboard.server import app, STATE
 
@@ -52,6 +53,8 @@ def main():
     frames = []
     lap_log = []          # история времён кругов (для блока «Лог кругов»)
     last_logged_lap = None
+    voice = VoiceEngineer()
+    best_seen = None      # для озвучки личного рекорда
     try:
         while True:
             if not _connected(ir):
@@ -77,6 +80,14 @@ def main():
                     last_logged_lap = race["lap"]
                 race["lap_log"] = lap_log[-20:]              # последние 20 кругов
                 STATE["race"] = race
+                # голосовой инженер: флаги, предупреждения, мало топлива
+                announce(voice, race, STATE["strategy"])
+                # личный рекорд круга
+                blt = race.get("best_lap_time")
+                if blt and blt > 0:
+                    if best_seen is not None and blt < best_seen - 0.01:
+                        voice.say("Личный рекорд", key="best")
+                    best_seen = blt if best_seen is None else min(best_seen, blt)
             except Exception as e:
                 if not getattr(main, "_strat_warned", False):
                     print("Стратегия/гонка: ошибка чтения каналов:", e)
@@ -100,6 +111,7 @@ def main():
                     )
                     STATE["result"] = res
                     print("Готово. Разбор на дашборде.")
+                    voice.say("Разбор заезда готов")
                 except Exception as e:                    # анализ не должен ронять цикл
                     STATE["result"]["explanation_error"] = str(e)
                     print("Разбор от Claude недоступен (метрики на дашборде есть):", e)

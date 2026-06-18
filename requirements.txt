@@ -3,4 +3,5 @@ fastapi
 uvicorn[standard]
 httpx
 anthropic
+pyttsx3
 pytest
