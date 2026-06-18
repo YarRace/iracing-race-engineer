@@ -257,7 +257,7 @@ APPS = [
     (["мозу", "моза", "мозы", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Мозу", "Pit House"),
     (["дискорд", "discord"], _launch_discord, "Дискорд", "Discord"),
     (["браузер", "хром", "chrome", "гугл"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "браузер", "Chrome"),
-    (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"D:\SteamLibrary\steamapps\common\iRacing\ui\iRacingUI.exe", "Айрейсинг", "iRacing"),
+    (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"C:\Program Files (x86)\Steam\steamapps\common\iRacing\ui\iRacingUI.exe", "Айрейсинг", "iRacing"),
     (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Амнезию", "Amnezia"),
 ]
 
