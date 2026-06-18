@@ -193,7 +193,7 @@ APPS = [
     (["обс", "о бэ эс", "о б с", "obs"], r"C:\Program Files\obs-studio\bin\64bit\obs64.exe", "Запускаю О Б С"),
     (["мозу", "моза", "мозы", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Открываю Мозу"),
     (["дискорд", "discord"], _launch_discord, "Открываю Дискорд"),
-    (["хром", "chrome", "гугл", "браузер"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "Открываю Хром"),
+    (["браузер", "хром", "chrome", "гугл"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "Открываю браузер"),
     (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"D:\SteamLibrary\steamapps\common\iRacing\ui\iRacingUI.exe", "Запускаю Айрейсинг"),
     (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Открываю Амнезию"),
 ]
