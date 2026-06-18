@@ -256,6 +256,23 @@ def _launch_race_engineer():
     return False
 
 
+def _launch_admin(path):
+    """Запуск программы ОТ ИМЕНИ АДМИНИСТРАТОРА (всплывёт окно UAC — подтвердить «Да»)."""
+    import ctypes
+    if not os.path.exists(path):
+        return False
+    try:
+        rc = ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", path, None, os.path.dirname(path), 1)
+        return rc > 32
+    except Exception:
+        return False
+
+
+def _launch_gopro():
+    return _launch_admin(r"C:\Program Files (x86)\GoPro\GoPro Webcam\GoPro Webcam.exe")
+
+
 # Каталог приложений: (ключевые слова, чем запускать, что сказать, текст-заголовка-окна).
 # Сначала Дима ищет уже открытое окно (даже свёрнутое) и разворачивает; если нет — запускает.
 APPS = [
@@ -268,6 +285,7 @@ APPS = [
     (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"C:\Program Files (x86)\Steam\steamapps\common\iRacing\ui\iRacingUI.exe", "Айрейсинг", "iRacing"),
     (["амнези", "amnezia", "впн", "vpn"], r"C:\Program Files\AmneziaVPN\AmneziaVPN.exe", "Амнезию", "Amnezia"),
     (["инженер", "гоночн", "рейс инженер", "race engineer", "race_engineer", "дашборд"], _launch_race_engineer, "Гоночного инженера", "Race Engineer"),
+    (["камер", "гопро", "gopro", "вебкам", "webcam"], _launch_gopro, "Камеру", "GoPro Webcam"),
 ]
 
 
@@ -289,8 +307,8 @@ ROUTER_SYSTEM = (
     "что он хочет, и верни СТРОГО JSON: {\"action\": \"...\", \"param\": \"...\"}.\n"
     "Возможные action и param:\n"
     "- open_app — открыть/развернуть программу. param: одно из "
-    "[steam, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer]\n"
-    "  (race_engineer — наш гоночный инженер/дашборд в браузере)\n"
+    "[steam, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer, gopro]\n"
+    "  (race_engineer — наш гоночный инженер/дашборд; gopro — камера GoPro Webcam)\n"
     "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
     "- make_clip — сделать клип на твиче. param пустой\n"
     "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
