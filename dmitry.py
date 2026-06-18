@@ -346,9 +346,6 @@ ROUTER_SYSTEM = (
     "для чата стрима (НЕ телеграм). race_engineer — наш дашборд; gopro — камера; "
     "trading_paints — программа для ливрей/раскрасок машин (если просят 'ливреи'); "
     "kapps — гоночный оверлей (если просят 'оверлей' или 'капс').\n"
-    "- telegram_send — отправить сообщение в чат Telegram. "
-    "param: ОБЪЕКТ {\"chat\": \"название чата\", \"text\": \"текст сообщения\"}. "
-    "Пример: 'напиши маме что буду через час' -> {\"chat\":\"мама\",\"text\":\"буду через час\"}\n"
     "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
     "- make_clip — сделать клип на твиче. param пустой\n"
     "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
@@ -375,11 +372,6 @@ def _open_named_app(name):
 def execute(decision):
     """Выполняет решение роутера и возвращает фразу для озвучки."""
     a = (decision.get("action") or "answer").lower()
-    if a == "telegram_send":                           # param = {"chat":..., "text":...}
-        prm = decision.get("param") or {}
-        if isinstance(prm, dict):
-            return send_telegram(prm.get("chat", ""), prm.get("text", ""))
-        return "Не понял, в какой чат и что написать"
     p = (decision.get("param") or "")
     pl = p.lower() if isinstance(p, str) else ""
     if a == "open_app":
@@ -481,38 +473,6 @@ def route_intent(text):
         return json.loads(r.json()["message"]["content"])
     except Exception as e:
         return {"action": "answer", "param": f"Не смог обработать: {e}"}
-
-
-def send_telegram(chat_name, text):
-    """Отправляет сообщение в чат Telegram по части названия (через Telethon)."""
-    cfg_path = os.path.join(_ROOT, "tg_config.json")
-    if not os.path.exists(cfg_path):
-        return "Телеграм ещё не настроен"
-    if not chat_name or not text:
-        return "Скажи, в какой чат и что написать"
-    try:
-        import json as _json
-        import asyncio as _aio
-        from telethon import TelegramClient
-        cfg = _json.load(open(cfg_path, encoding="utf-8"))
-        sess = os.path.join(_ROOT, "dmitry_tg")
-
-        async def _go():
-            async with TelegramClient(sess, cfg["api_id"], cfg["api_hash"]) as client:
-                target = None
-                async for d in client.iter_dialogs():
-                    if chat_name.lower() in (d.name or "").lower():
-                        target = d
-                        break
-                if target is None:
-                    return None
-                await client.send_message(target.entity, text)
-                return target.name
-
-        name = _aio.run(_go())
-        return f"Отправил в чат {name}" if name else f"Не нашёл чат {chat_name}"
-    except Exception as e:
-        return f"Ошибка телеграма: {e}"
 
 
 def ask_ollama(question):
