@@ -315,6 +315,7 @@ APPS = [
     (["инженер", "гоночн", "рейс инженер", "race engineer", "race_engineer", "дашборд"], _launch_race_engineer, "Гоночного инженера", "Race Engineer"),
     (["камер", "гопро", "gopro", "вебкам", "webcam"], _launch_gopro, "Камеру", "GoPro Webcam"),
     (["трейдинг", "пейнтс", "пэйнтс", "ливре", "trading paints", "trading_paints", "трейдинг пейнтс"], r"C:\Program Files (x86)\Rhinode LLC\Trading Paints\Trading Paints.exe", "Трейдинг Пейнтс", "Trading Paints"),
+    (["капс", "капп", "kapps", "оверлей", "оверлэй", "overlay"], r"C:\Users\Ярослав\AppData\Local\kapps\Kapps.exe", "Капс", "Kapps"),
 ]
 
 
@@ -337,13 +338,14 @@ ROUTER_SYSTEM = (
     "Возможные action и param:\n"
     "- minimize_app — свернуть окно ЛЮБОЙ программы из списка ниже. param: то же имя из списка "
     "(steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer, "
-    "gopro, trading_paints) или 'all' — свернуть все окна.\n"
+    "gopro, trading_paints, kapps) или 'all' — свернуть все окна.\n"
     "- open_app — открыть/развернуть программу. param: одно из "
     "[steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, "
-    "race_engineer, gopro, trading_paints]\n"
+    "race_engineer, gopro, trading_paints, kapps]\n"
     "  ВАЖНО различай: telegram — мессенджер Телеграм; rutonychat — отдельная программа "
     "для чата стрима (НЕ телеграм). race_engineer — наш дашборд; gopro — камера; "
-    "trading_paints — программа для ливрей/раскрасок машин (если просят 'ливреи').\n"
+    "trading_paints — программа для ливрей/раскрасок машин (если просят 'ливреи'); "
+    "kapps — гоночный оверлей (если просят 'оверлей' или 'капс').\n"
     "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
     "- make_clip — сделать клип на твиче. param пустой\n"
     "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
