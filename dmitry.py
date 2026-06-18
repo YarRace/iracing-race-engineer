@@ -191,7 +191,7 @@ def _launch_discord():
 APPS = [
     (["стим", "steam"], r"C:\Program Files (x86)\Steam\Steam.exe", "Открываю Стим"),
     (["обс", "о бэ эс", "о б с", "obs"], r"C:\Program Files\obs-studio\bin\64bit\obs64.exe", "Запускаю О Б С"),
-    (["моза", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Запускаю Моза Питхаус"),
+    (["мозу", "моза", "мозы", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Открываю Мозу"),
     (["дискорд", "discord"], _launch_discord, "Открываю Дискорд"),
     (["хром", "chrome", "гугл", "браузер"], r"C:\Program Files\Google\Chrome\Application\chrome.exe", "Открываю Хром"),
     (["айрейсинг", "айресинг", "рейсинг", "iracing", "симулятор"], r"D:\SteamLibrary\steamapps\common\iRacing\ui\iRacingUI.exe", "Запускаю Айрейсинг"),
