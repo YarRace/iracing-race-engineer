@@ -190,6 +190,7 @@ def _launch_discord():
 # Запуск: строка-путь ИЛИ функция. Добавлять новые — просто дописать строку сюда.
 APPS = [
     (["стим", "steam"], r"C:\Program Files (x86)\Steam\Steam.exe", "Открываю Стим"),
+    (["рутони", "рутон", "рута не", "рутэни", "rutony", "рутони чат"], r"D:\SteamLibrary\steamapps\common\RutonyChat\RutonyChat.exe", "Запускаю Рутони чат"),
     (["обс", "о бэ эс", "о б с", "obs"], r"C:\Program Files\obs-studio\bin\64bit\obs64.exe", "Запускаю О Б С"),
     (["мозу", "моза", "мозы", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Открываю Мозу"),
     (["дискорд", "discord"], _launch_discord, "Открываю Дискорд"),
