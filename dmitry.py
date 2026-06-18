@@ -235,6 +235,33 @@ SITES = [
 ]
 
 
+def _minimize_window(title_substr):
+    """Свернуть все окна, содержащие title_substr в заголовке. True — если свернули хоть одно."""
+    try:
+        import pygetwindow as gw
+    except Exception:
+        return False
+    sub = title_substr.lower()
+    done = False
+    for w in gw.getAllWindows():
+        title = (w.title or "").strip()
+        if title and sub in title.lower():
+            try:
+                w.minimize(); done = True
+            except Exception:
+                pass
+    return done
+
+
+def _minimize_named_app(name):
+    name = (name or "").lower()
+    for keys, _l, disp, win in APPS:
+        if name and (name in keys or name in disp.lower()
+                     or any(name in k or k in name for k in keys)):
+            return f"Свернул {disp}" if (win and _minimize_window(win)) else f"{disp} не открыт"
+    return "Не знаю такое приложение"
+
+
 def _launch_path(path):
     if path and os.path.exists(path):
         subprocess.Popen([path]); return True
@@ -308,6 +335,7 @@ ROUTER_SYSTEM = (
     "Ты — Дмитрий, голосовой ассистент гонщика в iRacing. По реплике гонщика реши, "
     "что он хочет, и верни СТРОГО JSON: {\"action\": \"...\", \"param\": \"...\"}.\n"
     "Возможные action и param:\n"
+    "- minimize_app — свернуть окно программы. param: то же имя из списка ниже (или 'all' — свернуть всё).\n"
     "- open_app — открыть/развернуть программу. param: одно из "
     "[steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, "
     "race_engineer, gopro, trading_paints]\n"
@@ -344,6 +372,11 @@ def execute(decision):
     pl = p.lower()
     if a == "open_app":
         return _open_named_app(pl)
+    if a == "minimize_app":
+        if pl in ("all", "все", "всё"):
+            import keyboard
+            keyboard.send("windows+d"); return "Свернул всё"
+        return _minimize_named_app(pl)
     if a == "switch_tab":
         target = "twitch" if ("twi" in pl or "твич" in pl) else "youtube"
         nm = "Твич" if target == "twitch" else "Ютуб"
@@ -378,6 +411,14 @@ def quick_match(text):
         if _switch_chrome_tab("twitch"):
             time.sleep(0.3); keyboard.send("alt+x"); return "Делаю клип"
         return "Не нашёл вкладку Твич"
+    if any(w in t for w in ("сверни", "свернуть", "сворачивай", "скрой")):
+        if "все" in t or "всё" in t:                      # свернуть все окна
+            import keyboard
+            keyboard.send("windows+d"); return "Свернул всё"
+        for keys, _l, disp, win in APPS:
+            if any(k in t for k in keys):
+                return f"Свернул {disp}" if (win and _minimize_window(win)) else f"{disp} не открыт"
+        return None
     launch_trig = any(w in t for w in ("открой", "открыть", "запусти", "запускай",
                                        "включи", "врубай", "разверни", "давай"))
     if launch_trig:
