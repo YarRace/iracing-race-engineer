@@ -277,6 +277,7 @@ def _launch_gopro():
 # Сначала Дима ищет уже открытое окно (даже свёрнутое) и разворачивает; если нет — запускает.
 APPS = [
     (["стим", "steam"], r"C:\Program Files (x86)\Steam\Steam.exe", "Стим", "Steam"),
+    (["телеграм", "телеграмм", "telegram", "тэгэ", "тэ гэ"], r"C:\Users\Ярослав\AppData\Roaming\Telegram Desktop\Telegram.exe", "Телеграм", "Telegram"),
     (["рутони", "рутон", "рута не", "рутэни", "rutony", "рутони чат"], r"D:\SteamLibrary\steamapps\common\RutonyChat\RutonyChat.exe", "Рутони чат", "RutonyChat"),
     (["обс", "о бэ эс", "о б с", "obs"], r"C:\Program Files\obs-studio\bin\64bit\obs64.exe", "О Б С", "OBS"),
     (["мозу", "моза", "мозы", "питхаус", "пит хаус", "pit house"], r"C:\Program Files (x86)\MOZA Pit House\MOZA Pit House.exe", "Мозу", "Pit House"),
@@ -307,8 +308,9 @@ ROUTER_SYSTEM = (
     "что он хочет, и верни СТРОГО JSON: {\"action\": \"...\", \"param\": \"...\"}.\n"
     "Возможные action и param:\n"
     "- open_app — открыть/развернуть программу. param: одно из "
-    "[steam, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer, gopro]\n"
-    "  (race_engineer — наш гоночный инженер/дашборд; gopro — камера GoPro Webcam)\n"
+    "[steam, telegram, rutonychat, obs, moza, discord, chrome, iracing, amnezia, race_engineer, gopro]\n"
+    "  ВАЖНО различай: telegram — мессенджер Телеграм; rutonychat — отдельная программа "
+    "для чата стрима (НЕ телеграм). race_engineer — наш дашборд; gopro — камера.\n"
     "- switch_tab — переключиться на вкладку сайта в браузере. param: [twitch, youtube]\n"
     "- make_clip — сделать клип на твиче. param пустой\n"
     "- media — музыка. param: [next, prev, playpause, volup, voldown]\n"
