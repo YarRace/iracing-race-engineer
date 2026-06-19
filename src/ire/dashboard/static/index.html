@@ -346,7 +346,7 @@ async function tickRace(){
       let sct = '';
       if(x.sectors && x.sectors.length){
         sct = `<tr><td colspan="2" style="padding-top:2px;padding-bottom:6px;border-bottom:1px solid #333">` +
-          x.sectors.map((s,i)=>`<span style="color:#9099a6;font-size:12px;margin-right:12px">C${i+1} <span style="color:${scol(s,i)}">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
+          x.sectors.map((s,i)=>`<span style="color:#9099a6;font-size:12px;margin-right:12px">S${i+1} <span style="color:${scol(s,i)}">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
           `</td></tr>`;
       }
       return `<tr><td>круг ${x.lap}</td>
