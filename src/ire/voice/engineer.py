@@ -123,8 +123,8 @@ def announce(voice, race, strategy):
             voice.say(phrase, key="flag")
         else:
             voice._last["flag"] = None          # сброс, чтобы новый флаг снова прозвучал
-        for w in (race.get("warnings") or []):
-            voice.say(w["label"], key="warn_" + w["key"])
+        # предупреждения двигателя НЕ озвучиваем: в боксе/на старте мотор холодный
+        # и даёт ложные «давление масла/воды» — на дашборде они видны, а голос молчит.
     if strategy:
         lof = strategy.get("laps_on_fuel")
         if lof is not None and lof <= 2.0 and strategy.get("avg_burn"):

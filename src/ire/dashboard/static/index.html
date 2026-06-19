@@ -329,16 +329,28 @@ async function tickRace(){
               card('Лучший круг', lapTime(r.best_lap_time), 'сессии')];
   let timing = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">${tb.join('')}</div>`;
   if(r.lap_log && r.lap_log.length){
-    const best = Math.min(...r.lap_log.map(x=>x.time));
-    const rows = r.lap_log.slice().reverse().map(x=>{
+    const log = r.lap_log;
+    // лучший/худший круг и сектор ЗА ВСЮ ГОНКУ → фиолетовый/зелёный/красный
+    const PURPLE='#c77dff', GREEN='#2ecc71', RED='#e74c3c', GREY='#9099a6';
+    const tcol = (v,mn,mx)=> (v==null||v<=0)?'#e8eaed' : (v===mn?PURPLE:(v===mx?RED:GREEN));
+    const times = log.map(x=>x.time).filter(t=>t>0);
+    const bestLap = times.length?Math.min(...times):null, worstLap = times.length?Math.max(...times):null;
+    const nsec = Math.max(0,...log.map(x=>(x.sectors||[]).length));
+    const sMin=[], sMax=[];
+    for(let i=0;i<nsec;i++){
+      const vals = log.map(x=>(x.sectors||[])[i]).filter(v=>v!=null&&v>0);
+      sMin[i]=vals.length?Math.min(...vals):null; sMax[i]=vals.length?Math.max(...vals):null;
+    }
+    const scol = (v,i)=> (v==null||v<=0)?GREY : (v===sMin[i]?PURPLE:(v===sMax[i]?RED:GREEN));
+    const rows = log.slice().reverse().map(x=>{
       let sct = '';
       if(x.sectors && x.sectors.length){
         sct = `<tr><td colspan="2" style="padding-top:2px;padding-bottom:6px;border-bottom:1px solid #333">` +
-          x.sectors.map((s,i)=>`<span style="color:#9099a6;font-size:12px;margin-right:12px">С${i+1} <span style="color:#cdd3dc">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
+          x.sectors.map((s,i)=>`<span style="color:#9099a6;font-size:12px;margin-right:12px">C${i+1} <span style="color:${scol(s,i)}">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
           `</td></tr>`;
       }
       return `<tr><td>круг ${x.lap}</td>
-        <td class="chg" style="text-align:right;color:${x.time===best?'#2ecc71':'#e8eaed'}">${lapTime(x.time)}</td></tr>${sct}`;
+        <td class="chg" style="text-align:right;color:${tcol(x.time,bestLap,worstLap)}">${lapTime(x.time)}</td></tr>${sct}`;
     }).join('');
     timing += `<table style="margin-top:8px">${rows}</table>`;
   }
