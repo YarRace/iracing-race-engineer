@@ -24,6 +24,7 @@ from ire.metrics.strategy import StrategyTracker
 from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        fuel_capacity, damage_status)
 from ire.collector.race_state import race_extras, SectorTimer, sector_starts
+from ire.collector.standings import build_standings
 from ire.voice.engineer import VoiceEngineer, announce, spotter_phrase
 from ire.collector.stint_recorder import StintDetector
 from ire.dashboard.server import app, STATE
@@ -80,6 +81,7 @@ def main():
     best_seen = None      # для озвучки личного рекорда
     last_lr = None        # споттер: прошлое состояние соседних машин
     last_sess = None      # ключ сессии — для авто-сброса при смене
+    frame_n = 0           # счётчик кадров для троттлинга standings
     try:
         while True:
             if not _connected(ir):
@@ -127,6 +129,9 @@ def main():
                     last_logged_lap = race["lap"]
                 race["lap_log"] = lap_log[-20:]              # последние 20 кругов
                 STATE["race"] = race
+                frame_n += 1
+                if frame_n % 15 == 0:                        # таблица ~4 раза/сек
+                    STATE["standings"] = build_standings(ir)
                 # споттер: машина слева/справа (как встроенный споттер iRacing)
                 cur_lr = race.get("car_left_right")
                 sp = spotter_phrase(last_lr, cur_lr)

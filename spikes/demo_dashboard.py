@@ -82,5 +82,20 @@ STATE["race"] = {
                 {"lap": 12, "time": 95.81, "sectors": [28.3, 34.1, 33.4]}],
 }
 
+STATE["standings"] = [
+    {"pos": 1, "number": "1", "name": "A. Pulgar", "irating": 3400, "gap": 0.0,
+     "last": 87.189, "best": 86.9, "lap": 18, "on_pit": False, "is_player": False},
+    {"pos": 2, "number": "18", "name": "M. Malone", "irating": 3400, "gap": 8.932,
+     "last": 95.344, "best": 94.1, "lap": 18, "on_pit": False, "is_player": False},
+    {"pos": 3, "number": "35", "name": "P. Araujo", "irating": 1600, "gap": 12.252,
+     "last": 85.160, "best": 85.0, "lap": 18, "on_pit": False, "is_player": False},
+    {"pos": 4, "number": "52", "name": "C. Kirwan", "irating": 3600, "gap": 17.646,
+     "last": 89.376, "best": 88.9, "lap": 18, "on_pit": False, "is_player": True},
+    {"pos": 5, "number": "69", "name": "T. Meier", "irating": 5100, "gap": 21.714,
+     "last": 87.648, "best": 87.2, "lap": 18, "on_pit": True, "is_player": False},
+    {"pos": 6, "number": "86", "name": "D. Grabovsky", "irating": 1000, "gap": 27.510,
+     "last": 97.584, "best": 96.0, "lap": 17, "on_pit": False, "is_player": False},
+]
+
 print("Демо-дашборд: http://localhost:8000  (Ctrl+C — выход)")
 uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")

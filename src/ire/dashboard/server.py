@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 import os
 
 app = FastAPI()
-STATE = {"live": {}, "result": {}, "strategy": {}, "damage": {}, "race": {}}
+STATE = {"live": {}, "result": {}, "strategy": {}, "damage": {}, "race": {}, "standings": []}
 
 @app.get("/api/live")
 def live(): return STATE["live"]
@@ -19,6 +19,9 @@ def damage(): return STATE["damage"]
 
 @app.get("/api/race")
 def race(): return STATE["race"]
+
+@app.get("/api/standings")
+def standings(): return STATE["standings"]
 
 @app.get("/")
 def index():
