@@ -11,3 +11,4 @@ pygetwindow
 pytest
 pycaw
 comtypes
+PySide6
