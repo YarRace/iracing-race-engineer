@@ -324,7 +324,7 @@ async function tickRace(){
     $('rpmv').textContent = Math.round(r.rpm) + (r.rpm>=r.shift_rpm ? '  ↑ переключай' : '');
   }
 
-  const tb = [card('Текущий круг', lapTime(r.cur_lap_time), 'идёт'),
+  const tb = [card('Последний круг', lapTime(r.last_lap_time), 'завершённый'),
               card('Прогноз круга', lapTime(r.predicted), 'к финишу по темпу'),
               card('Лучший круг', lapTime(r.best_lap_time), 'сессии')];
   let timing = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">${tb.join('')}</div>`;
