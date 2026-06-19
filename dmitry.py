@@ -57,7 +57,10 @@ from faster_whisper import WhisperModel
 
 SAMPLE_RATE = 16000
 LANGUAGE = "ru"
-WHISPER_MODEL = os.environ.get("DMITRY_WHISPER", "large-v3")   # точное распознавание
+# CPU по умолчанию: чтобы Whisper НЕ грузил видеокарту и iRacing не фризил при вопросе.
+# medium на CPU — баланс качества/скорости (~5с на фразу).
+WHISPER_MODEL = os.environ.get("DMITRY_WHISPER", "medium")
+WHISPER_DEVICE = os.environ.get("DMITRY_DEVICE", "cpu")
 BUTTON_INDEX = int(os.environ.get("DMITRY_BUTTON", "19"))   # кнопка 20 на руле = индекс 19
 VOICE = "ru-RU-DmitryNeural"
 VOL_FILE = os.path.join(_ROOT, "dmitry_volume.txt")   # запоминаем громкость между запусками
@@ -116,13 +119,15 @@ def speak(text):
 
 def load_model():
     global model
-    print(f"Загружаю Whisper ({WHISPER_MODEL})…", flush=True)
+    dev = WHISPER_DEVICE
+    ct = "int8" if dev == "cpu" else "float16"
+    print(f"Загружаю Whisper ({WHISPER_MODEL}, {dev})…", flush=True)
     try:
-        m = WhisperModel(WHISPER_MODEL, device="cuda", compute_type="float16")
+        m = WhisperModel(WHISPER_MODEL, device=dev, compute_type=ct)
         list(m.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), language=LANGUAGE)[0])
-        print("Whisper готов (GPU).", flush=True)
-    except Exception as e:
-        print(f"GPU недоступен ({e}); CPU.", flush=True)
+        print(f"Whisper готов ({dev.upper()}).", flush=True)
+    except Exception as e:                              # запасной путь на CPU
+        print(f"{dev} не вышло ({e}); пробую CPU.", flush=True)
         m = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
         list(m.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), language=LANGUAGE)[0])
         print("Whisper готов (CPU).", flush=True)
