@@ -92,6 +92,27 @@ _FLAG_PHRASES = {
 }
 
 
+# Споттер: фразы по CarLeftRight (как встроенный споттер iRacing).
+_SPOTTER = {
+    1: "Слева",
+    2: "Справа",
+    3: "С обеих сторон",
+    4: "Двое слева",
+    5: "Двое справа",
+}
+
+
+def spotter_phrase(prev_lr, cur_lr):
+    """Фраза споттера при ИЗМЕНЕНИИ состояния соседних машин. None — если молчать."""
+    if cur_lr == prev_lr:
+        return None
+    if cur_lr in _SPOTTER:
+        return _SPOTTER[cur_lr]
+    if cur_lr == 0 and prev_lr not in (None, 0):   # сосед уехал
+        return "Чисто"
+    return None
+
+
 def announce(voice, race, strategy):
     """Озвучивает значимые изменения по снимкам race/strategy. Идемпотентно (антиспам)."""
     if race:

@@ -185,5 +185,6 @@ def race_extras(ir):
         "energy_pct": g["energy_pct"], "deploy_pct": g["deploy_pct"],
         "gap_ahead": ahead, "gap_behind": behind,
         "standing_ahead": st_ahead, "standing_behind": st_behind,
+        "car_left_right": g["car_left_right"],
         "lap": g["lap"], "on_pit": bool(g["on_pit"]),
     }

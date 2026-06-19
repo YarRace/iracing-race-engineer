@@ -86,6 +86,7 @@ RACE_SCALAR = {
     "energy_pct": "EnergyERSBatteryPct",      # заряд гибридной батареи 0..1 (GTP)
     "deploy_pct": "EnergyMGU_KLapDeployPct",  # деплой энергии за круг 0..1
     "on_pit": "OnPitRoad",
+    "car_left_right": "CarLeftRight",         # споттер: 0 чисто,1 слева,2 справа,3 обе,4 2слева,5 2справа
 }
 # Для gap до соперников — массивы по индексам машин + свой индекс из DriverInfo.
 RACE_ARRAYS = {
