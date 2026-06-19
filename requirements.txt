@@ -3,12 +3,5 @@ fastapi
 uvicorn[standard]
 httpx
 anthropic
-pyttsx3
-edge-tts
-playsound==1.2.2
-pygame
-pygetwindow
 pytest
-pycaw
-comtypes
 PySide6

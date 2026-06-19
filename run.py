@@ -25,7 +25,6 @@ from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        fuel_capacity, damage_status)
 from ire.collector.race_state import race_extras, SectorTimer, sector_starts
 from ire.collector.standings import build_standings
-from ire.voice.engineer import VoiceEngineer, announce, spotter_phrase
 from ire.collector.stint_recorder import StintDetector
 from ire.dashboard.server import app, STATE
 
@@ -47,14 +46,13 @@ def _session_key(ir):
     return (ir["SessionNum"], wk.get("SubSessionID"), ir["SessionUniqueID"])
 
 
-def _analyze_bg(frames, setup, conditions, voice):
+def _analyze_bg(frames, setup, conditions):
     """Разбор стинта В ФОНЕ — не блокирует live-цикл (LLM считается минуты)."""
     try:
         STATE["result"] = {"symptoms": build_symptoms(frames, conditions), "analyzing": True}
         res = orchestrator.analyze_stint(frames, setup_path=setup, conditions=conditions)
         STATE["result"] = res
         print("Готово. Разбор на дашборде.")
-        voice.say("Разбор заезда готов")
     except Exception as e:
         r = STATE.get("result") or {}
         r["analyzing"] = False
@@ -77,9 +75,6 @@ def main():
     frames = []
     lap_log = []          # история времён кругов (для блока «Лог кругов»)
     last_logged_lap = None
-    voice = VoiceEngineer()
-    best_seen = None      # для озвучки личного рекорда
-    last_lr = None        # споттер: прошлое состояние соседних машин
     last_sess = None      # ключ сессии — для авто-сброса при смене
     frame_n = 0           # счётчик кадров для троттлинга standings
     try:
@@ -94,13 +89,11 @@ def main():
             if sess != last_sess:
                 if last_sess is not None:
                     print("Новая сессия — сбрасываю данные дашборда.")
-                    voice.say("Новая сессия")
                 tracker = None
                 sector_timer = None
                 frames = []
                 lap_log = []
                 last_logged_lap = None
-                best_seen = None
                 det = StintDetector()
                 STATE["result"] = {}
                 STATE["strategy"] = {}
@@ -112,7 +105,6 @@ def main():
                 # прогрев LLM в фоне, пока едешь — первый разбор будет быстрым
                 threading.Thread(target=warm_up, daemon=True).start()
                 print("Прогрев модели в фоне…")
-                voice.say("Инженер Дмитрий на связи. Поехали.")
             # стратегия считается всегда, пока в сессии (топливо/износ по кругам)
             try:
                 tracker.update(**strategy_inputs(ir))
@@ -132,20 +124,6 @@ def main():
                 frame_n += 1
                 if frame_n % 15 == 0:                        # таблица ~4 раза/сек
                     STATE["standings"] = build_standings(ir)
-                # споттер: машина слева/справа (как встроенный споттер iRacing)
-                cur_lr = race.get("car_left_right")
-                sp = spotter_phrase(last_lr, cur_lr)
-                if sp:
-                    voice.say(sp, key="spotter")
-                last_lr = cur_lr
-                # голосовой инженер: флаги, предупреждения, мало топлива
-                announce(voice, race, STATE["strategy"])
-                # личный рекорд круга
-                blt = race.get("best_lap_time")
-                if blt and blt > 0:
-                    if best_seen is not None and blt < best_seen - 0.01:
-                        voice.say("Личный рекорд", key="best")
-                    best_seen = blt if best_seen is None else min(best_seen, blt)
             except Exception as e:
                 if not getattr(main, "_strat_warned", False):
                     print("Стратегия/гонка: ошибка чтения каналов:", e)
@@ -161,7 +139,7 @@ def main():
                 conditions = {"track_temp": frames[0]["track_temp"]}
                 threading.Thread(
                     target=_analyze_bg,
-                    args=(list(frames), ir["CarSetup"], conditions, voice),
+                    args=(list(frames), ir["CarSetup"], conditions),
                     daemon=True,
                 ).start()
                 frames = []
