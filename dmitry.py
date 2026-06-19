@@ -489,6 +489,61 @@ def quick_match(text):
     return None
 
 
+def _get(ep):
+    try:
+        return httpx.get(f"{DASH}/api/{ep}", timeout=0.6).json()
+    except Exception:
+        return {}
+
+
+def quick_answer(text):
+    """Прямой ТОЧНЫЙ ответ на вопрос о гонке из дашборда (без Ollama). None — если не про гонку."""
+    t = text.lower()
+    race_words = ["топлив", "бензин", "позиц", "место", "разрыв", "впереди", "до след",
+                  "сзади", "позади", "отстаю", "опереж", "сколько кругов", "осталось круг",
+                  "лучший круг", "какой круг", "флаг", "соперник", "до машины"]
+    if not any(w in t for w in race_words):
+        return None
+    strat = _get("strategy")
+    race = _get("race")
+    if not strat.get("avg_burn") and not race.get("position"):
+        return "Данных гонки нет. Запусти Гонку и выезжай на трассу."
+    if "топлив" in t or "бензин" in t:
+        f = strat.get("fuel"); lof = strat.get("laps_on_fuel"); add = strat.get("fuel_to_add")
+        if f is not None:
+            s = f"Топлива {f} литров"
+            if lof is not None:
+                s += f", хватит примерно на {round(lof)} кругов"
+            if add:
+                s += f". На пите долить {add}"
+            return s
+    if "позиц" in t or "место" in t:
+        if race.get("position"):
+            return f"Ты на {race['position']} позиции"
+    if "впереди" in t or "до след" in t or "до машины" in t or ("разрыв" in t and "сзади" not in t):
+        ga = race.get("standing_ahead")
+        if ga is None:
+            ga = race.get("gap_ahead")
+        return f"До машины впереди {ga} секунд" if ga is not None else "Впереди никого рядом"
+    if "сзади" in t or "позади" in t:
+        gb = race.get("standing_behind")
+        if gb is None:
+            gb = race.get("gap_behind")
+        return f"Сзади {gb} секунд" if gb is not None else "Сзади никого рядом"
+    if "сколько кругов" in t or "осталось круг" in t:
+        ltg = strat.get("laps_to_go")
+        return f"До конца {ltg} кругов" if ltg else "Гонка без лимита кругов"
+    if "лучший круг" in t or "какой круг" in t:
+        bl = race.get("best_lap_time")
+        if bl:
+            m = int(bl // 60)
+            return f"Лучший круг {m} минут {round(bl - m*60)} секунд" if m else f"Лучший круг {round(bl,2)} секунд"
+    if "флаг" in t:
+        flags = race.get("flags") or []
+        return f"Сейчас {flags[0]['label']}" if flags else "Флагов нет, зелёная трасса"
+    return None
+
+
 def route_intent(text):
     """Ollama решает намерение по свободной речи → dict {action, param}."""
     import json
@@ -536,10 +591,13 @@ def process(frames):
     if not text:
         speak("Повтори, не расслышал"); return
     print("Ты:", text, flush=True)
-    quick = quick_match(text)                      # сначала быстрый матч (без LLM)
+    quick = quick_match(text)                      # сначала быстрый матч команд (без LLM)
     if quick is not None:
-        print("Дмитрий (быстро):", quick, flush=True); speak(quick); return
-    decision = route_intent(text)                 # иначе Ollama (свободная речь/вопросы)
+        print("Дмитрий (команда):", quick, flush=True); speak(quick); return
+    qa = quick_answer(text)                         # точный ответ о гонке из дашборда (без LLM)
+    if qa is not None:
+        print("Дмитрий (данные):", qa, flush=True); speak(qa); return
+    decision = route_intent(text)                 # иначе Ollama (свободная речь/общие вопросы)
     print("  намерение:", decision, flush=True)
     reply = execute(decision)
     print("Дмитрий:", reply, flush=True)
