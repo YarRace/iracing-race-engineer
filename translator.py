@@ -16,7 +16,7 @@ import numpy as np
 import soundcard as sc
 from deep_translator import GoogleTranslator
 from faster_whisper import WhisperModel
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QTextEdit, QLineEdit, QPushButton, QLabel)
@@ -135,6 +135,8 @@ class App(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Переводчик реального времени")
+        # поверх всех окон, но остаётся обычным окном (можно свернуть/закрыть)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
         self.resize(470, 600)
         self.setStyleSheet("background:#15181d;color:#e8eaed;font-family:Segoe UI;")
         lay = QVBoxLayout(self)
