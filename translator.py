@@ -12,6 +12,31 @@ import os
 import sys
 import threading
 
+
+def _add_nvidia_dll_dirs():
+    """Подсунуть CUDA-DLL из pip-пакетов nvidia-* в путь поиска (для GPU Whisper)."""
+    try:
+        import nvidia
+        bases = list(getattr(nvidia, "__path__", []))
+    except Exception:
+        return
+    for base in bases:
+        try:
+            subs = os.listdir(base)
+        except Exception:
+            continue
+        for name in subs:
+            d = os.path.join(base, name, "bin")
+            if os.path.isdir(d):
+                try:
+                    os.add_dll_directory(d)
+                except Exception:
+                    pass
+                os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
+
+
+_add_nvidia_dll_dirs()
+
 import numpy as np
 import soundcard as sc
 from deep_translator import GoogleTranslator
