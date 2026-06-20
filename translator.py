@@ -38,8 +38,12 @@ def _add_nvidia_dll_dirs():
 _add_nvidia_dll_dirs()
 
 import numpy as np
+import httpx
 import soundcard as sc
 from deep_translator import GoogleTranslator
+
+OLLAMA = os.environ.get("IRE_OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("IRE_OLLAMA_MODEL", "qwen2.5:7b")
 from faster_whisper import WhisperModel
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QFont, QGuiApplication
@@ -57,6 +61,29 @@ def translate(text, src, dst):
         return GoogleTranslator(source=src, target=dst).translate(text)
     except Exception:
         return "(ошибка перевода)"
+
+
+def translate_simple_en(ru):
+    """Русский → ПРОСТОЙ разговорный английский (короткие лёгкие слова) через Ollama.
+    Если Ollama недоступна — обычный перевод Google."""
+    try:
+        r = httpx.post(f"{OLLAMA}/api/chat", json={
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content":
+                 "Translate the user's Russian into SIMPLE spoken English. Use short, "
+                 "common, easy words (A2 level), natural and friendly. Keep it brief. "
+                 "Output ONLY the English translation, nothing else."},
+                {"role": "user", "content": ru},
+            ],
+            "stream": False, "keep_alive": "30m",
+            "options": {"temperature": 0.3, "num_predict": 120},
+        }, timeout=30)
+        r.raise_for_status()
+        out = r.json()["message"]["content"].strip().strip('"')
+        return out or translate(ru, "ru", "en")
+    except Exception:
+        return translate(ru, "ru", "en")
 
 
 class Engine(QObject):
@@ -165,8 +192,11 @@ class Engine(QObject):
 
 
 class App(QWidget):
+    out_ready = Signal(str)
+
     def __init__(self):
         super().__init__()
+        self.out_ready.connect(self._show_out)
         self.setWindowTitle("Переводчик реального времени")
         # поверх всех окон, но остаётся обычным окном (можно свернуть/закрыть)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
@@ -249,10 +279,16 @@ class App(QWidget):
         ru = self.input_ru.text().strip()
         if not ru:
             return
-        en = translate(ru, "ru", "en")
+        self.output_en.setPlainText("…")
+        threading.Thread(target=self._do_out, args=(ru,), daemon=True).start()
+        self.input_ru.clear()
+
+    def _do_out(self, ru):
+        self.out_ready.emit(translate_simple_en(ru))   # простой разговорный английский
+
+    def _show_out(self, en):
         self.output_en.setPlainText(en)
         QGuiApplication.clipboard().setText(en)
-        self.input_ru.clear()
 
     def translate_in(self):
         en = self.input_en.text().strip()
