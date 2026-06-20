@@ -63,9 +63,16 @@ def translate(text, src, dst):
         return "(ошибка перевода)"
 
 
+# Простой английский через Ollama включается ТОЛЬКО env TRANSLATOR_SIMPLE=1
+# (Ollama грузит видеокарту → может лагать iRacing; по умолчанию выключено).
+SIMPLE_EN = os.environ.get("TRANSLATOR_SIMPLE", "0") == "1"
+
+
 def translate_simple_en(ru):
-    """Русский → ПРОСТОЙ разговорный английский (короткие лёгкие слова) через Ollama.
-    Если Ollama недоступна — обычный перевод Google."""
+    """Русский → ПРОСТОЙ разговорный английский через Ollama. keep_alive=0 — модель
+    не висит в видеопамяти. Если выключено/недоступно — обычный перевод Google."""
+    if not SIMPLE_EN:
+        return translate(ru, "ru", "en")
     try:
         r = httpx.post(f"{OLLAMA}/api/chat", json={
             "model": OLLAMA_MODEL,
@@ -76,7 +83,7 @@ def translate_simple_en(ru):
                  "Output ONLY the English translation, nothing else."},
                 {"role": "user", "content": ru},
             ],
-            "stream": False, "keep_alive": "30m",
+            "stream": False, "keep_alive": 0,           # не держим модель в VRAM
             "options": {"temperature": 0.3, "num_predict": 120},
         }, timeout=30)
         r.raise_for_status()
