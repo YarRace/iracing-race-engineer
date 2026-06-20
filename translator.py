@@ -168,6 +168,17 @@ class App(QWidget):
         lay.addWidget(self._btn("⧉ Копировать английский",
                                 lambda: QGuiApplication.clipboard().setText(self.output_en.toPlainText())))
 
+        lay.addWidget(self._lbl("Перевести текст (EN → RU):", 13))
+        self.input_en = QLineEdit()
+        self.input_en.setPlaceholderText("Вставь английский текст и нажми Enter…")
+        self.input_en.setStyleSheet("background:#0d0f12;border:1px solid #2a2f38;border-radius:8px;padding:8px;font-size:15px;")
+        self.input_en.returnPressed.connect(self.translate_in)
+        lay.addWidget(self.input_en)
+        self.output_ru2 = QTextEdit(readOnly=True)
+        self.output_ru2.setStyleSheet("background:#11223a;border:1px solid #1f3f5a;border-radius:8px;font-size:16px;color:#fff;")
+        self.output_ru2.setMaximumHeight(90)
+        lay.addWidget(self.output_ru2)
+
         self.eng = Engine()
         self.eng.incoming.connect(self.on_incoming)
         self.eng.dictated.connect(self.on_dictated)
@@ -209,6 +220,13 @@ class App(QWidget):
         self.output_en.setPlainText(en)
         QGuiApplication.clipboard().setText(en)
         self.input_ru.clear()
+
+    def translate_in(self):
+        en = self.input_en.text().strip()
+        if not en:
+            return
+        self.output_ru2.setPlainText(translate(en, "en", "ru"))
+        self.input_en.clear()
 
 
 def main():
