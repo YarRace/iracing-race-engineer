@@ -47,8 +47,9 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QTextEdit, QLineEdit, QPushButton, QLabel)
 
 RATE = 16000
-# large-v3 на GPU (точно + быстро, видеокарта свободна вне гонки); medium CPU — запасной.
-MODEL_NAME = os.environ.get("TRANSLATOR_WHISPER", "large-v3")
+# CPU, чтобы НЕ грузить видеокарту и не лагать iRacing. medium — точность/скорость.
+MODEL_NAME = os.environ.get("TRANSLATOR_WHISPER", "medium")
+DEVICE = os.environ.get("TRANSLATOR_DEVICE", "cpu")
 
 
 def translate(text, src, dst):
@@ -72,18 +73,15 @@ class Engine(QObject):
         self._mic_buf = []
 
     def load(self):
-        self.status.emit(f"Загружаю распознавание ({MODEL_NAME})…")
-        try:                                            # сначала пробуем GPU + большую модель
-            self.model = WhisperModel(MODEL_NAME, device="cuda", compute_type="float16")
+        self.status.emit(f"Загружаю распознавание ({MODEL_NAME}, {DEVICE})…")
+        ct = "float16" if DEVICE == "cuda" else "int8"
+        try:
+            self.model = WhisperModel(MODEL_NAME, device=DEVICE, compute_type=ct,
+                                      cpu_threads=max(4, os.cpu_count() or 8))
             list(self.model.transcribe(np.zeros(RATE, dtype=np.float32), language="en")[0])
-            self.status.emit("Готово (GPU). Нажми «Слушать» или «Сказать».")
-        except Exception:
-            try:                                        # запасной — medium на CPU
-                self.model = WhisperModel("medium", device="cpu", compute_type="int8",
-                                          cpu_threads=max(4, os.cpu_count() or 8))
-                self.status.emit("Готово (CPU). Нажми «Слушать» или «Сказать».")
-            except Exception as e:
-                self.status.emit(f"Ошибка модели: {e}")
+            self.status.emit(f"Готово ({DEVICE.upper()}). Нажми «Слушать» или «Сказать».")
+        except Exception as e:
+            self.status.emit(f"Ошибка модели: {e}")
 
     def _stt(self, audio, lang):
         if self.model is None:
