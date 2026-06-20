@@ -48,7 +48,7 @@ from faster_whisper import WhisperModel
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-                               QTextEdit, QLineEdit, QPushButton, QLabel)
+                               QTextEdit, QLineEdit, QPushButton, QLabel, QComboBox)
 
 RATE = 16000
 # CPU, чтобы НЕ грузить видеокарту и не лагать iRacing. medium — точность/скорость.
@@ -98,6 +98,7 @@ class Engine(QObject):
         self.listening = False
         self.mic_recording = False
         self._mic_buf = []
+        self.source_name = None        # какое аудиоустройство слушать (loopback)
 
     def load(self):
         self.status.emit(f"Загружаю распознавание ({MODEL_NAME}, {DEVICE})…")
@@ -133,12 +134,13 @@ class Engine(QObject):
         while self.model is None and self.listening:
             threading.Event().wait(0.2)
         try:
-            spk = sc.default_speaker()
-            mic = sc.get_microphone(id=str(spk.name), include_loopback=True)
+            name = self.source_name or str(sc.default_speaker().name)
+            mic = sc.get_microphone(id=name, include_loopback=True)
         except Exception as e:
             self.status.emit(f"Нет доступа к звуку: {e}")
             return
-        self.status.emit("Слушаю звук ПК…")
+        short = (self.source_name or "по умолчанию")[:26]
+        self.status.emit(f"Слушаю: {short}…")
         STEP, SIL, END, MINS, MAXB = RATE // 2, 0.0018, 2, 2, 40
         buf, sp, sil = [], 0, 0
 
@@ -204,6 +206,13 @@ class App(QWidget):
         self.setStyleSheet("background:#15181d;color:#e8eaed;font-family:Segoe UI;")
         lay = QVBoxLayout(self)
 
+        lay.addWidget(self._lbl("Источник звука (куда выведен Discord):", 12))
+        self.source = QComboBox()
+        self.source.setStyleSheet("background:#0d0f12;border:1px solid #2a2f38;border-radius:8px;padding:6px;font-size:13px;")
+        self._fill_sources()
+        self.source.currentIndexChanged.connect(self._pick_source)
+        lay.addWidget(self.source)
+
         lay.addWidget(self._lbl("Собеседник (EN → RU):", 13))
         self.incoming = QTextEdit(readOnly=True)
         self.incoming.setStyleSheet("background:#0d0f12;border:1px solid #2a2f38;border-radius:8px;font-size:15px;")
@@ -250,6 +259,22 @@ class App(QWidget):
 
     def _lbl(self, t, s, c="#9099a6"):
         l = QLabel(t); l.setFont(QFont("Segoe UI", s)); l.setStyleSheet(f"color:{c};"); return l
+
+    def _fill_sources(self):
+        self.source.addItem("По умолчанию (весь звук ПК)", None)
+        try:
+            for m in sc.all_microphones(include_loopback=True):
+                if m.isloopback:
+                    self.source.addItem(m.name, m.name)
+        except Exception:
+            pass
+
+    def _pick_source(self):
+        if not hasattr(self, "eng"):
+            return
+        self.eng.source_name = self.source.currentData()
+        if self.eng.listening:                          # перезапустить слушатель на новом источнике
+            self.eng.stop_listen(); self.eng.start_listen()
 
     def _btn(self, t, fn):
         b = QPushButton(t); b.clicked.connect(fn)
