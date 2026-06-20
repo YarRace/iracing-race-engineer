@@ -41,10 +41,12 @@ class Listener(QObject):
         self.running = False
 
     def _run(self):
-        self.status.emit("Загружаю распознавание…")
+        import os
+        self.status.emit("Загружаю распознавание (medium)…")
+        model_name = os.environ.get("TRANSLATOR_WHISPER", "medium")
         try:
-            model = WhisperModel("small", device="cpu", compute_type="int8",
-                                 cpu_threads=max(4, __import__("os").cpu_count() or 8))
+            model = WhisperModel(model_name, device="cpu", compute_type="int8",
+                                 cpu_threads=max(4, os.cpu_count() or 8))
         except Exception as e:
             self.status.emit(f"Ошибка модели: {e}")
             return
@@ -55,25 +57,49 @@ class Listener(QObject):
             self.status.emit(f"Нет доступа к звуку: {e}")
             return
         self.status.emit("Слушаю звук ПК…")
+
+        STEP = RATE // 2                 # чанки по 0.5 c
+        SIL = 0.0018                     # порог тишины
+        END_SILENCE = 2                  # 2 чанка тишины (~1 c) = конец фразы
+        MIN_SPEECH = 2                   # минимум речи чтобы переводить (~1 c)
+        MAX_BUF = 40                     # макс 20 c (защита от бесконечной речи)
+        buf, speech_chunks, sil = [], 0, 0
+
+        def flush():
+            if len(buf) < MIN_SPEECH:
+                return
+            audio = np.clip(np.concatenate(buf).reshape(-1).astype(np.float32), -1, 1)
+            try:
+                segs, _ = model.transcribe(audio, language="en", beam_size=5,
+                                           vad_filter=True, condition_on_previous_text=False)
+                en = "".join(s.text for s in segs).strip()
+            except Exception:
+                return
+            if len(en) < 2:
+                return
+            try:
+                ru = GoogleTranslator(source="en", target="ru").translate(en)
+            except Exception:
+                ru = "(ошибка перевода)"
+            self.line.emit(en, ru)
+
         with mic.recorder(samplerate=RATE, channels=1) as rec:
             while self.running:
-                data = rec.record(numframes=RATE * CHUNK_SEC)
-                audio = np.clip(data.reshape(-1).astype(np.float32), -1, 1)
-                if np.abs(audio).mean() < 0.0015:       # тишина — пропускаем
-                    continue
-                try:
-                    segs, _ = model.transcribe(audio, language="en", beam_size=1,
-                                               vad_filter=True, condition_on_previous_text=False)
-                    en = "".join(s.text for s in segs).strip()
-                except Exception:
-                    continue
-                if len(en) < 2:
-                    continue
-                try:
-                    ru = GoogleTranslator(source="en", target="ru").translate(en)
-                except Exception:
-                    ru = "(ошибка перевода)"
-                self.line.emit(en, ru)
+                chunk = rec.record(numframes=STEP)
+                a = chunk.reshape(-1).astype(np.float32)
+                loud = np.abs(a).mean() > SIL
+                if loud:
+                    buf.append(a); speech_chunks += 1; sil = 0
+                elif speech_chunks > 0:
+                    buf.append(a); sil += 1
+                    if sil >= END_SILENCE:           # пауза → переводим целую фразу
+                        flush()
+                        buf, speech_chunks, sil = [], 0, 0
+                if len(buf) >= MAX_BUF:              # слишком длинно → разрезать
+                    flush()
+                    buf, speech_chunks, sil = [], 0, 0
+            if speech_chunks:
+                flush()
 
 
 class App(QWidget):
