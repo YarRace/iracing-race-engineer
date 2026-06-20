@@ -22,7 +22,8 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QTextEdit, QLineEdit, QPushButton, QLabel)
 
 RATE = 16000
-MODEL_NAME = os.environ.get("TRANSLATOR_WHISPER", "medium")
+# large-v3 на GPU (точно + быстро, видеокарта свободна вне гонки); medium CPU — запасной.
+MODEL_NAME = os.environ.get("TRANSLATOR_WHISPER", "large-v3")
 
 
 def translate(text, src, dst):
@@ -47,16 +48,25 @@ class Engine(QObject):
 
     def load(self):
         self.status.emit(f"Загружаю распознавание ({MODEL_NAME})…")
-        try:
-            self.model = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8",
-                                      cpu_threads=max(4, os.cpu_count() or 8))
-            self.status.emit("Готово. Нажми «Слушать» или «Сказать».")
-        except Exception as e:
-            self.status.emit(f"Ошибка модели: {e}")
+        try:                                            # сначала пробуем GPU + большую модель
+            self.model = WhisperModel(MODEL_NAME, device="cuda", compute_type="float16")
+            list(self.model.transcribe(np.zeros(RATE, dtype=np.float32), language="en")[0])
+            self.status.emit("Готово (GPU). Нажми «Слушать» или «Сказать».")
+        except Exception:
+            try:                                        # запасной — medium на CPU
+                self.model = WhisperModel("medium", device="cpu", compute_type="int8",
+                                          cpu_threads=max(4, os.cpu_count() or 8))
+                self.status.emit("Готово (CPU). Нажми «Слушать» или «Сказать».")
+            except Exception as e:
+                self.status.emit(f"Ошибка модели: {e}")
 
     def _stt(self, audio, lang):
         if self.model is None:
             return ""
+        # нормализация громкости — усиливаем тихий звук для точного распознавания
+        peak = float(np.abs(audio).max())
+        if peak > 0:
+            audio = audio / peak * 0.95
         segs, _ = self.model.transcribe(audio, language=lang, beam_size=5,
                                         vad_filter=True, condition_on_previous_text=False)
         return "".join(s.text for s in segs).strip()
