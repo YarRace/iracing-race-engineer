@@ -59,6 +59,95 @@ def fuel_capacity(ir, default=89.0):
     return di.get(channels.DRIVER_FUEL_MAX, default)
 
 
+def infer_car_class(class_short, car_path, car_name):
+    """Класс машины (GTP/GT3/GT4/LMP/Formula) для фильтров в рекордах.
+
+    Сначала берём CarClassShortName из SDK; в практике/тесте он часто пуст —
+    тогда выводим класс из пути/имени машины по ключевым словам."""
+    if class_short:
+        return class_short
+    s = f"{car_path or ''} {car_name or ''}".lower()
+    if "gtp" in s:
+        return "GTP"
+    if "gt3" in s:
+        return "GT3"
+    if "gt4" in s:
+        return "GT4"
+    if any(k in s for k in ("lmp", "oreca", "hpd", "prototype")):
+        return "LMP"
+    if any(k in s for k in ("formula", "indycar", "superformula", "dallara f", "skip barber")):
+        return "Formula"
+    return None
+
+
+def session_identity(ir):
+    """Кто/где едет: трасса (стабильный id + отображаемое имя + конфиг), машина,
+    класс, тип сессии. Для привязки сохранённых кругов к трассе/машине (рекорды).
+    Трасса — из WeekendInfo; машина/класс — из DriverInfo.Drivers[DriverCarIdx];
+    тип сессии — из SessionInfo текущей сессии, иначе EventType."""
+    wk = ir["WeekendInfo"] or {}
+    di = ir["DriverInfo"] or {}
+    drivers = di.get("Drivers") or []
+    my = di.get(channels.DRIVER_CAR_IDX)
+    car = car_path = car_class = None
+    if my is not None and 0 <= my < len(drivers):
+        d = drivers[my] or {}
+        car = d.get("CarScreenName")
+        car_path = d.get("CarPath")
+        car_class = infer_car_class(d.get("CarClassShortName"), car_path, car)
+    session_type = wk.get("EventType")
+    try:
+        sessions = (ir["SessionInfo"] or {}).get("Sessions") or []
+        sn = ir["SessionNum"]
+        if sn is not None and 0 <= sn < len(sessions):
+            session_type = sessions[sn].get("SessionType") or session_type
+    except Exception:
+        pass
+    return {
+        "track": wk.get("TrackName"),
+        "track_display": wk.get("TrackDisplayName"),
+        "config": wk.get("TrackConfigName"),
+        "car": car,
+        "car_path": car_path,
+        "car_class": car_class,
+        "session_type": session_type,
+    }
+
+
+def tire_wear_by_corner(ir):
+    """Мин. остаток протектора по каждому углу (0..1): худшая из 3 точек L/M/R."""
+    out = {}
+    for c, t in channels.TIRE_WEAR.items():
+        vals = [ir[ch] for ch in t if ir[ch] is not None]
+        out[c] = round(min(vals), 3) if vals else None
+    return out
+
+
+def session_info(ir):
+    """Инфо о сессии: тип, всего/осталось кругов, время до конца, время суток."""
+    ident = session_identity(ir)
+    NO = 32767
+    lr = ir["SessionLapsRemain"]
+    tr = ir["SessionTimeRemain"]
+    laps_total = None
+    try:
+        sessions = (ir["SessionInfo"] or {}).get("Sessions") or []
+        sn = ir["SessionNum"]
+        if sn is not None and 0 <= sn < len(sessions):
+            sl = sessions[sn].get("SessionLaps")
+            laps_total = sl if isinstance(sl, int) else None
+    except Exception:
+        pass
+    return {
+        "session_type": ident["session_type"],
+        "track_display": ident["track_display"],
+        "laps_remain": lr if (lr is not None and 0 <= lr < NO) else None,
+        "laps_total": laps_total,
+        "time_remain": tr if (tr is not None and 0 < tr < 1e6) else None,
+        "time_of_day": ir["SessionTimeOfDay"],
+    }
+
+
 def damage_status(ir):
     """Состояние повреждений из SDK. iRacing даёт только время ремонта (сек),
     не карту по зонам. damaged=True, если требуется обязательный/опц. ремонт."""
@@ -71,5 +160,6 @@ def damage_status(ir):
         "fast_repair_available": int(ir[D["fast_repair_available"]] or 0),
         "fast_repair_used": int(ir[D["fast_repair_used"]] or 0),
         "incidents": int(ir[D["incidents"]] or 0),
+        "team_incidents": int(ir[D["team_incidents"]] or 0),   # инциденты команды (эндуранс)
         "damaged": (repair + opt) > 0,
     }

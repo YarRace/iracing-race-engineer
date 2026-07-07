@@ -14,7 +14,37 @@ sys.path.insert(0, _ROOT)
 import uvicorn
 from ire.dashboard.server import app, STATE
 from ire.setup.sto_reader import read_sto
-from ire.setup.sto_writer import build_setup_sheet
+from ire.setup.sto_writer import build_setup_sheet, build_setup_tabs
+from ire.metrics.strategy import plan_race
+from ire.storage import history
+
+# демо-история для панели «Рекорды по трассам» (Фазы 1–2) — ОТДЕЛЬНАЯ демо-база,
+# чтобы не мешалась с реальной. Пересоздаётся при каждом запуске демо.
+os.environ["IRE_DB_PATH"] = os.path.join(_ROOT, "data", "_demo_history.db")
+try:
+    if os.path.exists(os.environ["IRE_DB_PATH"]):
+        os.remove(os.environ["IRE_DB_PATH"])
+except OSError:
+    pass
+_c = history.connect()
+_wg = {"track": "watkinsglen 2021 fullcourse", "track_display": "Watkins Glen", "config": "Boot",
+       "car": "Cadillac V-Series.R", "car_path": "x", "car_class": "GTP", "session_type": "Race"}
+_spa = {"track": "spa 2022", "track_display": "Spa-Francorchamps", "config": "Grand Prix",
+        "car": "Cadillac V-Series.R", "car_path": "x", "car_class": "GTP", "session_type": "Practice"}
+# вторая машина другого класса — чтобы фильтры Класс/Машина было на чём показать
+_wg_gt3 = {"track": "watkinsglen 2021 fullcourse", "track_display": "Watkins Glen", "config": "Boot",
+           "car": "BMW M4 GT3", "car_path": "y", "car_class": "GT3", "session_type": "Practice"}
+# та же трасса в практике — чтобы показать разделение Практика/Гонка (как в iRacing)
+_wg_prac = dict(_wg, session_type="Practice")
+for _i, _t in enumerate([94.8, 93.9, 93.2, 92.7, 92.9, 92.3, 91.8, 91.5, 91.9, 91.4], 1):
+    history.save_lap(_c, _wg, _i, _t, [_t * 0.33, _t * 0.34, _t * 0.33])
+for _i, _t in enumerate([93.1, 92.4, 92.0, 91.7, 91.2], 1):
+    history.save_lap(_c, _wg_prac, _i, _t, [_t * 0.33, _t * 0.34, _t * 0.33])
+for _i, _t in enumerate([138.5, 137.9, 137.2, 136.8, 136.5], 1):
+    history.save_lap(_c, _spa, _i, _t, [_t * 0.33, _t * 0.34, _t * 0.33])
+for _i, _t in enumerate([106.2, 105.4, 105.9, 104.8, 105.1, 104.6], 1):
+    history.save_lap(_c, _wg_gt3, _i, _t, [_t * 0.33, _t * 0.34, _t * 0.33])
+_c.close()
 
 # живой кадр — самый быстрый момент реального стинта (для наглядных приборов)
 frames = [json.loads(l) for l in open(
@@ -44,13 +74,16 @@ STATE["result"] = {
     ],
 }
 
-# полный сетап-лист (шпаргалка) на основе реального CarSetup + те же правки
+# полный сетап-лист на основе реального CarSetup + те же правки: текст (скачать)
+# и вкладки (как гараж iRacing) для показа на дашборде
 _setup = read_sto(os.path.join(_ROOT, "tests/fixtures/sample_setup.json"))
-STATE["result"]["setup_sheet"] = build_setup_sheet(_setup, {
+_delta = {
     "TiresAero.LeftFront.StartingPressure": "148 kPa",
     "TiresAero.RightFront.StartingPressure": "148 kPa",
     "Chassis.Rear.ArbSize": "Hard",
-})
+}
+STATE["result"]["setup_sheet"] = build_setup_sheet(_setup, _delta)
+STATE["result"]["setup_tabs"] = build_setup_tabs(_setup, _delta)
 
 # пример стратегии (как считал бы StrategyTracker на ходу)
 STATE["strategy"] = {
@@ -58,6 +91,8 @@ STATE["strategy"] = {
     "avg_lap_time": 96.5, "laps_to_go": 14, "laps_on_fuel": 12.5,
     "fuel_to_add": 6.2, "pit_needed_for_fuel": True,
     "tire_min": 0.62, "tire_wear_per_lap": 0.05, "tire_laps_left": 6.4, "change_tires": False,
+    # план гонки (Фаза 3): пит-стопы/топливо на всю дистанцию
+    "plan": plan_race(laps_to_go=14, avg_burn=3.05, fuel=38.0, tank=89.0, cur_lap=12),
 }
 
 STATE["damage"] = {

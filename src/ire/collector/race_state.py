@@ -161,6 +161,58 @@ def _standing_gaps(ir):
         return None, None
 
 
+def _arr(ir, name):
+    v = ir[name]
+    return v if v else []
+
+
+def _at(a, i, default=None):
+    return a[i] if (i is not None and 0 <= i < len(a)) else default
+
+
+def build_relative(ir):
+    """Машины ОТНОСИТЕЛЬНО моей по положению на трассе — для Relative, радара и
+    трек-ринга. rel_pct: доля круга (+впереди/−сзади), gap: сек. Пейс-кар/зрители
+    и машины вне мира исключены. Возвращает {"cars":[...], "player_pct": float}."""
+    di = ir["DriverInfo"] or {}
+    drivers = di.get("Drivers") or []
+    my_idx = di.get(channels.DRIVER_CAR_IDX)
+    dist = _arr(ir, channels.RACE_ARRAYS["lap_dist"])   # CarIdxLapDistPct
+    pit = _arr(ir, "CarIdxOnPitRoad")
+    surf = _arr(ir, "CarIdxTrackSurface")
+    pos = _arr(ir, channels.RACE_ARRAYS["pos"])
+    my_d = _at(dist, my_idx)
+    if my_idx is None or my_d is None or my_d < 0:
+        return {"cars": [], "player_pct": None}
+    lap_t = (ir["LapBestLapTime"] or 0) or (ir["LapLastLapTime"] or 0) or 90.0
+    cars = []
+    for d in drivers:
+        idx = d.get("CarIdx")
+        if idx is None or d.get("CarIsPaceCar") or d.get("IsSpectator"):
+            continue
+        dd = _at(dist, idx)
+        if dd is None or dd < 0:
+            continue
+        s = _at(surf, idx)
+        if s is not None and s < 0:                     # не в мире (в боксе-гараже)
+            continue
+        rel = dd - my_d
+        if rel > 0.5:
+            rel -= 1.0
+        elif rel < -0.5:
+            rel += 1.0
+        cars.append({
+            "idx": idx, "name": d.get("UserName"), "number": d.get("CarNumber"),
+            "car_class": d.get("CarClassShortName"), "class_color": d.get("CarClassColor"),
+            "irating": d.get("IRating"), "pos": _at(pos, idx),
+            "rel_pct": round(rel, 4), "gap": round(rel * lap_t, 1),
+            "on_pit": bool(_at(pit, idx, False)), "lap_pct": round(dd, 4),
+            "is_player": idx == my_idx,
+        })
+    cars.sort(key=lambda c: c["rel_pct"])
+    return {"cars": cars, "player_pct": round(my_d, 4)}
+
+
 def race_extras(ir):
     """Снимок гоночной телеметрии для дашборда."""
     R = channels.RACE_SCALAR

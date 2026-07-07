@@ -1,4 +1,5 @@
-from ire.collector.race_state import decode_flags, decode_warnings, _relative, _standing_gaps
+from ire.collector.race_state import (decode_flags, decode_warnings, _relative,
+                                       _standing_gaps, build_relative)
 
 
 def test_decode_flags_picks_active():
@@ -49,3 +50,27 @@ def test_standing_gaps_by_position():
     ahead, behind = _standing_gaps(ir)
     assert ahead == 8.0
     assert behind == 5.0
+
+
+def test_build_relative_orders_by_track_position():
+    # я idx0 на 0.50; idx1 впереди (+0.05=5с), idx2 сзади (−0.05), idx3 не в мире (искл.)
+    ir = _FakeIR({
+        "DriverInfo": {"DriverCarIdx": 0, "Drivers": [
+            {"CarIdx": 0, "UserName": "Me", "CarClassShortName": "GTP", "IRating": 3000},
+            {"CarIdx": 1, "UserName": "Ahead", "CarClassShortName": "GTP", "IRating": 4000},
+            {"CarIdx": 2, "UserName": "Behind", "CarClassShortName": "GTP", "IRating": 2000},
+            {"CarIdx": 3, "UserName": "Garage", "CarClassShortName": "GTP", "IRating": 2500},
+        ]},
+        "CarIdxLapDistPct": [0.50, 0.55, 0.45, 0.60],
+        "CarIdxOnPitRoad": [False, False, False, False],
+        "CarIdxTrackSurface": [3, 3, 3, -1],
+        "CarIdxPosition": [2, 1, 3, 4],
+        "LapBestLapTime": 100.0, "LapLastLapTime": 0.0,
+    })
+    rel = build_relative(ir)
+    cars = rel["cars"]
+    assert all(c["idx"] != 3 for c in cars)              # вне мира исключён
+    assert [c["idx"] for c in cars] == [2, 0, 1]         # сзади → я → впереди
+    ahead = next(c for c in cars if c["idx"] == 1)
+    assert ahead["gap"] == 5.0 and ahead["name"] == "Ahead"
+    assert rel["player_pct"] == 0.5

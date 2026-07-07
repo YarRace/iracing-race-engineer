@@ -58,7 +58,8 @@ DAMAGE_SCALAR = {
     "opt_repair_sec": "PitOptRepairLeft",     # опциональный ремонт, сек
     "fast_repair_available": "FastRepairAvailable",
     "fast_repair_used": "FastRepairUsed",
-    "incidents": "PlayerCarMyIncidentCount",  # live-счётчик вылетов/контактов (x-очки)
+    "incidents": "PlayerCarMyIncidentCount",  # мои инциденты (x-очки)
+    "team_incidents": "PlayerCarTeamIncidentCount",  # инциденты ВСЕЙ команды (эндуранс)
 }
 
 # --- Гоночные «помощники» (тайминг, флаги, машина, погода) ---

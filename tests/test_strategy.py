@@ -1,4 +1,4 @@
-from ire.metrics.strategy import StrategyTracker
+from ire.metrics.strategy import StrategyTracker, plan_race
 
 
 def _wear(v):
@@ -49,3 +49,35 @@ def test_tire_wear_rate_and_change_recommendation():
     # при пороге 0.30 и текущем ~0.7, до порога ещё ~4 круга
     assert s["tire_laps_left"] >= 1
     assert s["change_tires"] in (True, False)
+
+
+def test_plan_race_zero_stops_when_fuel_enough():
+    # 5 кругов до конца, 50л в баке при 3 л/круг — топлива с запасом хватает
+    p = plan_race(laps_to_go=5, avg_burn=3.0, fuel=50.0, tank=89.0)
+    assert p["stops"] == 0
+    assert p["fuel_per_stop"] is None
+    assert p["save_to_skip"] is None
+
+
+def test_plan_race_one_stop_totals_and_next():
+    # 30 кругов, 20л в баке, 3 л/круг, текущий круг 4
+    p = plan_race(laps_to_go=30, avg_burn=3.0, fuel=20.0, tank=89.0, cur_lap=4)
+    assert p["stops"] == 1
+    assert p["stint_laps"] == 28                      # floor(89/3 - 1)
+    assert p["fuel_to_add_total"] == 73.0             # 30*3 + 3 запас - 20
+    assert p["laps_until_stop"] == 5                  # floor(20/3 - 1)
+    assert p["next_stop_lap"] == 9                    # 4 + 5
+
+
+def test_plan_race_save_to_skip_when_close():
+    # 20 кругов, 50л, 3 л/круг: один пит, но экономией ~0.6 л/круг можно убрать
+    p = plan_race(laps_to_go=20, avg_burn=3.0, fuel=50.0, tank=89.0)
+    assert p["stops"] == 1
+    assert p["save_to_skip"] is not None
+    assert 0.4 < p["save_to_skip"] < 0.9
+
+
+def test_plan_race_none_on_missing_data():
+    assert plan_race(laps_to_go=None, avg_burn=3.0, fuel=50.0, tank=89.0) is None
+    assert plan_race(laps_to_go=30, avg_burn=None, fuel=50.0, tank=89.0) is None
+    assert plan_race(laps_to_go=30, avg_burn=3.0, fuel=None, tank=89.0) is None

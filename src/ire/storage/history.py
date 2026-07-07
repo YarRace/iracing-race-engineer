@@ -1,0 +1,178 @@
+"""Фаза 1: локальное хранилище истории (SQLite) — фундамент для рекордов,
+истории и прогресса.
+
+Каждый завершённый круг пишется в таблицу `laps`, каждый закрытый стинт — в
+`stints`. На этих данных потом строятся рекорды по трассам, графики прогресса и
+сравнение (замена Garage61 в личной части).
+
+Чистые функции, тестируются без сима на in-memory базе (`connect(":memory:")`).
+Читатели (API дашборда) открывают свой коннект на запрос — SQLite сам разводит
+одновременные чтение/запись (включён WAL). Путь к базе можно задать переменной
+окружения IRE_DB_PATH; по умолчанию — <корень проекта>/data/history.db.
+"""
+from __future__ import annotations
+
+import datetime
+import os
+import sqlite3
+
+# min/max «настоящего» круга — как в consistency: отсекаем рестарты, заезд в пит.
+MIN_LAP = 15.0
+MAX_LAP = 1200.0
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS laps (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts            TEXT NOT NULL,
+    track         TEXT,
+    track_display TEXT,
+    config        TEXT,
+    car           TEXT,
+    car_path      TEXT,
+    car_class     TEXT,
+    session_type  TEXT,
+    lap_num       INTEGER,
+    lap_time      REAL,
+    s1            REAL,
+    s2            REAL,
+    s3            REAL,
+    valid         INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_laps_track_car ON laps (track, car);
+
+CREATE TABLE IF NOT EXISTS stints (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts            TEXT NOT NULL,
+    track         TEXT,
+    track_display TEXT,
+    config        TEXT,
+    car           TEXT,
+    car_path      TEXT,
+    car_class     TEXT,
+    session_type  TEXT,
+    laps          INTEGER,
+    best_lap      REAL,
+    mean_lap      REAL,
+    spread        REAL,
+    incidents     INTEGER
+);
+"""
+
+# Колонки, добавленные после первого релиза — досоздаём в старых базах (миграция).
+_MIGRATIONS = {"laps": [("car_class", "TEXT")], "stints": [("car_class", "TEXT")]}
+
+
+def default_path():
+    """Путь к базе: IRE_DB_PATH или <корень проекта>/data/history.db.
+    Без хардкода пользовательских путей — считается от расположения модуля."""
+    env = os.environ.get("IRE_DB_PATH")
+    if env:
+        return env
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    return os.path.join(root, "data", "history.db")
+
+
+def connect(path=None):
+    """Открывает (создаёт при отсутствии) базу и гарантирует схему.
+    path=":memory:" — для тестов. check_same_thread=False: писатель и читатели
+    живут в разных потоках (live-цикл и API-сервер)."""
+    path = path or default_path()
+    if path != ":memory:":
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    conn = sqlite3.connect(path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    if path != ":memory:":
+        conn.execute("PRAGMA journal_mode=WAL")   # читатели не блокируют писателя
+    conn.executescript(_SCHEMA)
+    _migrate(conn)
+    conn.commit()
+    return conn
+
+
+def _migrate(conn):
+    """Досоздаёт недостающие колонки в уже существующих базах (без потери данных)."""
+    for table, cols in _MIGRATIONS.items():
+        have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for name, coltype in cols:
+            if name not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {coltype}")
+
+
+def is_valid_lap(lap_time):
+    return lap_time is not None and MIN_LAP <= lap_time <= MAX_LAP
+
+
+def _now():
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+
+def save_lap(conn, identity, lap_num, lap_time, sectors=None, valid=None):
+    """Пишет один завершённый круг. identity — dict из session_identity()."""
+    if valid is None:
+        valid = is_valid_lap(lap_time)
+    s = list(sectors or [])
+    s1, s2, s3 = (s + [None, None, None])[:3]
+    conn.execute(
+        "INSERT INTO laps (ts, track, track_display, config, car, car_path, car_class, "
+        "session_type, lap_num, lap_time, s1, s2, s3, valid) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (_now(), identity.get("track"), identity.get("track_display"),
+         identity.get("config"), identity.get("car"), identity.get("car_path"),
+         identity.get("car_class"), identity.get("session_type"), lap_num, lap_time,
+         s1, s2, s3, int(bool(valid))),
+    )
+    conn.commit()
+
+
+def save_stint(conn, identity, summary):
+    """Пишет сводку стинта. summary — dict с laps/best_lap/mean_lap/spread/incidents."""
+    conn.execute(
+        "INSERT INTO stints (ts, track, track_display, config, car, car_path, car_class, "
+        "session_type, laps, best_lap, mean_lap, spread, incidents) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (_now(), identity.get("track"), identity.get("track_display"),
+         identity.get("config"), identity.get("car"), identity.get("car_path"),
+         identity.get("car_class"), identity.get("session_type"), summary.get("laps"),
+         summary.get("best_lap"), summary.get("mean_lap"), summary.get("spread"),
+         summary.get("incidents")),
+    )
+    conn.commit()
+
+
+def best_lap(conn, track, car):
+    """Личный рекорд (мин. валидный круг) на трассе+машине, или None."""
+    row = conn.execute(
+        "SELECT MIN(lap_time) AS best FROM laps WHERE valid=1 AND track=? AND car=?",
+        (track, car),
+    ).fetchone()
+    return row["best"] if row else None
+
+
+def records(conn):
+    """Список рекордов: лучший валидный круг по каждой связке трасса+конфиг+машина."""
+    # как «Personal Bests» в iRacing: лучший круг по каждой связке
+    # машина + трасса(+конфиг) + тип сессии (Практика/Гонка — отдельными строками).
+    rows = conn.execute(
+        "SELECT track, track_display, config, car, car_path, MAX(car_class) AS car_class, "
+        "session_type, MIN(lap_time) AS best_lap, COUNT(*) AS laps, MAX(ts) AS last_seen "
+        "FROM laps WHERE valid=1 GROUP BY car, track, config, session_type "
+        "ORDER BY car, track_display, session_type"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def track_history(conn, track, car, limit=100):
+    """Валидные круги на трассе+машине по времени (для графика прогресса)."""
+    rows = conn.execute(
+        "SELECT ts, lap_num, lap_time, s1, s2, s3 FROM laps "
+        "WHERE valid=1 AND track=? AND car=? ORDER BY ts, id LIMIT ?",
+        (track, car, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def recent_stints(conn, limit=20):
+    rows = conn.execute(
+        "SELECT * FROM stints ORDER BY id DESC LIMIT ?", (limit,)
+    ).fetchall()
+    return [dict(r) for r in rows]

@@ -1,0 +1,6 @@
+18.06.2026 18:07:53: [Initialize Program]
+18.06.2026 18:07:53: [General Init]
+18.06.2026 18:08:15: [Initialize Program]
+18.06.2026 18:08:15: [General Init]
+18.06.2026 18:08:54: [Initialize Program]
+18.06.2026 18:08:54: [General Init]

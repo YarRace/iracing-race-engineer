@@ -74,7 +74,7 @@ iracing-race-engineer/
 **Files:**
 - Create: `requirements.txt`, `pytest.ini`, `src/ire/__init__.py`, `tests/test_smoke.py`
 
-- [x] **Step 1: Создать `requirements.txt`**
+- [ ] **Step 1: Создать `requirements.txt`**
 ```
 pyirsdk
 fastapi
@@ -83,14 +83,14 @@ anthropic
 pytest
 ```
 
-- [x] **Step 2: Создать `pytest.ini`** (изменено: `pythonpath = . src` — нужны и `src/ire`, и корневой `config/`)
+- [ ] **Step 2: Создать `pytest.ini`**
 ```ini
 [pytest]
 pythonpath = .
 testpaths = tests
 ```
 
-- [x] **Step 3: Создать пакет и smoke-тест**
+- [ ] **Step 3: Создать пакет и smoke-тест**
 
 `src/ire/__init__.py`:
 ```python
@@ -104,12 +104,12 @@ def test_version():
     assert __version__ == "0.1.0"
 ```
 
-- [x] **Step 4: Поставить зависимости и прогнать тест** (pip install прошёл полностью, включая pyirsdk-1.3.6; smoke-тест PASS)
+- [ ] **Step 4: Поставить зависимости и прогнать тест**
 
 Run: `pip install -r requirements.txt && pytest tests/test_smoke.py -v`
 Expected: PASS
 
-- [x] **Step 5: Commit**
+- [ ] **Step 5: Commit**
 ```bash
 git add -A && git commit -m "chore: project scaffold"
 ```
@@ -123,7 +123,7 @@ git add -A && git commit -m "chore: project scaffold"
 **Files:**
 - Create: `spikes/dump_channels.py`, `spikes/OUT_channels.txt` (артефакт)
 
-- [x] **Step 1: Скрипт дампа**
+- [ ] **Step 1: Скрипт дампа**
 
 `spikes/dump_channels.py`:
 ```python
@@ -146,12 +146,12 @@ print(f"Готово: {len(keys)} каналов → spikes/OUT_channels.txt")
 ir.shutdown()
 ```
 
-- [x] **Step 2: Запустить в симе** — 349 каналов выгружено; Watkins Glen + Cadillac V-Series.R подтверждены
+- [ ] **Step 2: Запустить в симе** (сесть на трассу за Cadillac GTP на Watkins, выехать)
 
 Run: `python spikes/dump_channels.py`
 Expected: файл `spikes/OUT_channels.txt` с 200+ каналами; внутри есть `Speed`, `Throttle`, `Brake`, `SteeringWheelAngle`, `LatAccel`, `YawRate`, `FuelLevel`, температуры шин (имена вида `LFtemp*`), прогибы амортизаторов (`*shockDefl`), а в `WeekendInfo` — `TrackName`, `TrackSurfaceTemp`/`TrackAirTemp`.
 
-- [x] **Step 3: Заполнить `config/channels.py` найденными именами** — шины: carcass-набор `*tempCL/CM/CR` (tread в SDK отсутствует); темп. трассы/воздуха в `WeekendInfo` как строки `"39.82 C"`
+- [ ] **Step 3: Заполнить `config/channels.py` найденными именами**
 
 `config/channels.py` (значения суффиксов взять из `OUT_channels.txt` — НЕ угадывать):
 ```python
@@ -176,7 +176,7 @@ WEEKEND_AIR_TEMP = "TrackAirTemp"
 ```
 > Плейсхолдеры `<...>` ОБЯЗАТЕЛЬНО заменить реальными именами из `OUT_channels.txt`. Это и есть смысл спайка — добыть факт, а не выдумать.
 
-- [x] **Step 4: Commit**
+- [ ] **Step 4: Commit**
 ```bash
 git add spikes/dump_channels.py config/channels.py
 git commit -m "spike: dump live SDK channels, fill channel map"
@@ -184,35 +184,78 @@ git commit -m "spike: dump live SDK channels, fill channel map"
 
 ---
 
-## Task 3: `[НУЖЕН СИМ]` SPIKE — формат `.sto` Cadillac → источник сетапа
+## Task 3: `[НУЖЕН СИМ]` SPIKE — формат `.sto` Cadillac
 
-> **⚠️ ПЕРЕОРИЕНТИРОВАНО по факту спайка (2026-06-15).** Современный `.sto` оказался
-> закрытым бинарным форматом v3 (`03 00 00 00`, тело сжато/зашифровано) — парсить
-> ненадёжно. Найдено лучшее решение: **сетап читается из живого SDK `ir["CarSetup"]`**
-> (открытый YAML). Детали — `spikes/NOTES_sto_format.md`. Согласовано с пользователем.
+**Цель:** определить, текстовый или бинарный `.sto`, и как закодированы поля. Без этого `sto_reader`/`sto_writer` писать нельзя.
 
 **Files:**
-- Create: `spikes/inspect_sto.py`, `spikes/dump_carsetup.py`, `spikes/NOTES_sto_format.md` (артефакт), `spikes/OUT_carsetup.json` (артефакт), `tests/fixtures/sample_setup.json` (дамп CarSetup вместо `.sto`)
+- Create: `spikes/inspect_sto.py`, `spikes/NOTES_sto_format.md` (артефакт), `tests/fixtures/sample_setup.sto` (копия реального файла)
 
-- [x] **Step 1: Инспекция `.sto`** — все файлы на диске бинарные (P1Doks ~48% печатных + watermark; даже Save As из заводского сетапа → бинарь v3, текстовых секций нет)
-- [x] **Step 2: Скрипт-инспектор** `spikes/inspect_sto.py` — подтвердил бинарность
-- [x] **Step 3: Дамп сетапа из SDK** `spikes/dump_carsetup.py` → `spikes/OUT_carsetup.json`; формат зафиксирован в `NOTES_sto_format.md` (3 секции `TiresAero`/`Chassis`/`BrakesDriveUnit`, значения-строки с единицами `"152 kPa"`). Фикстура → `tests/fixtures/sample_setup.json`
-- [x] **Step 4: Commit** — `spike: .sto is binary v3 → read setup from SDK CarSetup`
+- [ ] **Step 1: Найти и скопировать реальный сетап**
+
+Run (Windows):
+```bash
+dir "%USERPROFILE%\Documents\iRacing\setups\cadillacvr"
+```
+Скопировать любой существующий `.sto` Кадиллака в `tests/fixtures/sample_setup.sto`.
+
+- [ ] **Step 2: Скрипт-инспектор**
+
+`spikes/inspect_sto.py`:
+```python
+import sys
+p = sys.argv[1] if len(sys.argv) > 1 else "tests/fixtures/sample_setup.sto"
+raw = open(p, "rb").read()
+printable = sum(32 <= b < 127 or b in (9, 10, 13) for b in raw)
+print(f"размер={len(raw)} печатных_байт={printable} ({printable/len(raw):.0%})")
+print("--- первые 512 байт как текст ---")
+print(raw[:512].decode("latin-1"))
+print("--- hex первых 64 байт ---")
+print(raw[:64].hex(" "))
+```
+
+- [ ] **Step 3: Запустить, задокументировать формат**
+
+Run: `python spikes/inspect_sto.py`
+В `spikes/NOTES_sto_format.md` зафиксировать: текст/бинарь; есть ли заголовок; как выглядят пары «параметр = значение» (например `Front tire pressure: 138 kPa`); единицы. Это вход для Task 8/9.
+
+- [ ] **Step 4: Commit**
+```bash
+git add spikes/inspect_sto.py spikes/NOTES_sto_format.md tests/fixtures/sample_setup.sto
+git commit -m "spike: determine .sto file format"
+```
 
 ---
 
-## Task 4: `[НУЖЕН СИМ]` SPIKE — режим записи сетапа
+## Task 4: `[НУЖЕН СИМ]` SPIKE — round-trip записи `.sto`
 
-> **⚠️ РАЗРЕШЕНО спайком Задачи 3.** `.sto` — закрытый бинарь, программная запись файла
-> невозможна → **режим «значения для ручного ввода»** (это и был fallback-вердикт ❌).
-> Round-trip записи файла не выполнялся, т.к. отпал сам путь записи `.sto`.
+**Цель:** разрешить ЕДИНСТВЕННЫЙ риск проекта — примет ли iRacing программно-изменённый `.sto`.
 
-**Вердикт:** ❌ `sto_writer` НЕ пишет `.sto`-файлы. Работает в режиме «дельта для ручного
-ввода»: возвращает изменения `from → to`, дашборд их показывает, пользователь вводит в
-гараже руками. Исходники никогда не перезаписываются. Зафиксировано в `NOTES_sto_format.md`.
+**Files:**
+- Create: `spikes/roundtrip_sto.py`, дополнить `spikes/NOTES_sto_format.md`
 
-- [x] **Step 1-4:** разрешено находкой Задачи 3 (CarSetup-источник + бинарный `.sto`)
-- [x] **Step 5: Commit** (вместе с Задачей 3)
+- [ ] **Step 1: Скрипт round-trip** (логика правки — по NOTES из Task 3)
+```python
+# spikes/roundtrip_sto.py
+# 1. читает sample_setup.sto, 2. меняет ОДНО поле (напр. давление в шине на +1),
+# 3. пишет cadillacvr/SPIKE_TEST.sto. Реализация парс/правки — по NOTES_sto_format.md.
+```
+
+- [ ] **Step 2: Записать тестовый файл в папку сетапов**
+
+Run: `python spikes/roundtrip_sto.py`
+
+- [ ] **Step 3: Проверить в симе** — в гараже загрузить `SPIKE_TEST` и убедиться, что значение применилось.
+
+- [ ] **Step 4: Записать ВЕРДИКТ в `NOTES_sto_format.md`**
+  - ✅ грузит → `sto_writer` пишет файлы (Task 9 в полном режиме).
+  - ❌ отверг → `sto_writer` работает в режиме «значения для ручного ввода», дашборд их показывает. Никогда не перезаписываем исходники.
+
+- [ ] **Step 5: Commit**
+```bash
+git add spikes/roundtrip_sto.py spikes/NOTES_sto_format.md
+git commit -m "spike: .sto write round-trip verdict"
+```
 
 ---
 
@@ -359,76 +402,65 @@ git commit -m "test: real Watkins stint fixture"
 
 ---
 
-## Task 8: `sto_reader` — чтение сетапа из CarSetup
-
-> **⚠️ Источник — SDK `CarSetup` (JSON), а не `.sto`** (см. вердикт Задач 3/4). Тесты идут
-> на фикстуре `tests/fixtures/sample_setup.json` (реальный дамп CarSetup Cadillac GTP).
+## Task 8: `sto_reader` — парсинг `.sto`
 
 **Files:**
 - Create: `src/ire/setup/sto_reader.py`, `tests/test_sto_reader.py`
-- Использует: `tests/fixtures/sample_setup.json` (Task 3) и `spikes/NOTES_sto_format.md`
+- Использует: `tests/fixtures/sample_setup.sto` (Task 3) и `spikes/NOTES_sto_format.md`
 
-- [ ] **Step 1: Тест на реальной фикстуре**
+- [ ] **Step 1: Тест на реальном файле** (ожидаемые поля/значения взять из NOTES — НЕ выдумывать)
 ```python
 # tests/test_sto_reader.py
 from ire.setup.sto_reader import read_sto
 
 def test_reads_known_fields_from_fixture():
-    s = read_sto("tests/fixtures/sample_setup.json")
+    s = read_sto("tests/fixtures/sample_setup.sto")
+    # имена полей и хотя бы одно значение сверить с тем, что показал inspect_sto.py
     assert "fields" in s and len(s["fields"]) > 0
-    # поля адресуются плоским путём, напр. "TiresAero.LeftFront.StartingPressure"
     assert any("pressure" in k.lower() for k in s["fields"])
-    assert s["fields"]["TiresAero.LeftFront.StartingPressure"] == "152 kPa"
 ```
 
 - [ ] **Step 2: FAIL** — Run: `pytest tests/test_sto_reader.py -v`
 
-- [ ] **Step 3: Реализация.** `read_sto(source)`: `source` — путь к JSON-дампу CarSetup
-  (тесты) ИЛИ уже готовый dict `ir["CarSetup"]` (живьё). Рекурсивно расплющивает
-  вложенные секции в `fields` с ключом-путём через точку (`TiresAero.LeftFront.StartingPressure`).
-  Возвращает `{"fields": {<плоский_путь>: <значение>}, "raw": <исходная вложенная структура>}`.
+- [ ] **Step 3: Реализация по NOTES_sto_format.md.** Возвращает `{"fields": {<имя>: <значение>}, "raw": <исходные данные для записи>}`. Если формат текстовый — парсить строки `имя: значение единицы`; если бинарный — по задокументированной структуре.
 
 - [ ] **Step 4: PASS** — Run: `pytest tests/test_sto_reader.py -v`
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: setup reader (SDK CarSetup)"`
+- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: .sto reader"`
 
 ---
 
-## Task 9: `sto_writer` — дельта для ручного ввода
-
-> **⚠️ Режим «ручной ввод»** (вердикт Задачи 4 ❌): `.sto` не пишем, формат закрыт.
-> Возвращаем список изменений `from → to` для дашборда. Исходники не трогаем.
+## Task 9: `sto_writer` — применение дельты
 
 **Files:**
 - Create: `src/ire/setup/sto_writer.py`, `tests/test_sto_writer.py`
+- Режим (файл vs «ручной ввод») — по вердикту Task 4.
 
-- [ ] **Step 1: Тест — дельта оформляется как изменения для ввода**
+- [ ] **Step 1: Тест round-trip чтение→правка→чтение**
 ```python
 # tests/test_sto_writer.py
+import os
 from ire.setup.sto_reader import read_sto
-from ire.setup.sto_writer import build_manual_changes
+from ire.setup.sto_writer import write_sto
 
-def test_delta_becomes_manual_change_list():
-    setup = read_sto("tests/fixtures/sample_setup.json")
-    key = "TiresAero.LeftFront.StartingPressure"
-    changes = build_manual_changes(setup, {key: "155 kPa"})
-    assert len(changes) == 1
-    ch = changes[0]
-    assert ch["field"] == key
-    assert ch["from"] == setup["fields"][key]   # "152 kPa"
-    assert ch["to"] == "155 kPa"
+def test_delta_applied_and_originals_untouched(tmp_path):
+    base = "tests/fixtures/sample_setup.sto"
+    before = read_sto(base)
+    key = next(k for k in before["fields"] if "pressure" in k.lower())
+    out = tmp_path / "AI_v1.sto"
+    write_sto(base, {key: before["fields"][key] + 1}, str(out))
+    after = read_sto(str(out))
+    assert after["fields"][key] == before["fields"][key] + 1
+    assert os.path.exists(base)  # исходник цел
 ```
 
 - [ ] **Step 2: FAIL** — `pytest tests/test_sto_writer.py -v`
 
-- [ ] **Step 3: Реализация.** `build_manual_changes(setup, delta) -> [{"field","from","to"}]`:
-  для каждого поля в `delta` берёт текущее значение из `setup["fields"]` как `from`,
-  новое — как `to`. НЕ пишет никаких файлов, исходный сетап неизменен. (Опционально
-  хелпер форматирования строки для дашборда.)
+- [ ] **Step 3: Реализация.** `write_sto(base_path, delta: dict, out_path)`: читает base, применяет дельту, пишет НОВЫЙ файл `out_path`. Никогда не перезаписывает `base_path`. Если Task 4 = «отверг» — вместо записи в папку сетапов возвращает дельту как текст для дашборда.
 
 - [ ] **Step 4: PASS** — `pytest tests/test_sto_writer.py -v`
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: setup writer (manual-entry delta)"`
+- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: .sto writer (new-file-only)"`
 
 ---
 
@@ -795,8 +827,10 @@ def test_live_and_result_endpoints():
     c = TestClient(app)
     STATE["live"] = {"speed": 60.0}
     STATE["result"] = {"driving": ["x"]}
+    STATE["session"] = {"car": "Cadillac GTP", "track": "Watkins Glen", "supported": True}
     assert c.get("/api/live").json()["speed"] == 60.0
     assert c.get("/api/result").json()["driving"] == ["x"]
+    assert c.get("/api/session").json()["supported"] is True
 ```
 
 - [ ] **Step 2: FAIL** — `pytest tests/test_server.py -v`
@@ -809,13 +843,16 @@ from fastapi.responses import FileResponse
 import os
 
 app = FastAPI()
-STATE = {"live": {}, "result": {}}
+STATE = {"live": {}, "result": {}, "session": {}}
 
 @app.get("/api/live")
 def live(): return STATE["live"]
 
 @app.get("/api/result")
 def result(): return STATE["result"]
+
+@app.get("/api/session")
+def session(): return STATE["session"]
 
 @app.get("/")
 def index():
@@ -831,7 +868,11 @@ def index():
 
 **Files:** Create `src/ire/dashboard/static/index.html`
 
-- [ ] **Step 1: Сверстать страницу** — две зоны: «Живьё» (опрос `/api/live` каждые 250 мс: скорость, передача, топливо, темп. шин по 4 углам, темп. трассы) и «Разбор» (опрос `/api/result`: список `driving`, таблица `setup_changes` с from→to→why, имя нового `.sto`). Тёмная тема, крупный шрифт для второго экрана.
+- [ ] **Step 1: Сверстать страницу** (тёмная тема, крупный шрифт для второго экрана). Опрашивает `/api/live`, `/api/result`, `/api/session` каждые 250 мс. Раскладка (см. spec §4.2 + макет, согласовано с Алексом):
+  - **Шапка:** название + авто-распознанная связка машина+трасса из `/api/session` + статус профиля («профиль готов» / «разбор пока не готов»). Это НЕ выпадающие списки — связка определяется сама (spec §4.6).
+  - **Верх слева — «температуры шин», раскладка 2×2 «как на машине»** (а НЕ в линию): LF слева-сверху, RF справа-сверху, LR слева-снизу, RR справа-снизу; подписи «перёд» сверху, «зад» снизу. Плитка: код угла + средняя темп. (зелёный=ок / жёлтый=тепло / красный=перегрев) + три зоны протектора «вн·ц·нар».
+  - **Верх справа — «онлайн» (во время заезда), сетка 3×2:** скорость·передача·топливо, под ними круг·дельта·трасса. Термин «онлайн», НЕ «живьё».
+  - **Низ — «разбор стинта»:** две карточки «Пилотирование» и «Сетап → что покрутить» (from→to→почему) + плашка готового `.sto`.
 ```html
 <!doctype html><meta charset="utf-8"><title>Race Engineer</title>
 <style>body{background:#111;color:#eee;font:18px system-ui;margin:0;padding:16px}
@@ -858,6 +899,46 @@ setInterval(tick, 250); tick();
 
 ---
 
+## Task 18.5: Авто-определение связки (`profiles.py`)
+
+**Files:** Create `src/ire/profiles.py`, `tests/test_profiles.py`
+Определяет машину+трассу и поддерживается ли связка — **без выпадающих списков** (spec §4.6).
+
+- [ ] **Step 1: Тест**
+```python
+# tests/test_profiles.py
+from ire.profiles import detect_session
+
+def test_supported_combo():
+    assert detect_session("Cadillac V-Series.R GTP", "Watkins Glen")["supported"] is True
+
+def test_unsupported_combo():
+    s = detect_session("Ferrari 296 GT3", "Spa")
+    assert s["supported"] is False and s["car"] == "Ferrari 296 GT3"
+```
+
+- [ ] **Step 2: FAIL** — `pytest tests/test_profiles.py -v`
+
+- [ ] **Step 3: Реализация**
+```python
+# src/ire/profiles.py
+# v1 — один профиль. Имена машины/трассы брать из сессионного YAML SDK;
+# точные ключи подтвердить дампом Task 2 (ориентир: WeekendInfo.TrackName,
+# DriverInfo.Drivers[DriverInfo.DriverCarIdx].CarScreenName).
+SUPPORTED = [("Cadillac", "Watkins Glen")]
+
+def detect_session(car, track):
+    supported = any(c in car and t in track for c, t in SUPPORTED)
+    return {"car": car, "track": track, "supported": supported}
+```
+
+- [ ] **Step 4: PASS** — `pytest tests/test_profiles.py -v`
+- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: session auto-detect + profile gating"`
+
+> Интеграция: в live-цикле (Task 20) заполнять `STATE["session"] = detect_session(car, track)` из сессионного YAML; шапка дашборда (Task 18) показывает связку и статус. Если `supported=False` — оркестратор (Task 19) пропускает глубокий разбор, дашборд пишет «разбор пока не готов» (онлайн-телеметрия при этом работает).
+
+---
+
 ## Task 19: Оркестратор (`orchestrator.py`)
 
 **Files:** Create `src/ire/orchestrator.py`, `tests/test_orchestrator.py`
@@ -874,8 +955,8 @@ def test_analyze_stint_produces_result(monkeypatch):
     frames = [json.loads(l) for l in open("tests/fixtures/sample_stint.jsonl", encoding="utf-8")]
     monkeypatch.setattr(orch, "explain",
         lambda sym, setup, **kw: {"driving": ["ok"], "setup_changes": [], "delta": {}})
-    res = orch.analyze_stint(frames, setup_path="tests/fixtures/sample_setup.json",
-                             conditions={"track_temp": 40})
+    res = orch.analyze_stint(frames, setup_path="tests/fixtures/sample_setup.sto",
+                             out_dir=".", conditions={"track_temp": 40})
     assert "symptoms" in res and res["explanation"]["driving"] == ["ok"]
 ```
 
@@ -884,19 +965,21 @@ def test_analyze_stint_produces_result(monkeypatch):
 - [ ] **Step 3: Реализация**
 ```python
 # src/ire/orchestrator.py
+import os
 from ire.metrics.symptoms import build_symptoms
 from ire.setup.sto_reader import read_sto
-from ire.setup.sto_writer import build_manual_changes
+from ire.setup.sto_writer import write_sto
 from ire.explainer.explainer import explain
 
-def analyze_stint(frames, setup_path, conditions):
+def analyze_stint(frames, setup_path, out_dir, conditions):
     symptoms = build_symptoms(frames, conditions)
-    setup = read_sto(setup_path)               # источник: CarSetup JSON (или ir["CarSetup"])
+    setup = read_sto(setup_path)
     explanation = explain(symptoms, setup["fields"])
-    manual_changes = []
-    if explanation.get("delta"):               # .sto не пишем — дельта для ручного ввода
-        manual_changes = build_manual_changes(setup, explanation["delta"])
-    return {"symptoms": symptoms, "explanation": explanation, "manual_changes": manual_changes}
+    new_path = None
+    if explanation.get("delta"):
+        new_path = os.path.join(out_dir, "cadillacvr_watkinsglen_ai.sto")
+        write_sto(setup_path, explanation["delta"], new_path)
+    return {"symptoms": symptoms, "explanation": explanation, "new_setup": new_path}
 ```
 
 - [ ] **Step 4: PASS** — `pytest tests/test_orchestrator.py -v`
@@ -904,11 +987,59 @@ def analyze_stint(frames, setup_path, conditions):
 
 ---
 
+## Task 19.5: История сессий (`history.py`) — логирование с v1
+
+**Files:** Create `src/ire/history.py`, `tests/test_history.py`
+Каждый стинт дописывается в историю по связке (append-only). Это фундамент под умную подгрузку (v1.5, spec §11/§4.7). Сейчас — только пишем, чтобы данные копились с первого заезда.
+
+- [ ] **Step 1: Тест**
+```python
+# tests/test_history.py
+from ire.history import append_session, load_sessions
+
+def test_append_and_filter(tmp_path):
+    p = str(tmp_path / "sessions.jsonl")
+    append_session(p, {"car": "Cadillac GTP", "track": "Watkins Glen", "track_temp": 40})
+    append_session(p, {"car": "Ferrari 296", "track": "Spa", "track_temp": 25})
+    rows = load_sessions(p, car="Cadillac GTP", track="Watkins Glen")
+    assert len(rows) == 1 and rows[0]["track_temp"] == 40 and "ts" in rows[0]
+```
+
+- [ ] **Step 2: FAIL** — `pytest tests/test_history.py -v`
+
+- [ ] **Step 3: Реализация**
+```python
+# src/ire/history.py
+import json, os, time
+
+def append_session(path, record):
+    record = {"ts": time.time(), **record}
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
+
+def load_sessions(path, car=None, track=None):
+    if not os.path.exists(path):
+        return []
+    rows = [json.loads(l) for l in open(path, encoding="utf-8")]
+    return [r for r in rows
+            if (car is None or r.get("car") == car)
+            and (track is None or r.get("track") == track)]
+```
+
+- [ ] **Step 4: PASS** — `pytest tests/test_history.py -v`
+- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: session history logging"`
+
+> Запись стинта (schema): `{ts, car, track, conditions:{track_temp,air_temp}, setup_used, symptoms, recommendations:{driving,setup_changes}, new_setup, lap_summary:{best_lap,spread}}`. Файл `history/sessions.jsonl`. Вызов — в `run.py` (Task 20) после `analyze_stint`. `load_sessions` уже включён, чтобы в v1.5 поверх него сделать подбор по условиям.
+
+---
+
 ## Task 20: `[НУЖЕН СИМ]` Сквозной прогон
 
-- [ ] **Step 1:** Собрать `run.py`: запустить uvicorn-сервер в потоке + live-цикл сборщика (Task 7) пишет `STATE["live"]`; на закрытии стинта вызвать `orchestrator.analyze_stint`, положить в `STATE["result"]`.
-- [ ] **Step 2:** В симе: проехать стинт на Watkins → заехать в бокс → на втором экране увидеть разбор и список изменений сетапа `from → to` (ручной ввод; `.sto` не пишем — формат закрыт).
-- [ ] **Step 3:** Ввести предложенные значения в гараже руками, проверить, что машина изменилась как ожидалось.
+- [ ] **Step 1:** Собрать `run.py`: запустить uvicorn-сервер в потоке + live-цикл сборщика (Task 7) пишет `STATE["live"]` и `STATE["session"] = profiles.detect_session(car, track)` (Task 18.5); на закрытии стинта вызвать `orchestrator.analyze_stint`, положить в `STATE["result"]`, затем `history.append_session("history/sessions.jsonl", record)` (Task 19.5; record = result + условия + связка).
+- [ ] **Step 2:** В симе: проехать стинт на Watkins → заехать в бокс → на втором экране увидеть разбор и (если Task 4 ✅) новый `.sto` в папке сетапов.
+- [ ] **Step 3:** Проверить в гараже, что новый сетап грузится.
 - [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: end-to-end run"`
 
 ---

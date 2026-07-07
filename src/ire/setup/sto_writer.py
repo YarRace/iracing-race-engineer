@@ -52,7 +52,7 @@ def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
         Многострочный текст, сгруппированный по секциям.
     """
     fields = setup["fields"]
-    n = len(delta)
+    n = len(delta or {})
     lines = [
         "РЕКОМЕНДОВАННЫЙ СЕТАП — Cadillac GTP",
         f"Изменений: {n}. Строки с пометкой ИЗМЕНИТЬ внести в гараже iRacing вручную.",
@@ -67,8 +67,65 @@ def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
         if section != last_section:
             lines.append(f"[{section}]")
             last_section = section
-        if path in delta:
+        if delta and path in delta:
             lines.append(f"  {name}: {delta[path]}   <- ИЗМЕНИТЬ (было {val})")
         else:
             lines.append(f"  {name}: {val}")
     return "\n".join(lines)
+
+
+# Верхние секции CarSetup = вкладки, как в гараже iRacing (короткие подписи).
+SECTION_TITLES = {
+    "TiresAero": "Шины и аэро",
+    "Chassis": "Шасси",
+    "BrakesDriveUnit": "Тормоза и транс.",
+    "Dampers": "Амортизаторы",
+    "Suspension": "Подвеска",
+}
+
+
+def build_setup_tabs(setup: dict[str, Any], delta: dict[str, Any]) -> list[dict[str, Any]]:
+    """Сетап-лист по ВКЛАДКАМ (как экран настроек iRacing), а не простынёй.
+
+    Группирует поля по верхней секции (вкладка) и подгруппе; в каждой строке —
+    имя параметра, значение и, если поле в ``delta``, новое значение ``to``.
+    Имена параметров оставляем как в iRacing (английские) — их же вводить в игре.
+
+    Returns:
+        Список вкладок:
+        ``[{"section", "title", "changed", "groups": [{"group", "rows": [
+            {"name", "value", "to", "changed"}]}]}]`` — в порядке появления полей.
+    """
+    fields = setup["fields"]
+    delta = delta or {}
+    order: list[str] = []
+    tabs: dict[str, dict[str, Any]] = {}
+    for path, val in fields.items():
+        parts = path.split(".")
+        if len(parts) < 2:
+            continue                                   # мета-скаляр верхнего уровня (UpdateCount)
+        section = parts[0]
+        if len(parts) >= 3:
+            group, name = parts[1], ".".join(parts[2:])
+        else:
+            group, name = "", parts[1]
+        if section not in tabs:
+            tabs[section] = {"section": section, "title": SECTION_TITLES.get(section, section),
+                             "changed": 0, "_groups": {}, "_gorder": []}
+            order.append(section)
+        t = tabs[section]
+        if group not in t["_groups"]:
+            t["_groups"][group] = []
+            t["_gorder"].append(group)
+        changed = path in delta
+        t["_groups"][group].append({"name": name, "value": val,
+                                     "to": delta.get(path), "changed": changed})
+        if changed:
+            t["changed"] += 1
+    out = []
+    for section in order:
+        t = tabs[section]
+        groups = [{"group": g, "rows": t["_groups"][g]} for g in t["_gorder"]]
+        out.append({"section": section, "title": t["title"],
+                    "changed": t["changed"], "groups": groups})
+    return out

@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+data/
 dmitry_volume.txt
 tg_config.json
 dmitry_tg.session
