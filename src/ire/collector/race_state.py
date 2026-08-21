@@ -4,31 +4,33 @@
 в человекочитаемые списки. Чистые декодеры тестируются без сима.
 """
 from config import channels
+from ire.collector.live_state import class_color
+from ire.collector.standings import manufacturer_of
 
 # Битовые маски флагов трассы iRacing (главные для гонщика).
 _SESSION_FLAGS = [
-    (0x00000004, "green", "зелёный"),
-    (0x00000008, "yellow", "жёлтый"),
-    (0x00000100, "yellow_waving", "жёлтый машет"),
-    (0x00004000, "caution", "полный жёлтый"),
-    (0x00008000, "caution_waving", "полный жёлтый"),
-    (0x00000020, "blue", "синий — пропусти"),
-    (0x00000002, "white", "белый — последний круг"),
-    (0x00000001, "checkered", "клетчатый — финиш"),
-    (0x00000010, "red", "красный — стоп"),
-    (0x00010000, "black", "чёрный флаг"),
-    (0x00100000, "repair", "ремонт (meatball)"),
-    (0x00020000, "disqualify", "дисквалификация"),
+    (0x00000004, "green", "green"),
+    (0x00000008, "yellow", "yellow"),
+    (0x00000100, "yellow_waving", "yellow waving"),
+    (0x00004000, "caution", "full course yellow"),
+    (0x00008000, "caution_waving", "full course yellow"),
+    (0x00000020, "blue", "blue — let by"),
+    (0x00000002, "white", "white — last lap"),
+    (0x00000001, "checkered", "checkered — finish"),
+    (0x00000010, "red", "red — stop"),
+    (0x00010000, "black", "black flag"),
+    (0x00100000, "repair", "repair (meatball)"),
+    (0x00020000, "disqualify", "disqualified"),
 ]
 # Битовые маски предупреждений двигателя.
 _ENGINE_WARNINGS = [
-    (0x01, "water", "перегрев ОЖ"),
-    (0x02, "fuel_press", "давление топлива"),
-    (0x04, "oil_press", "давление масла"),
-    (0x08, "stalled", "двигатель заглох"),
-    (0x10, "pit_limiter", "пит-лимитер"),
-    (0x20, "rev_limiter", "отсечка оборотов"),
-    (0x40, "oil_temp", "перегрев масла"),
+    (0x01, "water", "coolant overheat"),
+    (0x02, "fuel_press", "fuel pressure"),
+    (0x04, "oil_press", "oil pressure"),
+    (0x08, "stalled", "engine stalled"),
+    (0x10, "pit_limiter", "pit limiter"),
+    (0x20, "rev_limiter", "rev limiter"),
+    (0x40, "oil_temp", "oil overheat"),
 ]
 
 
@@ -203,7 +205,10 @@ def build_relative(ir):
             rel += 1.0
         cars.append({
             "idx": idx, "name": d.get("UserName"), "number": d.get("CarNumber"),
-            "car_class": d.get("CarClassShortName"), "class_color": d.get("CarClassColor"),
+            "car_class": d.get("CarClassShortName"), "car": d.get("CarScreenNameShort"),
+            "manufacturer": manufacturer_of(d.get("CarPath"), d.get("CarScreenName")),
+            "class_color": class_color(d.get("CarClassShortName"), d.get("CarPath"),
+                                       d.get("CarScreenName"), d.get("CarClassColor")),
             "irating": d.get("IRating"), "pos": _at(pos, idx),
             "rel_pct": round(rel, 4), "gap": round(rel * lap_t, 1),
             "on_pit": bool(_at(pit, idx, False)), "lap_pct": round(dd, 4),

@@ -30,8 +30,13 @@ def make_get(ir):
 
 
 def live_frame(ir):
-    """Нормализованный кадр телеметрии из живого ir."""
-    return normalize_frame(make_get(ir))
+    """Нормализованный кадр телеметрии из живого ir + мои температуры/баланс тормозов.
+    Oil/Water/BrakeBias — каналы МОЕЙ машины (по чужим iRacing их не отдаёт)."""
+    f = normalize_frame(make_get(ir))
+    f["oil_temp"] = ir["OilTemp"]                      # °C, моя машина
+    f["water_temp"] = ir["WaterTemp"]                  # °C
+    f["brake_bias"] = ir["dcBrakeBias"]                # баланс тормозов, % вперёд
+    return f
 
 
 def is_on_track(ir):
@@ -78,6 +83,31 @@ def infer_car_class(class_short, car_path, car_name):
     if any(k in s for k in ("formula", "indycar", "superformula", "dallara f", "skip barber")):
         return "Formula"
     return None
+
+
+# цвета классов (int RGB) — схема IMSA: GTP жёлто-золотой, LMP2 синий, GT3 алый, GT4 зелёный
+CLASS_COLOR_GTP = 0xF1C40F
+CLASS_COLOR_LMP = 0x3EA6FF
+CLASS_COLOR_GT3 = 0xE74C3C
+CLASS_COLOR_GT4 = 0x2ECC71
+CLASS_COLOR_FORMULA = 0x9B59B6
+
+
+def class_color(class_short, car_path=None, car_name=None, fallback=None):
+    """Цвет класса (int) по схеме: GTP=золотисто-жёлтый, LMP2=синий, GT3=алый, GT4=зелёный.
+    Устойчив к вариациям названий (GTD=GT3, hypercar/LMDh=GTP, ORECA=LMP2)."""
+    s = f"{class_short or ''} {car_path or ''} {car_name or ''}".upper()
+    if "GTP" in s or "HYPERCAR" in s or "LMDH" in s or "LMH" in s:
+        return CLASS_COLOR_GTP
+    if "GT4" in s:
+        return CLASS_COLOR_GT4
+    if "GT3" in s or "GTD" in s:
+        return CLASS_COLOR_GT3
+    if "LMP" in s or "ORECA" in s or "PROTOTYPE" in s:
+        return CLASS_COLOR_LMP
+    if "FORMULA" in s or "INDYCAR" in s or "SUPERFORMULA" in s:
+        return CLASS_COLOR_FORMULA
+    return fallback
 
 
 def session_identity(ir):

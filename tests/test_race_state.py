@@ -52,6 +52,56 @@ def test_standing_gaps_by_position():
     assert behind == 5.0
 
 
+def test_build_relative_includes_all_on_track_cars_sparse_idx():
+    # как в реале: CarIdx РАЗРЕЖЕНЫ (0,2,7,40), массивы 64-длины. На карте должны быть ВСЕ
+    # на трассе (4), кроме машины в гараже (idx33, surf=-1). Проверяет, что мы не теряем чужих.
+    N = 64
+    dist = [-1.0] * N
+    surf = [-1] * N
+    pit = [False] * N
+    posn = [0] * N
+    for idx, pct, s, pos in [(0, 0.50, 3, 4), (2, 0.55, 3, 3), (7, 0.45, 3, 5),
+                             (40, 0.10, 3, 6), (33, 0.70, -1, 7)]:
+        dist[idx], surf[idx], posn[idx] = pct, s, pos
+    ir = _FakeIR({
+        "DriverInfo": {"DriverCarIdx": 0, "Drivers": [
+            {"CarIdx": 0, "UserName": "Me", "CarClassShortName": "GTP", "CarClassColor": 0xFFFFFF},
+            {"CarIdx": 2, "UserName": "A", "CarClassShortName": "GTP", "CarClassColor": 0xFF0000},
+            {"CarIdx": 7, "UserName": "B", "CarClassShortName": "GTP", "CarClassColor": 0x00FF00},
+            {"CarIdx": 40, "UserName": "C", "CarClassShortName": "GTP", "CarClassColor": 0x0000FF},
+            {"CarIdx": 33, "UserName": "Garage", "CarClassShortName": "GTP"},
+        ]},
+        "CarIdxLapDistPct": dist, "CarIdxOnPitRoad": pit,
+        "CarIdxTrackSurface": surf, "CarIdxPosition": posn,
+        "LapBestLapTime": 100.0, "LapLastLapTime": 0.0,
+    })
+    cars = build_relative(ir)["cars"]
+    idxs = sorted(c["idx"] for c in cars)
+    assert idxs == [0, 2, 7, 40]                         # ВСЕ на трассе, гаражный (33) исключён
+    assert all(c["lap_pct"] is not None for c in cars)   # у каждой есть позиция для карты
+    assert sum(1 for c in cars if c["is_player"]) == 1   # ровно один «я»
+
+
+def test_build_relative_applies_class_colors():
+    # схема IMSA: GTP жёлтый, LMP2 синий, GT3 алый — независимо от CarClassColor из SDK
+    ir = _FakeIR({
+        "DriverInfo": {"DriverCarIdx": 0, "Drivers": [
+            {"CarIdx": 0, "UserName": "Me", "CarClassShortName": "GTP", "CarClassColor": 0x111111},
+            {"CarIdx": 1, "UserName": "L", "CarClassShortName": "LMP2", "CarClassColor": 0x222222},
+            {"CarIdx": 2, "UserName": "G", "CarClassShortName": "GT3", "CarClassColor": 0x333333},
+        ]},
+        "CarIdxLapDistPct": [0.50, 0.55, 0.45],
+        "CarIdxOnPitRoad": [False, False, False],
+        "CarIdxTrackSurface": [3, 3, 3],
+        "CarIdxPosition": [1, 2, 3],
+        "LapBestLapTime": 100.0, "LapLastLapTime": 0.0,
+    })
+    by = {c["idx"]: c["class_color"] for c in build_relative(ir)["cars"]}
+    assert by[0] == 0xF1C40F      # GTP — жёлто-золотой
+    assert by[1] == 0x3EA6FF      # LMP2 — синий
+    assert by[2] == 0xE74C3C      # GT3 — алый
+
+
 def test_build_relative_orders_by_track_position():
     # я idx0 на 0.50; idx1 впереди (+0.05=5с), idx2 сзади (−0.05), idx3 не в мире (искл.)
     ir = _FakeIR({
