@@ -15,3 +15,18 @@ def test_parse_extracts_driving_setup_delta():
     r = parse_response(fake)
     assert r["driving"] and r["setup_changes"][0]["field"] == "Front tire pressure"
     assert r["delta"]["Front tire pressure"] == 140
+
+
+def test_no_fake_car_and_track_in_prompt():
+    """Раньше в explain() стояли значения по умолчанию «Cadillac GTP» и
+    «Watkins Glen». Для Porsche на Monza модель получала прямую ложь про
+    машину и трассу — и советовала сетап не от той машины."""
+    p = build_prompt({}, setup_fields={}, car=None, track=None)
+    assert "Cadillac" not in p and "Watkins" not in p
+    # честнее сказать «неизвестно», чем назвать чужую машину
+    assert "unknown" in p.lower()
+
+
+def test_prompt_uses_given_car_and_track():
+    p = build_prompt({}, setup_fields={}, car="Porsche 963 GTP", track="Monza")
+    assert "Porsche 963 GTP" in p and "Monza" in p

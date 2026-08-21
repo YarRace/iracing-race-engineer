@@ -73,11 +73,12 @@ def _save_lap_bg(ident, lap_num, frames):
     threading.Thread(target=work, args=(list(frames),), daemon=True).start()
 
 
-def _analyze_bg(frames, setup, conditions):
+def _analyze_bg(frames, setup, conditions, identity=None):
     """Разбор стинта В ФОНЕ — не блокирует live-цикл (LLM считается минуты)."""
     try:
         STATE["result"] = {"symptoms": build_symptoms(frames, conditions), "analyzing": True}
-        res = orchestrator.analyze_stint(frames, setup_path=setup, conditions=conditions)
+        res = orchestrator.analyze_stint(frames, setup_path=setup, conditions=conditions,
+                                         identity=identity)
         STATE["result"] = res
         print("Done. Analysis is on the dashboard.")
     except Exception as e:
@@ -274,7 +275,7 @@ def main():
                 conditions = {"track_temp": frames[0]["track_temp"]}
                 threading.Thread(
                     target=_analyze_bg,
-                    args=(list(frames), ir["CarSetup"], conditions),
+                    args=(list(frames), ir["CarSetup"], conditions, dict(ident)),
                     daemon=True,
                 ).start()
                 frames = []

@@ -45,6 +45,11 @@ SYSTEM = (
 )
 
 def build_prompt(symptoms, setup_fields, car, track):
+    # Машина и трасса приходят из живой сессии. Если их нет — честно пишем
+    # «unknown»: назвать чужую машину хуже, чем признать незнание, потому что
+    # советы по сетапу у GTP и GT3 разные.
+    car = car or "unknown"
+    track = track or "unknown"
     return (f"Car: {car}. Track: {track}.\n"
             f"Current setup (only these fields may be changed):\n{json.dumps(setup_fields, ensure_ascii=False, indent=2)}\n"
             f"Stint symptoms:\n{json.dumps(symptoms, ensure_ascii=False, indent=2)}\n"
@@ -54,7 +59,7 @@ def parse_response(text):
     start, end = text.find("{"), text.rfind("}")
     return json.loads(text[start:end + 1])
 
-def explain(symptoms, setup_fields, car="Cadillac GTP", track="Watkins Glen"):
+def explain(symptoms, setup_fields, car=None, track=None):
     prompt = build_prompt(symptoms, setup_fields, car, track)
     provider = os.environ.get("IRE_LLM", "ollama").lower()
     if provider == "claude":
@@ -65,7 +70,10 @@ def _explain_claude(prompt):
     from anthropic import Anthropic
     client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     msg = client.messages.create(
-        model="claude-opus-4-8", max_tokens=2000, system=SYSTEM,
+        # модель задаётся переменной: раньше здесь стояла claude-opus-4-8,
+        # которой не существует — при IRE_LLM=claude разбор просто падал
+        model=os.environ.get("IRE_CLAUDE_MODEL", "claude-opus-5"),
+        max_tokens=2000, system=SYSTEM,
         messages=[{"role": "user", "content": prompt}],
     )
     return parse_response(msg.content[0].text)

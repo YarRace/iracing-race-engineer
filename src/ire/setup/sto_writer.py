@@ -37,7 +37,7 @@ def build_manual_changes(
     ]
 
 
-def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
+def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any], car: str | None = None) -> str:
     """Полный читаемый лист сетапа: ВСЕ поля по секциям, изменённые помечены.
 
     `.sto` загрузить в iRacing нельзя (формат закрыт), поэтому это «шпаргалка» —
@@ -54,7 +54,7 @@ def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
     fields = setup["fields"]
     n = len(delta or {})
     lines = [
-        "RECOMMENDED SETUP — Cadillac GTP",
+        f"RECOMMENDED SETUP — {car or 'unknown car'}",
         f"Changes: {n}. Enter the lines marked CHANGE by hand in the iRacing garage.",
         "(The .sto file is closed and cannot be loaded — this is a reference sheet.)",
         "",
