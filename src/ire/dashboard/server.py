@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, Response
 import os
 
@@ -20,6 +20,36 @@ def records():
         return history.records(conn)
     finally:
         conn.close()
+
+def _clamp(n, lo, hi):
+    return max(lo, min(int(n), hi))
+
+
+@app.get("/api/history")
+def lap_history(track: str = Query(""), car: str = Query(""), limit: int = Query(500)):
+    """Круги на трассе+машине по времени — для графика прогресса.
+
+    Без трассы и машины отдаём пусто, а не ошибку: карточка дашборда дёргает
+    эндпоинт ещё до того, как появится сессия и станет известно, где мы едем.
+    """
+    if not track or not car:
+        return []
+    conn = history.connect()          # свой коннект: SQLite (WAL) разводит
+    try:                              # чтение из API и запись из live-цикла
+        return history.track_history(conn, track, car, _clamp(limit, 0, 2000))
+    finally:
+        conn.close()
+
+
+@app.get("/api/stints")
+def stints(limit: int = Query(20)):
+    """Последние стинты — сводка по каждому выезду."""
+    conn = history.connect()
+    try:
+        return history.recent_stints(conn, _clamp(limit, 0, 500))
+    finally:
+        conn.close()
+
 
 @app.get("/api/result")
 def result(): return STATE["result"]

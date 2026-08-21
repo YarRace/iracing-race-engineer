@@ -61,6 +61,13 @@
     font-variant-numeric:tabular-nums;font-size:15px;color:#0d0f12}
   .stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
   .stat:last-child{border-bottom:0}
+  .progsel{width:100%;margin-bottom:12px;background:var(--panel);color:var(--txt);
+    border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;font-size:12px}
+  .progstat{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+  .progstat .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  .progsvg{width:100%;height:120px;display:block;overflow:visible}
+  .progax{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;
+    color:var(--muted);font-variant-numeric:tabular-nums}
   .stat .k{color:var(--muted)} .stat .v{font-variant-numeric:tabular-nums;font-weight:600}
   .cond{display:flex;gap:18px;margin-top:6px;flex-wrap:wrap}
   .cond div{font-size:13px;color:var(--muted)} .cond b{color:var(--txt);font-size:18px;display:block}
@@ -1342,6 +1349,107 @@ function renderRecords(){
   });
 }
 
+// --- Прогресс по кругам: 629 кругов в базе наконец видно ---
+// Точки НЕ сглаживаем (осознанно): каждый круг — как он был. Сглаживание
+// прячет именно то, ради чего график и нужен — разброс и выбросы.
+let _progCombo = null, _progSig = null;
+
+async function tickProgress(){
+  if(!_records.length){ return; }
+  // связки трасса+машина из рекордов, самая накатанная — первой
+  const acc = new Map();
+  _records.forEach(r => {                       // Practice и Race — отдельные строки рекордов,
+    const k = r.track + '|' + r.car;            // но для графика это одна и та же связка
+    const c = acc.get(k);
+    if(c){ c.laps += (r.laps||0); c.best_lap = Math.min(c.best_lap, r.best_lap); }
+    else acc.set(k, {...r, laps: r.laps||0});
+  });
+  const combos = [...acc.values()].sort((a,b) => (b.laps||0) - (a.laps||0));
+  if(!combos.length) return;
+  if(!_progCombo || !combos.some(c => c.track === _progCombo.track && c.car === _progCombo.car))
+    _progCombo = combos[0];
+
+  let laps;
+  try{
+    laps = await (await fetch('/api/history?track=' + encodeURIComponent(_progCombo.track)
+                              + '&car=' + encodeURIComponent(_progCombo.car))).json();
+  }catch{ return; }
+  const sig = _progCombo.track + _progCombo.car + laps.length;
+  if(sig === _progSig) return;
+  _progSig = sig;
+  renderProgress(combos, laps);
+}
+
+function renderProgress(combos, laps){
+  const box = $('r_progress');
+  const opts = combos.map(c => {
+    const on = c.track === _progCombo.track && c.car === _progCombo.car;
+    const name = (c.track_display || c.track) + ' · ' + c.car;
+    return `<option value="${encodeURIComponent(c.track + '|' + c.car)}" ${on?'selected':''}>${name} (${c.laps})</option>`;
+  }).join('');
+  const picker = `<select id="prog_pick" class="progsel">${opts}</select>`;
+
+  if(!laps.length){
+    box.className = ''; box.innerHTML = picker + `<div class="empty">No laps yet.</div>`;
+    bindProgPick(combos); return;
+  }
+
+  const t = laps.map(l => l.lap_time);
+  const best = Math.min(...t);
+  // Верх шкалы и «разброс» режем по 95-му перцентилю: один круг с заездом
+  // в пит иначе даёт разброс в 80 секунд и сплющивает график в полоску: пара кругов с трафиком иначе
+  // сплющивает весь график в полоску у нижнего края.
+  const sorted = t.slice().sort((a,b)=>a-b);
+  const cap = sorted[Math.min(sorted.length-1, Math.floor(sorted.length*0.95))];
+  const lo = best - (cap-best)*0.08, hi = cap + (cap-best)*0.08 || best + 1;
+
+  const W = 100, H = 42, n = laps.length;
+  const x = i => n<2 ? W/2 : i/(n-1)*W;
+  const y = v => H - (Math.min(Math.max(v,lo),hi) - lo) / (hi-lo||1) * H;
+
+  // ступенчатая линия личного рекорда — видно, когда реально прибавлял
+  let run = Infinity;
+  const runline = laps.map((l,i) => { run = Math.min(run, l.lap_time);
+    return `${i?'L':'M'}${x(i).toFixed(2)},${y(run).toFixed(2)}`; }).join(' ');
+
+  const dots = laps.map((l,i) => {
+    const off = l.lap_time > cap;   // выброс: рисуем приглушённо у самого верха
+    return `<circle cx="${x(i).toFixed(2)}" cy="${y(l.lap_time).toFixed(2)}" r="${off?0.5:0.7}"
+      fill="${off ? 'rgba(144,153,166,.35)' : 'var(--accent)'}"/>`;
+  }).join('');
+
+  const first = laps[0].ts ? laps[0].ts.slice(0,10) : '';
+  const last  = laps[n-1].ts ? laps[n-1].ts.slice(0,10) : '';
+  const bestIdx = t.indexOf(best);
+  const gain = t[0] - best;
+
+  box.className = '';
+  box.innerHTML = picker + `
+    <div class="progstat">
+      <div><div class="label">Best</div><div class="v" style="color:#c77dff">${lapTime(best)}</div></div>
+      <div><div class="label">Laps</div><div class="v">${n}</div></div>
+      <div><div class="label">Gained</div><div class="v" style="color:${gain>0?'#4ade80':'var(--muted)'}">${gain>0?'−'+gain.toFixed(2)+'s':'—'}</div></div>
+      <div><div class="label">Spread</div><div class="v">${(cap-best).toFixed(2)}s</div></div>
+    </div>
+    <svg class="progsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <path d="${runline}" fill="none" stroke="#c77dff" stroke-width="0.5" vector-effect="non-scaling-stroke"/>
+      ${dots}
+      <circle cx="${x(bestIdx).toFixed(2)}" cy="${y(best).toFixed(2)}" r="1.4" fill="none"
+              stroke="#c77dff" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="progax"><span>${first}</span><span>${lapTime(cap)} — ${lapTime(best)}</span><span>${last}</span></div>`;
+  bindProgPick(combos);
+}
+
+function bindProgPick(combos){
+  const sel = $('prog_pick'); if(!sel) return;
+  sel.onchange = () => {
+    const [track, car] = decodeURIComponent(sel.value).split('|');
+    _progCombo = combos.find(c => c.track === track && c.car === car) || _progCombo;
+    _progSig = null; tickProgress();
+  };
+}
+
 // ввод целевого времени для тренировки стабильности
 $('trainTarget').oninput = e=>{ _trainTarget = parseLapInput(e.target.value); };
 $('fuelLaps').oninput = renderFuelCalc;   // топливный калькулятор
@@ -1485,7 +1593,7 @@ document.querySelectorAll('.mpane').forEach(p=>{ applyLayout(p); enableDrag(p); 
 initCardGears();
 buildSteer();   // переключатель рулей виден сразу (до выезда на трассу)
 
-tickLive(); tickResult(); tickStrategy(); tickInc(); tickRace(); tickRecords(); tickStandings();
+tickLive(); tickResult(); tickStrategy(); tickInc(); tickRace(); tickRecords(); tickProgress(); tickStandings();
 tickRelative(); tickWearSession(); tickTrackmap();
 setInterval(tickLive, 90);      // ~11/сек — скорость/педали/G/шины (легче для машины)
 setInterval(tickResult, 1500);
@@ -1493,6 +1601,7 @@ setInterval(tickStrategy, 1000);
 setInterval(tickInc, 1000);
 setInterval(tickRace, 150);     // ~7/сек — обороты/разрывы/дельта/тайминг
 setInterval(tickRecords, 5000);
+setInterval(tickProgress, 5000);
 setInterval(tickStandings, 2000);
 setInterval(tickRelative, 240);  // машинки на карте/relative (легче, данные с сервера 20/сек)
 setInterval(tickWearSession, 2000);
