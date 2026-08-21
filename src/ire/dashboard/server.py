@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 import os
 
 from ire.storage import history
@@ -47,6 +47,15 @@ def session(): return STATE["session"]
 
 @app.get("/api/trackmap")
 def trackmap(): return STATE["trackmap"]
+
+@app.get("/wheels/{name}")
+def wheel_image(name: str):
+    # фото рулей (MOZA KS/ES/RS/FSR/GS) для виджета «Руль» — статик из static/wheels/
+    safe = os.path.basename(name)
+    path = os.path.join(os.path.dirname(__file__), "static", "wheels", safe)
+    if not (safe.endswith(".png") and os.path.exists(path)):
+        return Response(status_code=404)
+    return FileResponse(path, media_type="image/png")
 
 @app.get("/")
 def index():

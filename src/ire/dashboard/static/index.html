@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,7 +21,21 @@
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:1100px){.grid{grid-template-columns:1fr}}
   .col{display:flex;flex-direction:column;gap:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;position:relative}
+  .cardgear{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:#1e2228;
+    color:#cdd3dc;border:1px solid #2a2f38;cursor:pointer;font-size:13px;line-height:20px;text-align:center;
+    opacity:.5;z-index:5;user-select:none}
+  .cardgear:hover{opacity:1}
+  .wnav{background:#1e2228;color:#cdd3dc;border:1px solid var(--line);border-radius:8px;width:30px;height:46px;font-size:22px;line-height:1;cursor:pointer;flex:0 0 auto}
+  .wnav:hover{background:#2a2f38;color:#fff}
+  .stylepop{position:fixed;z-index:1000;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;width:250px;box-shadow:0 12px 34px rgba(0,0,0,.55);font-size:13px}
+  .stylepop label{display:block;margin:9px 0 3px;color:var(--muted)}
+  .stylepop input[type=range]{width:100%}
+  .stylepop select{width:100%;background:#0d0f12;color:#e8eaed;border:1px solid var(--line);border-radius:6px;padding:5px}
+  .stylepop .sw{display:inline-block;width:22px;height:22px;border-radius:5px;margin:2px;cursor:pointer;border:1px solid #555}
+  .stylepop .row2{display:flex;gap:8px;margin-top:10px}
+  .stylepop button{flex:1;background:#1e2228;color:#e8eaed;border:1px solid var(--line);border-radius:7px;padding:6px;cursor:pointer}
   .card h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)}
 
   /* приборы */
@@ -32,9 +46,8 @@
   .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
 
   .bar{height:12px;background:#0a0c0f;border-radius:6px;overflow:hidden;margin-top:6px}
-  .bar>span{display:block;height:100%;width:0%;transition:width .16s linear,background .16s linear}
-  /* плавное движение точки G-force и заливок */
-  #gforce .gfdot{transition:cx .12s linear,cy .12s linear}
+  .bar>span{display:block;height:100%;width:0%}
+  /* без плавности — сырые значения, чётко, обновление на высокой частоте */
   .thr>span{background:linear-gradient(90deg,#1e7e34,#2ecc71)}
   .brk>span{background:linear-gradient(90deg,#922,#e74c3c)}
   .inputs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
@@ -129,172 +142,163 @@
 <body translate="no" class="notranslate">
 <h1><span id="dot" class="dot"></span> Race Engineer <span id="hdr" style="color:var(--muted);font-weight:400;font-size:14px"></span></h1>
 <div class="maintabs">
-  <button class="mtab on" data-tab="solo">Соло</button>
+  <button class="mtab on" data-tab="solo">Solo</button>
   <button class="mtab" data-tab="endur">Endurance</button>
   <button class="mtab" data-tab="setup">Setup</button>
-  <button id="customizeBtn" class="cbtn">⚙ Настроить</button>
+  <button class="mtab" data-tab="records">Records</button>
+  <button class="mtab" data-tab="strategy">Strategy</button>
+  <button class="mtab" data-tab="analysis">Race analysis</button>
+  <button id="customizeBtn" class="cbtn">⚙ Customize</button>
 </div>
 <div id="customizeMenu" style="display:none"></div>
 <div id="tab-solo" class="mpane">
 <div class="grid">
   <!-- ЛЕВО -->
   <div class="col">
-    <div class="card" data-card="live" data-title="🎛️ Приборы">
-      <h2>🎛️ Приборы</h2>
+    <div class="card" data-card="live" data-title="🎛️ Gauges">
+      <h2>🎛️ Gauges</h2>
       <div class="gauges">
-        <div><div class="label">Скорость</div><div class="big speed"><span id="speed">—</span><span class="unit"> км/ч</span></div></div>
-        <div><div class="label">Передача</div><div class="big gear" id="gear">—</div></div>
-        <div><div class="label">Круг</div><div class="big gear" id="lap" style="font-size:34px">—</div></div>
+        <div><div class="label">Speed</div><div class="big speed"><span id="speed">—</span><span class="unit"> km/h</span></div></div>
+        <div><div class="label">Gear</div><div class="big gear" id="gear">—</div></div>
+        <div><div class="label">Lap</div><div class="big gear" id="lap" style="font-size:34px">—</div></div>
       </div>
       <div class="inputs">
-        <div><div class="label">Газ <span id="thrv" style="float:right"></span></div><div class="bar thr"><span id="thr"></span></div></div>
-        <div><div class="label">Тормоз <span id="brkv" style="float:right"></span></div><div class="bar brk"><span id="brk"></span></div></div>
+        <div><div class="label">Throttle <span id="thrv" style="float:right"></span></div><div class="bar thr"><span id="thr"></span></div></div>
+        <div><div class="label">Brake <span id="brkv" style="float:right"></span></div><div class="bar brk"><span id="brk"></span></div></div>
       </div>
-      <div style="margin-top:12px"><div class="label">Обороты <span id="rpmv" style="float:right"></span></div>
+      <div style="margin-top:12px"><div class="label">RPM <span id="rpmv" style="float:right"></span></div>
         <div class="bar" style="height:14px"><span id="rpmbar" style="background:#2ecc71"></span></div></div>
       <div class="cond">
-        <div>Топливо <b><span id="fuel">—</span> л</b></div>
-        <div>Трасса <b><span id="ttemp">—</span>°<span id="ttrend" style="font-size:13px;margin-left:3px"></span></b></div>
-        <div>Воздух <b><span id="atemp">—</span>°</b></div>
+        <div>Fuel <b><span id="fuel">—</span> L</b></div>
+        <div>Track <b><span id="ttemp">—</span>°<span id="ttrend" style="font-size:13px;margin-left:3px"></span></b></div>
+        <div>Air <b><span id="atemp">—</span>°</b></div>
         <div>Inc <b><span id="inc">0</span>x</b></div>
       </div>
     </div>
-    <div class="card" data-card="strategy" data-title="⛽ Стратегия и пит">
-      <h2>⛽ Стратегия и пит</h2>
-      <div id="strategy"><div class="empty">Поедь несколько кругов — появится расход и прогноз.</div></div>
+    <div class="card" data-card="deltabar" data-title="⏱️ Delta to best">
+      <h2>⏱️ Delta to best</h2>
+      <div id="deltabar"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="deltabar" data-title="⏱️ Дельта к лучшему">
-      <h2>⏱️ Дельта к лучшему</h2>
-      <div id="deltabar"><div class="empty">Появится на трассе.</div></div>
-    </div>
-    <div class="card" data-card="shift" data-title="🔺 Обороты и шифт">
-      <h2>🔺 Обороты и шифт</h2>
-      <div id="shiftbox"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="shift" data-title="🔺 RPM & shift">
+      <h2>🔺 RPM & shift</h2>
+      <div id="shiftbox"><div class="empty">Appears once on track.</div></div>
     </div>
     <div class="card" data-card="gforce" data-title="🎯 G-force">
       <h2>🎯 G-force</h2>
-      <div id="gforce"><div class="empty">Появится на трассе.</div></div>
+      <div id="gforce"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="steer" data-title="🎡 Руль">
-      <h2>🎡 Руль</h2>
-      <div id="steerbox"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="steer" data-title="🎡 Steering">
+      <h2>🎡 Steering</h2>
+      <div id="steerbox"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="topspeed" data-title="🚀 Макс. скорость">
-      <h2>🚀 Макс. скорость</h2>
-      <div id="topspeed"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="topspeed" data-title="🚀 Top speed">
+      <h2>🚀 Top speed</h2>
+      <div id="topspeed"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="slip" data-title="🌀 Занос">
-      <h2>🌀 Занос</h2>
-      <div id="slip"><div class="empty">Появится на трассе.</div></div>
-    </div>
-    <div class="card" data-card="postrend" data-title="Тренд позиции">
-      <h2>Тренд позиции</h2>
-      <div id="postrend"><div class="empty">Появится в гонке.</div></div>
+    <div class="card" data-card="postrend" data-title="Position trend">
+      <h2>Position trend</h2>
+      <div id="postrend"><div class="empty">Appears in a race.</div></div>
     </div>
   </div>
 
   <!-- ПРАВО -->
   <div class="col">
-    <div class="card" data-card="race" data-title="🏁 Позиция и разрывы">
-      <h2>🏁 Позиция и разрывы</h2>
-      <div id="race"><div class="empty">Позиция, разрывы (с трендом) и флаги — на трассе.</div></div>
+    <div class="card" data-card="race" data-title="🏁 Position & gaps">
+      <h2>🏁 Position & gaps</h2>
+      <div id="race"><div class="empty">Position, gaps (with trend) and flags — once on track.</div></div>
     </div>
-    <div class="card" data-card="timing" data-title="⏲️ Круги и сектора">
-      <h2>⏲️ Круги и сектора</h2>
-      <div id="timing"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="timing" data-title="⏲️ Laps & sectors">
+      <h2>⏲️ Laps & sectors</h2>
+      <div id="timing"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="summary" data-title="🏆 Итоги заезда">
-      <h2 id="summary-title">🏆 Итоги заезда</h2>
-      <div id="summary"><div class="empty">Позиция, лучший круг, стабильность и инциденты — по ходу заезда (после клетчатого станет финальным отчётом).</div></div>
+    <div class="card" data-card="summary" data-title="🏆 Session summary">
+      <h2 id="summary-title">🏆 Session summary</h2>
+      <div id="summary"><div class="empty">Position, best lap, consistency and incidents — live through the session (becomes a final report after the checkered flag).</div></div>
     </div>
-    <div class="card" data-card="tiretemps" data-title="🌡️ Температуры шин">
-      <h2>🌡️ Температуры шин</h2>
+    <div class="card" data-card="tiretemps" data-title="🌡️ Tire temps">
+      <h2>🌡️ Tire temps</h2>
       <div class="tires" id="tires"></div>
-      <div class="empty" id="tires-empty" style="text-align:center">ожидание данных…</div>
+      <div class="empty" id="tires-empty" style="text-align:center">waiting for data…</div>
     </div>
-    <div class="card" data-card="metrics" data-title="📈 Датчики и баланс">
-      <h2>📈 Датчики и баланс</h2>
+    <div class="card" data-card="metrics" data-title="📈 Sensors & balance">
+      <h2>📈 Sensors & balance</h2>
       <div class="mini" id="metrics"><div class="empty">—</div></div>
     </div>
-    <div class="card" data-card="records" data-title="🥇 Личные рекорды">
-      <h2>🥇 Личные рекорды</h2>
-      <div id="records"><div class="empty">Накатай круги — здесь появятся твои рекорды по трассам (копятся между заездами).</div></div>
-    </div>
-    <div class="card" data-card="training" data-title="🎓 Тренировка">
-      <h2>🎓 Тренировка</h2>
+    <div class="card" data-card="training" data-title="🎓 Training">
+      <h2>🎓 Training</h2>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <span class="label" style="margin:0">Цель круга</span>
+        <span class="label" style="margin:0">Lap target</span>
         <input id="trainTarget" placeholder="1:32.0" style="width:110px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit">
       </div>
-      <div id="training"><div class="empty">Введи целевое время — посчитаю, сколько кругов подряд ты в него укладываешься.</div></div>
+      <div id="training"><div class="empty">Enter a target time — I'll count how many laps in a row you hit it.</div></div>
     </div>
-    <div class="card" data-card="weather" data-title="🌤️ Погода">
-      <h2>🌤️ Погода</h2>
-      <div id="weather"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="weather" data-title="🌤️ Weather">
+      <h2>🌤️ Weather</h2>
+      <div id="weather"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="standings" data-title="📋 Таблица заезда">
-      <h2>📋 Таблица заезда</h2>
-      <div id="standings"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="standings" data-title="📋 Standings">
+      <h2>📋 Standings</h2>
+      <div id="standings"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="ers" data-title="⚡ ERS / гибрид">
-      <h2>⚡ ERS / гибрид</h2>
-      <div id="ers"><div class="empty">Появится на трассе (для гибридных машин).</div></div>
+    <div class="card" data-card="ers" data-title="⚡ ERS / hybrid">
+      <h2>⚡ ERS / hybrid</h2>
+      <div id="ers"><div class="empty">Appears once on track (hybrid cars only).</div></div>
     </div>
-    <div class="card" data-card="flaglog" data-title="🚩 Флаги (история)">
-      <h2>🚩 Флаги (история)</h2>
-      <div id="flaglog"><div class="empty">История флагов появится по ходу заезда.</div></div>
+    <div class="card" data-card="flaglog" data-title="🚩 Flags (history)">
+      <h2>🚩 Flags (history)</h2>
+      <div id="flaglog"><div class="empty">Flag history will appear during the session.</div></div>
     </div>
-    <div class="card" data-card="fuelcalc" data-title="🧮 Калькулятор топлива">
-      <h2>🧮 Калькулятор топлива</h2>
+    <div class="card" data-card="fuelcalc" data-title="🧮 Fuel calculator">
+      <h2>🧮 Fuel calculator</h2>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <span class="label" style="margin:0">Кругов до конца</span>
+        <span class="label" style="margin:0">Laps to go</span>
         <input id="fuelLaps" type="number" min="1" placeholder="20" style="width:90px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit">
       </div>
-      <div id="fuelcalc"><div class="empty">Введи число кругов — посчитаю топливо (по текущему расходу).</div></div>
+      <div id="fuelcalc"><div class="empty">Enter a lap count — I'll work out the fuel (at the current burn rate).</div></div>
     </div>
-    <div class="card" data-card="optimal" data-title="💎 Оптимальный круг">
-      <h2>💎 Оптимальный круг</h2>
-      <div id="optimal"><div class="empty">Проедь несколько кругов — соберу теоретический лучший из лучших секторов.</div></div>
+    <div class="card" data-card="optimal" data-title="💎 Optimal lap">
+      <h2>💎 Optimal lap</h2>
+      <div id="optimal"><div class="empty">Drive a few laps — I'll build a theoretical best from your best sectors.</div></div>
     </div>
-    <div class="card" data-card="bestsectors" data-title="🟪 Лучшие сектора">
-      <h2>🟪 Лучшие сектора</h2>
-      <div id="bestsectors"><div class="empty">Появятся по ходу заезда.</div></div>
+    <div class="card" data-card="bestsectors" data-title="🟪 Best sectors">
+      <h2>🟪 Best sectors</h2>
+      <div id="bestsectors"><div class="empty">Appear during the session.</div></div>
     </div>
-    <div class="card" data-card="fuelgraph" data-title="📉 Расход по кругам">
-      <h2>📉 Расход по кругам</h2>
-      <div id="fuelgraph"><div class="empty">Появится после нескольких кругов.</div></div>
+    <div class="card" data-card="fuelgraph" data-title="📉 Fuel burn per lap">
+      <h2>📉 Fuel burn per lap</h2>
+      <div id="fuelgraph"><div class="empty">Appears after a few laps.</div></div>
     </div>
     <div class="card" data-card="relative" data-title="🧭 Relative">
-      <h2>🧭 Relative — ближайшие по трассе</h2>
-      <div id="relative"><div class="empty">Появится на трассе.</div></div>
+      <h2>🧭 Relative — closest on track</h2>
+      <div id="relative"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="radar" data-title="📡 Радар">
-      <h2>📡 Радар</h2>
-      <div id="radar"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="radar" data-title="📡 Radar">
+      <h2>📡 Radar</h2>
+      <div id="radar"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="trackring" data-title="⭕ Трек-ринг">
-      <h2>⭕ Трек-ринг</h2>
-      <div id="trackring"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="trackring" data-title="⭕ Track ring">
+      <h2>⭕ Track ring</h2>
+      <div id="trackring"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="trackmap" data-title="🗺️ Трек-мапа">
-      <h2>🗺️ Трек-мапа</h2>
-      <div id="trackmap"><div class="empty">Проедь круг — построю карту трассы (потом загрузится сама).</div></div>
+    <div class="card" data-card="trackmap" data-title="🗺️ Track map">
+      <h2>🗺️ Track map</h2>
+      <div id="trackmap"><div class="empty">Drive a lap — I'll build the track map (after that it loads by itself).</div></div>
     </div>
-    <div class="card" data-card="wear" data-title="🛞 Износ шин">
-      <h2>🛞 Износ шин</h2>
-      <div id="wear"><div class="empty">Появится по ходу заезда.</div></div>
+    <div class="card" data-card="wear" data-title="🛞 Tire wear">
+      <h2>🛞 Tire wear</h2>
+      <div id="wear"><div class="empty">Appears during the session.</div></div>
     </div>
-    <div class="card" data-card="sessioninfo" data-title="ℹ️ Сессия">
-      <h2>ℹ️ Сессия</h2>
-      <div id="sessioninfo"><div class="empty">Появится на трассе.</div></div>
+    <div class="card" data-card="sessioninfo" data-title="ℹ️ Session">
+      <h2>ℹ️ Session</h2>
+      <div id="sessioninfo"><div class="empty">Appears once on track.</div></div>
     </div>
-    <div class="card" data-card="recorddelta" data-title="🏅 Дельта к рекорду">
-      <h2>🏅 Дельта к рекорду</h2>
-      <div id="recorddelta"><div class="empty">Появится, когда проедешь круг (сравним с твоим рекордом).</div></div>
+    <div class="card" data-card="recorddelta" data-title="🏅 Delta to record">
+      <h2>🏅 Delta to record</h2>
+      <div id="recorddelta"><div class="empty">Appears once you complete a lap (compared with your record).</div></div>
     </div>
-    <div class="card" data-card="pithelper" data-title="🅿️ Пит-помощник">
-      <h2>🅿️ Пит-помощник</h2>
-      <div id="pithelper"><div class="empty">Появится при заезде на пит-лейн.</div></div>
+    <div class="card" data-card="pithelper" data-title="🅿️ Pit helper">
+      <h2>🅿️ Pit helper</h2>
+      <div id="pithelper"><div class="empty">Appears when you enter the pit lane.</div></div>
     </div>
   </div>
 </div>
@@ -303,65 +307,100 @@
 <div id="tab-endur" class="mpane" style="display:none">
   <div class="grid">
     <div class="col">
-      <div class="card" data-card="e_driver" data-title="👤 Пилот и стинт"><h2>👤 Пилот и стинт</h2><div id="e_driver"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_time" data-title="⏳ Время до конца"><h2>⏳ Время до конца</h2><div id="e_time"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_strategy" data-title="⛽ Топливо и пит"><h2>⛽ Топливо и пит</h2><div id="e_strategy"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_pace" data-title="🏎️ Темп машины"><h2>🏎️ Темп машины</h2><div id="e_pace"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_incidents" data-title="⚠️ Инциденты"><h2>⚠️ Инциденты</h2><div id="e_incidents"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_stintplan" data-title="📝 План стинтов"><h2>📝 План стинтов / смены</h2>
-        <textarea id="e_stintplan_txt" placeholder="Стинт 1: я (0:00–1:00)\nСтинт 2: напарник…\nПит: круг 30, полный бак + шины" style="width:100%;min-height:90px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
-        <div class="why" style="margin-top:6px">Заметки сохраняются в браузере.</div></div>
+      <div class="card" data-card="e_driver" data-title="👤 Driver & stint"><h2>👤 Driver & stint</h2><div id="e_driver"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_time" data-title="⏳ Time left"><h2>⏳ Time left</h2><div id="e_time"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_strategy" data-title="⛽ Fuel & pit"><h2>⛽ Fuel & pit</h2><div id="e_strategy"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_pace" data-title="🏎️ Car pace"><h2>🏎️ Car pace</h2><div id="e_pace"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_incidents" data-title="⚠️ Incidents"><h2>⚠️ Incidents</h2><div id="e_incidents"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_stintplan" data-title="📝 Stint plan"><h2>📝 Stint plan / swaps</h2>
+        <textarea id="e_stintplan_txt" placeholder="Stint 1: me (0:00–1:00)\nStint 2: teammate…\nPit: lap 30, full tank + tires" style="width:100%;min-height:90px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+        <div class="why" style="margin-top:6px">Notes are saved in your browser.</div></div>
     </div>
     <div class="col">
-      <div class="card" data-card="e_pos" data-title="🏁 Позиция и разрывы"><h2>🏁 Позиция и разрывы</h2><div id="e_pos"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_relative" data-title="🧭 Relative"><h2>🧭 Relative — ближайшие</h2><div id="e_relative"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_standings" data-title="📋 Таблица заезда"><h2>📋 Таблица заезда</h2><div id="e_standings"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_wear" data-title="🛞 Износ шин"><h2>🛞 Износ шин</h2><div id="e_wear"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_tires" data-title="🌡️ Температуры шин"><h2>🌡️ Температуры шин</h2><div id="e_tires"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_weather" data-title="🌤️ Погода"><h2>🌤️ Погода</h2><div id="e_weather"><div class="empty">Появится на трассе.</div></div></div>
-      <div class="card" data-card="e_trackmap" data-title="🗺️ Трек-мапа"><h2>🗺️ Трек-мапа</h2><div id="e_trackmap"><div class="empty">Проедь круг — построится карта.</div></div></div>
+      <div class="card" data-card="e_pos" data-title="🏁 Position & gaps"><h2>🏁 Position & gaps</h2><div id="e_pos"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_relative" data-title="🧭 Relative"><h2>🧭 Relative — closest</h2><div id="e_relative"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_standings" data-title="📋 Standings"><h2>📋 Standings</h2><div id="e_standings"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_wear" data-title="🛞 Tire wear"><h2>🛞 Tire wear</h2><div id="e_wear"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_tires" data-title="🌡️ Tire temps"><h2>🌡️ Tire temps</h2><div id="e_tires"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_weather" data-title="🌤️ Weather"><h2>🌤️ Weather</h2><div id="e_weather"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_trackmap" data-title="🗺️ Track map"><h2>🗺️ Track map</h2><div id="e_trackmap"><div class="empty">Drive a lap — the map will build.</div></div></div>
     </div>
   </div>
 </div>
 <div id="tab-setup" class="mpane" style="display:none">
   <div class="grid">
     <div class="col">
-      <div class="card" data-card="driving" data-title="🔧 Разбор пилотирования">
-        <h2>🔧 Разбор пилотирования</h2>
-        <div id="driving"><div class="empty">Проедь стинт и заедь в бокс — здесь появится разбор.</div></div>
-      </div>
-      <div class="card" data-card="changes" data-title="🛠️ Изменения сетапа">
-        <h2>🛠️ Изменения сетапа (ввести в гараже)</h2>
+      <div class="card" data-card="changes" data-title="🛠️ Setup changes">
+        <h2>🛠️ Setup changes (enter in the garage)</h2>
         <div id="setup"><div class="empty">—</div></div>
       </div>
-      <div class="card" data-card="s_tires" data-title="🌡️ Температуры шин">
-        <h2>🌡️ Температуры шин (для настройки)</h2>
-        <div id="s_tires"><div class="empty">Появятся после стинта.</div></div>
+      <div class="card" data-card="s_tires" data-title="🌡️ Tire temps">
+        <h2>🌡️ Tire temps (for setup)</h2>
+        <div id="s_tires"><div class="empty">Appear after a stint.</div></div>
       </div>
-      <div class="card" data-card="s_symptoms" data-title="🧩 Симптомы">
-        <h2>🧩 Симптомы — недоруль / переруль</h2>
-        <div id="s_symptoms"><div class="empty">Появятся после разбора стинта.</div></div>
+      <div class="card" data-card="s_symptoms" data-title="🧩 Symptoms">
+        <h2>🧩 Symptoms — understeer / oversteer</h2>
+        <div id="s_symptoms"><div class="empty">Appear after the stint analysis.</div></div>
       </div>
-      <div class="card" data-card="s_balance" data-title="⚖️ Баланс перёд/зад">
-        <h2>⚖️ Баланс перёд/зад (по темп-рам)</h2>
-        <div id="s_balance"><div class="empty">Появится после стинта.</div></div>
+      <div class="card" data-card="s_balance" data-title="⚖️ Front/rear balance">
+        <h2>⚖️ Front/rear balance (by temps)</h2>
+        <div id="s_balance"><div class="empty">Appears after a stint.</div></div>
       </div>
     </div>
     <div class="col">
-      <div class="card" data-card="sheet" data-title="📋 Полный сетап-лист">
-        <h2>📋 Полный сетап-лист <button id="dl" class="dlbtn" style="float:right;display:none">⤓ Скачать .txt</button></h2>
+      <div class="card" data-card="sheet" data-title="📋 Full setup sheet">
+        <h2>📋 Full setup sheet <button id="dl" class="dlbtn" style="float:right;display:none">⤓ Download .txt</button></h2>
         <div id="setuptabs"></div>
-        <div class="empty" id="sheet-empty">Появится после разбора — все поля сетапа по вкладкам, правки помечены.</div>
+        <div class="empty" id="sheet-empty">Appears after the analysis — every setup field by tab, with changes marked.</div>
       </div>
-      <div class="card" data-card="s_weartrend" data-title="📉 Тренд износа">
-        <h2>📉 Тренд износа</h2>
-        <div id="s_weartrend"><div class="empty">Появится по ходу стинта.</div></div>
+      <div class="card" data-card="s_weartrend" data-title="📉 Wear trend">
+        <h2>📉 Wear trend</h2>
+        <div id="s_weartrend"><div class="empty">Appears during the stint.</div></div>
       </div>
-      <div class="card" data-card="s_notes" data-title="📝 Заметки по сетапу">
-        <h2>📝 Заметки по сетапу</h2>
-        <textarea id="s_notes_txt" placeholder="Что менял и как повлияло:\n- давление перед −4 kPa → лучше поворачивает\n- задний ARB жёстче → меньше переруля" style="width:100%;min-height:110px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
-        <div class="why" style="margin-top:6px">Сохраняются в браузере.</div>
+      <div class="card" data-card="s_notes" data-title="📝 Setup notes">
+        <h2>📝 Setup notes</h2>
+        <textarea id="s_notes_txt" placeholder="What I changed and how it felt:\n- front pressure −4 kPa → turns in better\n- rear ARB stiffer → less oversteer" style="width:100%;min-height:110px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+        <div class="why" style="margin-top:6px">Saved in your browser.</div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-records" class="mpane" style="display:none">
+  <div class="grid">
+    <div class="col">
+      <div class="card" data-card="records" data-title="🏆 Personal bests"><h2>🏆 Personal bests</h2><div id="records"><div class="empty">Put in some laps — your track records show up here (they carry over between sessions).</div></div></div>
+      <div class="card" data-card="r_track" data-title="🥇 Track record"><h2>🥇 Track record</h2><div id="r_track" class="empty">Fastest lap on this track / car.</div></div>
+    </div>
+    <div class="col">
+      <div class="card" data-card="r_rivals" data-title="👥 Rivals' times"><h2>👥 Rivals' times</h2><div id="r_rivals" class="empty">Coming: official iRacing Data API (your account, legit).</div></div>
+      <div class="card" data-card="r_progress" data-title="📈 Progress"><h2>📈 Progress</h2><div id="r_progress" class="empty">Your laptime progress over time.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-strategy" class="mpane" style="display:none">
+  <div class="grid">
+    <div class="col">
+      <div class="card" data-card="strategy" data-title="⛽ Fuel & pit"><h2>⛽ Fuel & pit</h2><div id="strategy"><div class="empty">Drive a few laps — fuel burn and predictions will appear.</div></div></div>
+      <div class="card" data-card="st_stints" data-title="📝 Stint plan"><h2>📝 Stint plan</h2><div id="st_stints" class="empty">Stints, driver swaps, pit laps.</div></div>
+    </div>
+    <div class="col">
+      <div class="card" data-card="st_window" data-title="🎯 Pit window"><h2>🎯 Pit window</h2><div id="st_window" class="empty">When to pit, target lap.</div></div>
+      <div class="card" data-card="st_uc" data-title="🔀 Undercut / Overcut"><h2>🔀 Undercut / Overcut</h2><div id="st_uc" class="empty">Strategy vs rivals around you.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-analysis" class="mpane" style="display:none">
+  <div class="grid">
+    <div class="col">
+      <div class="card" data-card="an_sectors" data-title="⏱️ Time lost (sectors)"><h2>⏱️ Time lost (sectors)</h2><div id="an_sectors"><div class="empty">Optimal minus actual — where you lost time per sector.</div></div></div>
+      <div class="card" data-card="driving" data-title="🧠 AI review"><h2>🧠 AI review</h2><div id="driving"><div class="empty">Drive a stint and come into the box — the AI analysis appears here.</div></div></div>
+    </div>
+    <div class="col">
+      <div class="card" data-card="an_result" data-title="🏁 Race result"><h2>🏁 Race result</h2><div id="an_result"><div class="empty">Race summary: position, laps, incidents, best lap.</div></div></div>
+      <div class="card" data-card="an_driving" data-title="🛞 Driving / line"><h2>🛞 Driving / line</h2><div id="an_driving" class="empty">Trail braking, throttle smoothness, balance.</div></div>
     </div>
   </div>
 </div>
@@ -375,15 +414,6 @@ const lapTime = sec => {
   const m = Math.floor(sec/60), s = sec - m*60;
   return m + ":" + s.toFixed(2).padStart(5,'0');
 };
-// склонение: plural(1,'круг','круга','кругов') -> 'круг'
-const plural = (n, one, few, many) => {
-  const a = Math.abs(n)%100, b = a%10;
-  if(a>10 && a<20) return many;
-  if(b>1 && b<5) return few;
-  if(b===1) return one;
-  return many;
-};
-
 // --- Задача 1: состояние для трендов и тренировки ---
 let _prevGapA=null, _prevGapB=null, _rivalTick=0, _prevTrackTemp=null, _ttTick=0, _trainTarget=null, _incidents=0;
 // --- новые оверлеи: лог флагов, последняя стратегия (для калькулятора) ---
@@ -393,11 +423,11 @@ let _topSpeed=0, _posStart=null, _burnHist=[], _prevBurn=null;
 // --- бэкенд-пачка: споттер left/right, лучший круг, скорость (для пита) ---
 let _lastCarLR=0, _lastRaceBest=null, _lastSpeedKmh=null;
 // --- трек-мапа: форма трассы + последние машины ---
-let _trackShape=[], _lastRelCars=[];
+let _trackShape=[], _lastRelCars=[], _trackSource='', _trackName='';
 // --- общий кэш последних данных (для вкладок Endurance/Setup, без лишних запросов) ---
 const _st = {};
 // --- таймер стинта: имя активного пилота + когда он сел ---
-let _stintDriver=null, _stintStart=null;
+let _stintDriver=null, _stintStart=null, _stintLap0=null;
 const _goodTimes = log => (log||[]).map(x=>x.time).filter(v=>v>15 && v<1200);
 // парсит "1:32.0" или "92.0" -> секунды
 function parseLapInput(s){
@@ -414,16 +444,16 @@ function renderTraining(log){
   const hit=t.filter(v=>v<=_trainTarget+tol).length;
   const col = streak>=3?'#2ecc71':(streak>=1?'#f1c40f':'#9099a6');
   $('training').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    <div class="tire"><div class="cn">Серия подряд</div><div style="font-size:24px;font-weight:700;margin:2px 0;color:${col}">${streak}</div><div class="why">в цель ${lapTime(_trainTarget)} (±${tol}с)</div></div>
-    ${card('Всего в цель', `${hit} из ${t.length}`, 'за заезд')}</div>`;
+    <div class="tire"><div class="cn">Streak</div><div style="font-size:24px;font-weight:700;margin:2px 0;color:${col}">${streak}</div><div class="why">on target ${lapTime(_trainTarget)} (±${tol}s)</div></div>
+    ${card('On target total', `${hit} of ${t.length}`, 'this session')}</div>`;
 }
 
 // тренд разрыва (слит из «Соперники» прямо в карточку «Гонка»): догоняешь / отпускает
 function gapTrend(now, prev, foe){
   if(now==null||prev==null||Math.abs(now-prev)<0.05) return '';
   const closing=now<prev;
-  if(!foe) return closing?' <span style="color:#2ecc71">↗ догоняешь</span>':' <span style="color:#e74c3c">↘ отпускает</span>';
-  return closing?' <span style="color:#e74c3c">↗ догоняет</span>':' <span style="color:#2ecc71">↘ отпускаешь</span>';
+  if(!foe) return closing?' <span style="color:#2ecc71">↗ closing</span>':' <span style="color:#e74c3c">↘ pulling away</span>';
+  return closing?' <span style="color:#e74c3c">↗ catching you</span>':' <span style="color:#2ecc71">↘ dropping back</span>';
 }
 
 function renderSummary(r, log){
@@ -431,12 +461,12 @@ function renderSummary(r, log){
   const best=t.length?Math.min(...t):r.best_lap_time;
   const spread=t.length?(Math.max(...t)-Math.min(...t)):null;
   const finished=(r.flags||[]).some(f=>f.key==='checkered');
-  $('summary-title').textContent = finished ? '🏁 Итоги гонки' : '🏆 Итоги заезда';
+  $('summary-title').textContent = finished ? '🏁 Race summary' : '🏆 Session summary';
   $('summary').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Позиция', r.class_position!=null?`P${r.class_position}`:'—', r.position!=null?`в общем P${r.position}`:'')}
-    ${card('Лучший круг', lapTime(best), `${t.length} ${plural(t.length,'круг','круга','кругов')}`)}
-    ${card('Стабильность', spread!=null?`±${(spread/2).toFixed(2)}с`:'—', 'разброс')}
-    ${card('Инциденты', `${_incidents}x`, 'за заезд')}</div>`;
+    ${card('Position', r.class_position!=null?`P${r.class_position}`:'—', r.position!=null?`overall P${r.position}`:'')}
+    ${card('Best lap', lapTime(best), `${t.length} ${t.length===1?'lap':'laps'}`)}
+    ${card('Consistency', spread!=null?`±${(spread/2).toFixed(2)}s`:'—', 'spread')}
+    ${card('Incidents', `${_incidents}x`, 'this session')}</div>`;
 }
 
 // ===== Новые оверлеи =====
@@ -449,24 +479,24 @@ function renderDeltaBar(r){
   $('deltabar').innerHTML = `<div style="text-align:center;font-size:30px;font-weight:700;color:${col};font-variant-numeric:tabular-nums">${d>0?'+':''}${d.toFixed(2)}</div>
     <div style="position:relative;height:14px;background:#0a0c0f;border-radius:7px;margin-top:8px;overflow:hidden">${left}${right}
       <div style="position:absolute;left:50%;top:0;width:2px;height:100%;background:#5f6b7a"></div></div>
-    <div class="why" style="text-align:center;margin-top:6px">${d<=0?'быстрее лучшего круга':'медленнее лучшего круга'}</div>`;
+    <div class="why" style="text-align:center;margin-top:6px">${d<=0?'faster than best lap':'slower than best lap'}</div>`;
 }
 function renderShift(r){
   if(r.rpm==null||!r.blink_rpm){ return; }
   const pct=Math.max(0,Math.min(100,r.rpm/r.blink_rpm*100)), shift=r.rpm>=r.shift_rpm;
   const col=r.rpm>=r.blink_rpm?'#e74c3c':(shift?'#f1c40f':'#2ecc71');
-  $('shiftbox').innerHTML = `<div style="text-align:center;font-size:28px;font-weight:700;color:${col}">${Math.round(r.rpm)}<span style="font-size:13px;color:var(--muted)"> об/мин</span></div>
+  $('shiftbox').innerHTML = `<div style="text-align:center;font-size:28px;font-weight:700;color:${col}">${Math.round(r.rpm)}<span style="font-size:13px;color:var(--muted)"> RPM</span></div>
     <div class="bar" style="height:22px;margin-top:8px"><span style="width:${pct}%;background:${col};display:block;height:100%"></span></div>
-    <div style="text-align:center;margin-top:8px;font-size:18px;font-weight:700;color:${shift?'#f1c40f':'var(--muted)'}">${shift?'↑ ПЕРЕКЛЮЧАЙ':'разгон'}</div>`;
+    <div style="text-align:center;margin-top:8px;font-size:18px;font-weight:700;color:${shift?'#f1c40f':'var(--muted)'}">${shift?'↑ SHIFT':'accelerating'}</div>`;
 }
 function renderErs(r){
-  if(r.energy_pct==null){ $('ers').innerHTML=`<div class="empty">Нет данных гибрида (не для этой машины).</div>`; return; }
+  if(r.energy_pct==null){ $('ers').innerHTML=`<div class="empty">No hybrid data (not for this car).</div>`; return; }
   const b=Math.round(r.energy_pct*100), dep=r.deploy_pct!=null?Math.round(r.deploy_pct*100):null;
   const col=b>=50?'#2ecc71':(b>=20?'#f1c40f':'#e74c3c');
   $('ers').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    <div class="tire"><div class="cn">Батарея</div><div style="font-size:24px;font-weight:700;margin:2px 0;color:${col}">${b}%</div>
+    <div class="tire"><div class="cn">Battery</div><div style="font-size:24px;font-weight:700;margin:2px 0;color:${col}">${b}%</div>
       <div class="bar" style="height:10px;margin-top:4px"><span style="width:${b}%;background:${col};display:block;height:100%"></span></div></div>
-    ${card('Деплой за круг', dep!=null?dep+'%':'—', 'расход энергии')}</div>`;
+    ${card('Deploy per lap', dep!=null?dep+'%':'—', 'energy used')}</div>`;
 }
 function renderFlagLog(r){
   const cur=(r.flags||[]).map(f=>f.key).sort().join(',');
@@ -476,7 +506,7 @@ function renderFlagLog(r){
   }
   if(!_flagLog.length){ return; }
   $('flaglog').innerHTML = _flagLog.slice().reverse().map(e=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0">
-    <span style="color:var(--muted);font-size:12px;min-width:52px">круг ${e.lap??'—'}</span>
+    <span style="color:var(--muted);font-size:12px;min-width:52px">lap ${e.lap??'—'}</span>
     ${e.labels.map(x=>`<span style="background:${flagColor(x.k)};color:#0d0f12;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700">${x.l}</span>`).join(' ')}</div>`).join('');
 }
 function renderGforce(l){
@@ -491,8 +521,8 @@ function renderGforce(l){
         <circle cx="50" cy="50" r="30" fill="none" stroke="#2a2f38" stroke-dasharray="2 3"/>
         <line x1="50" y1="5" x2="50" y2="95" stroke="#2a2f38" stroke-width="0.5"/><line x1="5" y1="50" x2="95" y2="50" stroke="#2a2f38" stroke-width="0.5"/>
         <circle class="gfdot" cx="50" cy="50" r="5" fill="#3ea6ff"/></svg>
-      <div><div class="label">Боковое</div><div class="gfx" style="font-size:20px;font-weight:700">0.0g</div>
-        <div class="label" style="margin-top:8px">Продольное</div><div class="gfy" style="font-size:20px;font-weight:700">0.0g</div></div></div>`;
+      <div><div class="label">Lateral</div><div class="gfx" style="font-size:20px;font-weight:700">0.0g</div>
+        <div class="label" style="margin-top:8px">Longitudinal</div><div class="gfy" style="font-size:20px;font-weight:700">0.0g</div></div></div>`;
     dot=document.querySelector('#gforce .gfdot');
   }
   dot.setAttribute('cx', cx.toFixed(1));
@@ -501,25 +531,28 @@ function renderGforce(l){
   if(gx) gx.textContent=Math.abs(gLat).toFixed(1)+'g';
   if(gy) gy.textContent=Math.abs(gLon).toFixed(1)+'g';
 }
-function renderSteer(l){
-  if(l.steer==null){ return; }
-  const deg=l.steer*180/Math.PI;
+function buildSteer(){
   $('steerbox').innerHTML = `<div style="text-align:center">
-    <svg viewBox="0 0 100 100" style="width:100px;height:100px">
-      <g transform="rotate(${(-deg).toFixed(1)} 50 50)">
-        <circle cx="50" cy="50" r="34" fill="none" stroke="#3ea6ff" stroke-width="6"/>
-        <line x1="50" y1="50" x2="50" y2="16" stroke="#3ea6ff" stroke-width="6"/>
-        <line x1="50" y1="50" x2="22" y2="66" stroke="#3ea6ff" stroke-width="5"/>
-        <line x1="50" y1="50" x2="78" y2="66" stroke="#3ea6ff" stroke-width="5"/></g></svg>
-    <div style="font-size:20px;font-weight:700;margin-top:4px">${Math.round(deg)}°</div></div>`;
+    <div style="height:150px;display:flex;align-items:center;justify-content:center;overflow:visible">
+      <img id="steerImg" src="wheels/ks.png" alt="MOZA KS" draggable="false"
+        style="width:200px;max-width:90%;filter:drop-shadow(0 3px 7px rgba(0,0,0,.55));user-select:none">
+    </div>
+    <div id="steerDeg" style="font-size:20px;font-weight:700;margin-top:2px">0°</div></div>`;
+}
+function renderSteer(l){
+  if(l.steer==null) return;
+  if(!$('steerImg')) buildSteer();
+  const deg=l.steer*180/Math.PI;
+  $('steerImg').style.transform = `rotate(${(-deg).toFixed(1)}deg)`;   // крутится по рулю
+  $('steerDeg').textContent = `${Math.round(deg)}°`;
 }
 function renderFuelCalc(){
   const laps=parseInt($('fuelLaps').value,10), burn=_lastStrategy?_lastStrategy.avg_burn:null;
   if(!laps||!burn){ return; }
   const need=laps*burn;
   $('fuelcalc').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Нужно топлива', fix(need,1)+' л', `на ${laps} ${plural(laps,'круг','круга','кругов')}`)}
-    ${card('С запасом +1', fix(need+burn,1)+' л', `расход ${fix(burn,2)} л/круг`)}</div>`;
+    ${card('Fuel needed', fix(need,1)+' L', `for ${laps} ${laps===1?'lap':'laps'}`)}
+    ${card('With +1 spare', fix(need+burn,1)+' L', `burn ${fix(burn,2)} L/lap`)}</div>`;
 }
 
 // ⚡ пачка новых оверлеев (всё из уже собираемых данных)
@@ -538,8 +571,8 @@ function renderOptimal(log){
   const actual=times.length?Math.min(...times):null;
   const gain=actual!=null?actual-opt:null;
   $('optimal').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Оптимальный', lapTime(opt), 'из лучших секторов')}
-    ${card('Твой лучший', lapTime(actual), gain!=null&&gain>0.01?`потенциал −${gain.toFixed(2)}с`:'на пределе')}</div>`;
+    ${card('Optimal', lapTime(opt), 'from best sectors')}
+    ${card('Your best', lapTime(actual), gain!=null&&gain>0.01?`potential −${gain.toFixed(2)}s`:'at the limit')}</div>`;
 }
 function renderBestSectors(log){
   const best=_bestSectors(log);
@@ -552,16 +585,8 @@ function renderTopSpeed(l){
   const kmh=l.speed*3.6;
   if(kmh>_topSpeed) _topSpeed=kmh;
   $('topspeed').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Сейчас', Math.round(kmh)+' км/ч', '')}
-    ${card('Максимум', Math.round(_topSpeed)+' км/ч', 'за заезд')}</div>`;
-}
-function renderSlip(l){
-  if(l.yaw_rate==null) return;
-  const dps=Math.abs(l.yaw_rate*180/Math.PI), col=dps<25?'#2ecc71':(dps<50?'#f1c40f':'#e74c3c');
-  const label=dps<25?'стабильно':(dps<50?'скольжение':'занос!'), pct=Math.min(100,dps/80*100);
-  $('slip').innerHTML = `<div style="text-align:center;font-size:24px;font-weight:700;color:${col}">${label}</div>
-    <div class="bar" style="height:16px;margin-top:8px"><span style="width:${pct}%;background:${col};display:block;height:100%"></span></div>
-    <div class="why" style="text-align:center;margin-top:6px">рысканье ${Math.round(dps)}°/сек</div>`;
+    ${card('Now', Math.round(kmh)+' km/h', '')}
+    ${card('Max', Math.round(_topSpeed)+' km/h', 'this session')}</div>`;
 }
 function renderPosTrend(r){
   if(r.position==null) return;
@@ -569,15 +594,15 @@ function renderPosTrend(r){
   const diff=_posStart-r.position;
   const arrow=diff>0?`<span style="color:#2ecc71">▲ +${diff}</span>`:(diff<0?`<span style="color:#e74c3c">▼ ${diff}</span>`:'<span style="color:var(--muted)">= 0</span>');
   $('postrend').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Позиция', `P${r.position}`, r.class_position!=null?`в классе P${r.class_position}`:'')}
-    <div class="tire"><div class="cn">С начала заезда</div><div style="font-size:22px;font-weight:700;margin:2px 0">${arrow}</div><div class="why">старт P${_posStart}</div></div></div>`;
+    ${card('Position', `P${r.position}`, r.class_position!=null?`in class P${r.class_position}`:'')}
+    <div class="tire"><div class="cn">Since session start</div><div style="font-size:22px;font-weight:700;margin:2px 0">${arrow}</div><div class="why">start P${_posStart}</div></div></div>`;
 }
 function renderFuelGraph(){
   if(_burnHist.length<1) return;
   const mn=Math.min(..._burnHist), mx=Math.max(..._burnHist), span=(mx-mn)||1;
   const bars=_burnHist.map(v=>`<div style="flex:1;min-width:3px;height:${(10+(v-mn)/span*40).toFixed(0)}px;background:#3ea6ff;border-radius:2px 2px 0 0"></div>`).join('');
   $('fuelgraph').innerHTML = `<div style="display:flex;align-items:flex-end;gap:2px;height:56px">${bars}</div>
-    <div class="cond" style="margin-top:8px"><div>Мин <b>${mn.toFixed(2)} л</b></div><div>Макс <b>${mx.toFixed(2)} л</b></div><div>Кругов <b>${_burnHist.length}</b></div></div>`;
+    <div class="cond" style="margin-top:8px"><div>Min <b>${mn.toFixed(2)} L</b></div><div>Max <b>${mx.toFixed(2)} L</b></div><div>Laps <b>${_burnHist.length}</b></div></div>`;
 }
 
 // ===== Бэкенд-пачка: Relative / радар / трек-ринг / износ / сессия / рекорд / пит =====
@@ -586,18 +611,23 @@ const fmtTime = s => { if(s==null) return '—'; s=Math.max(0,Math.round(s)); co
   return h?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`; };
 const fmtClock = s => { if(s==null) return '—'; s=Math.round(s)%86400; return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}`; };
 
+// бейдж «номер машины в цвете класса» (GTP жёлтый / LMP2 синий / GT3 алый — цвет с сервера)
+function numBadge(c){
+  const num=(c.number!=null && c.number!=='')?String(c.number):'';
+  return `<span style="display:inline-block;min-width:22px;text-align:center;background:${_clr(c.class_color)};color:#0d0f12;font-weight:700;border-radius:4px;padding:1px 4px">${num}</span>`;
+}
 function renderRelative(data){
   const cars=(data&&data.cars)||[]; const meI=cars.findIndex(c=>c.is_player);
   if(meI<0) return;
   const slice=cars.slice(Math.max(0,meI-3), meI+4).reverse();   // впереди сверху, сзади снизу
   const rows=slice.map(c=>{
-    const you=c.is_player?' style="background:#14202c"':'';
+    const you=c.is_player?' style="background:#14301f"':'';
     const g=c.is_player?'—':(c.gap>0?`+${c.gap.toFixed(1)}`:c.gap.toFixed(1));
     const col=c.is_player?'#e8eaed':(c.gap>0?'#e74c3c':'#2ecc71');
-    return `<tr${you}><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}${c.on_pit?' <span style="color:#f1c40f">P</span>':''}</td>
-      <td style="color:var(--muted)">${c.car_class||''}</td><td class="chg" style="text-align:right;color:${col}">${g}</td></tr>`;
+    return `<tr${you}><td>${numBadge(c)}</td><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}${c.on_pit?' <span style="color:#f1c40f">P</span>':''}</td>
+      <td class="chg" style="text-align:right;color:${col}">${g}</td></tr>`;
   }).join('');
-  $('relative').innerHTML = `<div style="overflow-x:auto"><table><tr><th>P</th><th>Пилот</th><th>Класс</th><th style="text-align:right">Разрыв</th></tr>${rows}</table></div>`;
+  $('relative').innerHTML = `<div style="overflow-x:auto"><table><tr><th>#</th><th>P</th><th>Driver</th><th style="text-align:right">Gap</th></tr>${rows}</table></div>`;
 }
 function renderRadar(data){
   const cars=(data&&data.cars)||[]; if(!cars.find(c=>c.is_player)) return;
@@ -610,48 +640,48 @@ function renderRadar(data){
   $('radar').innerHTML = `<svg viewBox="0 0 100 100" style="width:140px;height:140px;display:block;margin:0 auto">
     <rect x="14" y="10" width="72" height="80" rx="8" fill="#0a0c0f" stroke="#2a2f38"/>
     <line x1="14" y1="50" x2="86" y2="50" stroke="#2a2f38" stroke-width="0.5"/>
-    <rect x="46" y="44" width="8" height="12" rx="2" fill="#3ea6ff"/>${dots}${lB}${rB}</svg>
-    <div class="why" style="text-align:center;margin-top:6px">${near.length} рядом · впереди сверху, сзади снизу</div>`;
+    <rect x="46" y="44" width="8" height="12" rx="2" fill="#2ecc71"/>${dots}${lB}${rB}</svg>
+    <div class="why" style="text-align:center;margin-top:6px">${near.length} nearby · ahead on top, behind below</div>`;
 }
 function renderTrackRing(data){
   const cars=(data&&data.cars)||[]; if(!cars.length) return;
   const dots=cars.map(c=>{ const a=(c.lap_pct||0)*2*Math.PI-Math.PI/2, x=50+40*Math.cos(a), y=50+40*Math.sin(a);
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${c.is_player?4:3}" fill="${c.is_player?'#3ea6ff':_clr(c.class_color)}"/>`; }).join('');
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${c.is_player?4:3}" fill="${c.is_player?'#2ecc71':_clr(c.class_color)}"/>`; }).join('');
   $('trackring').innerHTML = `<svg viewBox="0 0 100 100" style="width:150px;height:150px;display:block;margin:0 auto">
     <circle cx="50" cy="50" r="40" fill="none" stroke="#2a2f38" stroke-width="3"/>${dots}</svg>
-    <div class="why" style="text-align:center;margin-top:6px">все машины на круге (ты — синий)</div>`;
+    <div class="why" style="text-align:center;margin-top:6px">all cars on the lap (you are green)</div>`;
 }
 function renderWear(w){
   if(!w || !Object.keys(w).length) return;
   const cell=(c,name)=>{ const v=w[c], pct=v!=null?Math.round(v*100):null, col=v==null?'#333':(v>0.5?'#2ecc71':(v>0.3?'#f1c40f':'#e74c3c'));
     return `<div class="tire"><div class="cn">${name}</div><div style="font-size:20px;font-weight:700;color:${col}">${pct!=null?pct+'%':'—'}</div>
       <div class="bar" style="height:8px;margin-top:4px"><span style="width:${pct||0}%;background:${col};display:block;height:100%"></span></div></div>`; };
-  $('wear').innerHTML = `<div class="tires" style="max-width:none">${cell('LF','Перед лев')}${cell('RF','Перед прав')}${cell('LR','Зад лев')}${cell('RR','Зад прав')}</div>`;
+  $('wear').innerHTML = `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`;
 }
 function renderSessionInfo(s){
   if(!s || !s.session_type) return;
   const laps=s.laps_remain!=null?`${s.laps_remain}${s.laps_total?'/'+s.laps_total:''}`:'—';
   $('sessioninfo').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Сессия', evName(s.session_type), s.track_display||'')}
-    ${card('Кругов осталось', laps, '')}
-    ${card('Время до конца', fmtTime(s.time_remain), '')}
-    ${card('Время суток', fmtClock(s.time_of_day), 'на трассе')}</div>`;
+    ${card('Session', evName(s.session_type), s.track_display||'')}
+    ${card('Laps left', laps, '')}
+    ${card('Time left', fmtTime(s.time_remain), '')}
+    ${card('Time of day', fmtClock(s.time_of_day), 'at the track')}</div>`;
 }
 function renderRecordDelta(s){
   const rec=s&&s.record;
-  if(rec==null){ $('recorddelta').innerHTML=`<div class="empty">Нет твоего рекорда на этой трассе/машине — проедь чистый круг, и он появится.</div>`; return; }
+  if(rec==null){ $('recorddelta').innerHTML=`<div class="empty">No record for this track/car yet — drive a clean lap and it will appear.</div>`; return; }
   const cur=_lastRaceBest, d=cur!=null?cur-rec:null, col=d==null?'#9099a6':(d<=0?'#2ecc71':'#e74c3c');
   $('recorddelta').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Твой рекорд', lapTime(rec), 'на этой трассе')}
-    <div class="tire"><div class="cn">Лучший сейчас</div><div style="font-size:18px;font-weight:700;margin:2px 0">${lapTime(cur)}</div>
-      <div class="why" style="color:${col}">${d==null?'едь круг':(d<=0?`рекорд! −${Math.abs(d).toFixed(2)}с`:`+${d.toFixed(2)}с до рекорда`)}</div></div></div>`;
+    ${card('Your record', lapTime(rec), 'on this track')}
+    <div class="tire"><div class="cn">Best now</div><div style="font-size:18px;font-weight:700;margin:2px 0">${lapTime(cur)}</div>
+      <div class="why" style="color:${col}">${d==null?'drive a lap':(d<=0?`record! −${Math.abs(d).toFixed(2)}s`:`+${d.toFixed(2)}s to record`)}</div></div></div>`;
 }
 function renderPitHelper(r){
-  if(!r.on_pit){ $('pithelper').innerHTML=`<div class="empty">Не на пит-лейне. Появится при заезде в бокс.</div>`; return; }
+  if(!r.on_pit){ $('pithelper').innerHTML=`<div class="empty">Not on pit lane. Appears when you come into the box.</div>`; return; }
   const kmh=_lastSpeedKmh, over=kmh!=null&&kmh>62, add=_lastStrategy?_lastStrategy.fuel_to_add:null;
   $('pithelper').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    <div class="tire"><div class="cn">Скорость на пите</div><div style="font-size:22px;font-weight:700;color:${over?'#e74c3c':'#2ecc71'}">${kmh!=null?Math.round(kmh):'—'} км/ч</div><div class="why">${over?'СБРОСЬ! лимит ~60':'в норме'}</div></div>
-    ${card('Долить', add!=null?(add>0?'+'+fix(add,1)+' л':'не нужно'):'—', 'по стратегии')}</div>`;
+    <div class="tire"><div class="cn">Pit speed</div><div style="font-size:22px;font-weight:700;color:${over?'#e74c3c':'#2ecc71'}">${kmh!=null?Math.round(kmh):'—'} km/h</div><div class="why">${over?'SLOW DOWN! limit ~60':'OK'}</div></div>
+    ${card('Add', add!=null?(add>0?'+'+fix(add,1)+' L':'not needed'):'—', 'per strategy')}</div>`;
 }
 async function tickRelative(){
   let d; try{ d=await (await fetch('/api/relative')).json(); }catch{ return; }
@@ -660,37 +690,64 @@ async function tickRelative(){
 }
 async function tickWearSession(){
   try{ const w=await (await fetch('/api/wear')).json(); _st.wear=w; renderWear(w); }catch{}
-  try{ const s=await (await fetch('/api/session')).json(); _st.session=s; renderSessionInfo(s); renderRecordDelta(s); }catch{}
+  try{ const s=await (await fetch('/api/session')).json(); _st.session=s; renderSessionInfo(s); renderRecordDelta(s); renderTrackRecord(); }catch{}
 }
 // интерполяция позиции по доле круга на форме трассы
 function _posOnTrack(pct, pts){
   if(!pts || !pts.length) return null;
-  let lo=pts[0], hi=pts[pts.length-1];
-  for(let i=0;i<pts.length-1;i++){ if(pts[i].pct<=pct && pct<=pts[i+1].pct){ lo=pts[i]; hi=pts[i+1]; break; } }
-  const span=(hi.pct-lo.pct)||1, f=(pct-lo.pct)/span;
-  return { x: lo.x+(hi.x-lo.x)*f, y: lo.y+(hi.y-lo.y)*f };
+  let s=pts._sorted;                                       // точки, отсортированные по pct (кэш на массиве)
+  if(!s || s._n!==pts.length){ s=pts.slice().sort((a,b)=>a.pct-b.pct); s._n=pts.length; pts._sorted=s; }
+  const n=s.length; pct=((pct%1)+1)%1;
+  const first=s[0].pct, last=s[n-1].pct;
+  if(pct<=first || pct>=last){                             // шов старт/финиш: между последней и первой точкой
+    const a=s[n-1], b=s[0], span=(b.pct+1-a.pct)||1, t=(pct<first?pct+1:pct), f=(t-a.pct)/span;
+    return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f };
+  }
+  for(let i=0;i<n-1;i++){ if(s[i].pct<=pct && pct<=s[i+1].pct){
+    const span=(s[i+1].pct-s[i].pct)||1, f=(pct-s[i].pct)/span;
+    return { x:s[i].x+(s[i+1].x-s[i].x)*f, y:s[i].y+(s[i+1].y-s[i].y)*f };
+  }}
+  return { x:s[0].x, y:s[0].y };
+}
+// кружок машины на карте: цвет класса + номер внутри (ты — синий)
+function mapCarDot(x, y, c){
+  const r = c.is_player ? 5 : 4.2;
+  const fill = c.is_player ? '#2ecc71' : _clr(c.class_color);   // игрок зелёный (не путать с синими LMP2)
+  const num = (c.number!=null && c.number!=='') ? String(c.number) : '';
+  const txt = num ? `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${(r*1.15).toFixed(1)}" font-weight="700" fill="#0d0f12">${num}</text>` : '';
+  const ring = c.is_player ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r+2).toFixed(1)}" fill="none" stroke="#2ecc71" stroke-width="0.9" opacity="0.75"/>` : '';
+  return `${ring}<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" stroke="#0d0f12" stroke-width="0.6"/>${txt}`;
 }
 function renderTrackMap(){
   const pts=_trackShape;
   if(!pts || !pts.length){ return; }
-  const line=pts.map(p=>`${p.x},${p.y}`).join(' ');
-  const cars=(_lastRelCars||[]).map(c=>{
-    const p=_posOnTrack(c.lap_pct||0, pts); if(!p) return '';
-    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${c.is_player?3:2.2}" fill="${c.is_player?'#3ea6ff':_clr(c.class_color)}"/>`;
-  }).join('');
-  $('trackmap').innerHTML = `<svg viewBox="0 0 100 100" style="width:100%;max-width:320px;display:block;margin:0 auto">
-    <polyline points="${line}" fill="none" stroke="#5f6b7a" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+  const line=pts.map(p=>`${p.x},${p.y}`).join(' ');   // без замыкания (дрейф резал бы полкарты)
+  const cars=(_lastRelCars||[]).slice()
+    .sort((a,b)=>(a.is_player?1:0)-(b.is_player?1:0))   // игрок — последним, поверх остальных
+    .map(c=>{
+      const p=_posOnTrack(c.lap_pct||0, pts); if(!p) return '';
+      return mapCarDot(p.x, p.y, c);
+    }).join('');
+  $('trackmap').innerHTML = `${_trackName?`<div style="text-align:center;font-weight:700;font-size:14px;margin-bottom:4px">${_trackName}</div>`:''}
+    <svg viewBox="0 0 100 100" style="width:100%;max-width:340px;display:block;margin:0 auto">
+    <polyline points="${line}" fill="none" stroke="#8b97a6" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
     ${cars}</svg>
-    <div class="why" style="text-align:center;margin-top:6px">карта построена по твоему кругу (ты — синий)</div>`;
+    <div class="why" style="text-align:center;margin-top:6px">map: ${_trackSource||'—'} · cars: ${(_lastRelCars||[]).length} · you are green</div>`;
 }
 async function tickTrackmap(){
   let m; try{ m=await (await fetch('/api/trackmap')).json(); }catch{ return; }
-  if(m && Array.isArray(m.points) && m.points.length){ _trackShape=m.points; _st.trackmap=m; renderTrackMap(); }
+  if(m && Array.isArray(m.points) && m.points.length){
+    _trackShape=m.points; _trackSource=m.source||'';
+    // официальное имя трассы из SDK; конфиг дописываем, только если он не вошёл в имя
+    _trackName = !m.track ? '' : (m.config && !m.track.toLowerCase().includes(m.config.toLowerCase())
+                 ? `${m.track} · ${m.config}` : m.track);
+    _st.trackmap=m; renderTrackMap();
+  }
 }
 
 // набор из 4 плиток температур шин (переиспользуется в Setup/Endurance)
 function tireTempTiles(t){
-  const order=[["LF","Перед лев"],["RF","Перед прав"],["LR","Зад лев"],["RR","Зад прав"]];
+  const order=[["LF","Front left"],["RF","Front right"],["LR","Rear left"],["RR","Rear right"]];
   return `<div class="tires" style="max-width:none">${order.map(([c,n])=>{
     const x=t[c]||{}, pads=["tl","tm","tr"].map(k=>`<div class="pad" style="background:${tempColor(x[k])}">${fix(x[k],0)}</div>`).join('');
     return `<div class="tire"><div class="cn">${n}</div><div class="pads">${pads}</div></div>`; }).join('')}</div>`;
@@ -702,51 +759,57 @@ function tickEndurance(){
   const live=_st.live||{}, race=_st.race||{}, strat=_st.strategy||{}, sess=_st.session||{},
         wear=_st.wear||{}, stand=_st.standings||[], dmg=_st.damage||{};
   const me=stand.find(d=>d.is_player)||{};
+  // круг берём у МАШИНЫ (CarIdxLap из standings): пока за рулём напарник, свой
+  // канал Lap стоит на нуле — а счётчику машины всё равно, кто её ведёт
+  const carLap = (typeof me.lap==='number' && me.lap>=0) ? me.lap
+               : (race.lap!=null ? race.lap : (live.lap!=null ? live.lap : null));
   // таймер стинта: сбрасывается, когда за руль садится другой пилот
-  if(me.name && me.name!==_stintDriver){ _stintDriver=me.name; _stintStart=Date.now(); }
+  if(me.name && me.name!==_stintDriver){ _stintDriver=me.name; _stintStart=Date.now(); _stintLap0=carLap; }
   const stintSec = _stintStart ? (Date.now()-_stintStart)/1000 : null;
-  set('e_driver', `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">
-    ${card('За рулём', me.name||'—', me.pos?'P'+me.pos:'')}
-    ${card('Таймер стинта', stintSec!=null?fmtTime(stintSec):'—', 'с посадки')}
-    ${card('Круг', race.lap!=null?race.lap:(live.lap!=null?live.lap:'—'), race.last_lap_time?lapTime(race.last_lap_time):'')}</div>`);
+  const stintLaps = (typeof carLap==='number' && typeof _stintLap0==='number') ? carLap-_stintLap0 : null;
+  set('e_driver', `<div class="mini" style="grid-template-columns:1fr 1fr 1fr 1fr">
+    ${card('Driver', me.name||'—', me.pos?'P'+me.pos:'')}
+    ${card('Stint timer', stintSec!=null?fmtTime(stintSec):'—', 'since swap')}
+    ${card('Stint laps', stintLaps!=null?stintLaps:'—', 'driver has done')}
+    ${card('Lap', carLap!=null?carLap:'—', race.last_lap_time?lapTime(race.last_lap_time):'')}</div>`);
   set('e_time', `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('До конца', sess.time_remain!=null?fmtTime(sess.time_remain):'—', 'по времени')}
-    ${card('Кругов', sess.laps_remain!=null?`${sess.laps_remain}${sess.laps_total?'/'+sess.laps_total:''}`:'—', evName(sess.session_type||''))}</div>`);
+    ${card('Time left', sess.time_remain!=null?fmtTime(sess.time_remain):'—', 'by time')}
+    ${card('Laps', sess.laps_remain!=null?`${sess.laps_remain}${sess.laps_total?'/'+sess.laps_total:''}`:'—', evName(sess.session_type||''))}</div>`);
   if(strat.avg_burn!=null){
     const pl=strat.plan||{};
     set('e_strategy', `<div class="mini" style="grid-template-columns:1fr 1fr">
-      ${card('Топливо', `${fix(strat.fuel,1)} л`, `на ${fix(strat.laps_on_fuel,1)} кр.`)}
-      ${card('Пит-стопов', pl.stops!=null?(pl.stops===0?'не нужно':pl.stops):'—', pl.fuel_per_stop!=null?`долить ~${pl.fuel_per_stop} л`:'')}</div>`);
+      ${card('Fuel', `${fix(strat.fuel,1)} L`, `for ${fix(strat.laps_on_fuel,1)} laps`)}
+      ${card('Pit stops', pl.stops!=null?(pl.stops===0?'not needed':pl.stops):'—', pl.fuel_per_stop!=null?`add ~${pl.fuel_per_stop} L`:'')}</div>`);
   }
   set('e_pace', `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">
-    ${card('Последний', lapTime(race.last_lap_time), '')}
-    ${card('Лучший', lapTime(race.best_lap_time), 'сессии')}
-    ${card('Прогноз', lapTime(race.predicted), 'по темпу')}</div>`);
+    ${card('Last', lapTime(race.last_lap_time), '')}
+    ${card('Best', lapTime(race.best_lap_time), 'session')}
+    ${card('Predicted', lapTime(race.predicted), 'on pace')}</div>`);
   set('e_incidents', `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Инциденты команды', (dmg.team_incidents!=null?dmg.team_incidents:0)+'x', dmg.incidents!=null?`мои ${dmg.incidents}x`:'')}
-    ${card('Флаги', (race.flags&&race.flags.length)?race.flags.map(f=>f.label).join(', '):'чисто', 'сейчас')}</div>`);
+    ${card('Team incidents', (dmg.team_incidents!=null?dmg.team_incidents:0)+'x', dmg.incidents!=null?`mine ${dmg.incidents}x`:'')}
+    ${card('Flags', (race.flags&&race.flags.length)?race.flags.map(f=>f.label).join(', '):'clear', 'now')}</div>`);
   if(race.position!=null) set('e_pos', `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Позиция в классе', race.class_position!=null?'P'+race.class_position:'—', race.position!=null?'в общем P'+race.position:'')}
-    <div class="tire"><div class="cn">Разрыв</div><div style="font-size:16px;font-weight:700;margin:2px 0">▲ ${race.gap_ahead!=null?fix(race.gap_ahead,1)+'с':'—'}</div><div class="why">▼ ${race.gap_behind!=null?fix(race.gap_behind,1)+'с':'—'}</div></div></div>`);
+    ${card('Class position', race.class_position!=null?'P'+race.class_position:'—', race.position!=null?'overall P'+race.position:'')}
+    <div class="tire"><div class="cn">Gap</div><div style="font-size:16px;font-weight:700;margin:2px 0">▲ ${race.gap_ahead!=null?fix(race.gap_ahead,1)+'s':'—'}</div><div class="why">▼ ${race.gap_behind!=null?fix(race.gap_behind,1)+'s':'—'}</div></div></div>`);
   const rel=(_st.relative&&_st.relative.cars)||[]; const meI=rel.findIndex(c=>c.is_player);
   if(meI>=0){ const sl=rel.slice(Math.max(0,meI-2),meI+3).reverse();
-    set('e_relative', `<table><tr><th>P</th><th>Пилот</th><th style="text-align:right">Разрыв</th></tr>${sl.map(c=>{
-      const you=c.is_player?' style="background:#14202c"':''; const g=c.is_player?'—':(c.gap>0?'+'+c.gap.toFixed(1):c.gap.toFixed(1));
-      return `<tr${you}><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}</td><td class="chg" style="text-align:right;color:${c.is_player?'#e8eaed':(c.gap>0?'#e74c3c':'#2ecc71')}">${g}</td></tr>`;}).join('')}</table>`); }
-  if(stand.length) set('e_standings', `<div style="overflow-x:auto"><table><tr><th style="text-align:right">P</th><th>Пилот</th><th style="text-align:right">Отрыв</th><th style="text-align:right">Лучший</th></tr>${stand.map(d=>{
-    const you=d.is_player?' style="background:#14202c"':''; return `<tr${you}><td style="text-align:right;color:var(--muted)">${d.pos}</td><td>${d.name||'—'}${d.on_pit?' <span style="color:#f1c40f">P</span>':''}</td><td class="chg" style="text-align:right">${d.gap?'+'+fix(d.gap,1):'—'}</td><td class="chg" style="text-align:right;color:#c77dff">${lapTime(d.best)}</td></tr>`;}).join('')}</table></div>`);
+    set('e_relative', `<table><tr><th>#</th><th>P</th><th>Driver</th><th style="text-align:right">Gap</th></tr>${sl.map(c=>{
+      const you=c.is_player?' style="background:#14301f"':''; const g=c.is_player?'—':(c.gap>0?'+'+c.gap.toFixed(1):c.gap.toFixed(1));
+      return `<tr${you}><td>${numBadge(c)}</td><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}</td><td class="chg" style="text-align:right;color:${c.is_player?'#e8eaed':(c.gap>0?'#e74c3c':'#2ecc71')}">${g}</td></tr>`;}).join('')}</table>`); }
+  if(stand.length) set('e_standings', `<div style="overflow-x:auto"><table><tr><th style="text-align:right">P</th><th>#</th><th>Driver</th><th style="text-align:right">Gap</th><th style="text-align:right">Best</th></tr>${stand.map(d=>{
+    const you=d.is_player?' style="background:#14301f"':''; return `<tr${you}><td style="text-align:right;color:var(--muted)">${d.pos}</td><td>${numBadge(d)}</td><td>${d.name||'—'}${d.on_pit?' <span style="color:#f1c40f">P</span>':''}</td><td class="chg" style="text-align:right">${d.gap?'+'+fix(d.gap,1):'—'}</td><td class="chg" style="text-align:right;color:#c77dff">${lapTime(d.best)}</td></tr>`;}).join('')}</table></div>`);
   if(Object.keys(wear).length){ const cell=(c,n)=>{ const v=wear[c],p=v!=null?Math.round(v*100):null,col=v==null?'#333':(v>0.5?'#2ecc71':(v>0.3?'#f1c40f':'#e74c3c'));
     return `<div class="tire"><div class="cn">${n}</div><div style="font-size:20px;font-weight:700;color:${col}">${p!=null?p+'%':'—'}</div><div class="bar" style="height:8px;margin-top:4px"><span style="width:${p||0}%;background:${col};display:block;height:100%"></span></div></div>`; };
-    set('e_wear', `<div class="tires" style="max-width:none">${cell('LF','Перед лев')}${cell('RF','Перед прав')}${cell('LR','Зад лев')}${cell('RR','Зад прав')}</div>`); }
+    set('e_wear', `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`); }
   if(live.tires) set('e_tires', tireTempTiles(live.tires));
   if(race.wind_vel!=null) set('e_weather', `<div class="mini" style="grid-template-columns:1fr 1fr">
-    ${card('Ветер', `${fix(race.wind_vel,1)} м/с`, windDir(race.wind_dir))}
-    ${card('Влажность', `${fix(race.humidity*100,0)}%`, skiesTxt(race.skies))}
-    ${card('Покрытие', wetnessTxt(race.track_wetness), 'трасса')}</div>`);
+    ${card('Wind', `${fix(race.wind_vel,1)} m/s`, windDir(race.wind_dir))}
+    ${card('Humidity', `${fix(race.humidity*100,0)}%`, skiesTxt(race.skies))}
+    ${card('Surface', wetnessTxt(race.track_wetness), 'track')}</div>`);
   // трек-мапа в Endurance
-  if(_trackShape.length){ const line=_trackShape.map(p=>`${p.x},${p.y}`).join(' ');
-    const dots=rel.map(c=>{ const p=_posOnTrack(c.lap_pct||0,_trackShape); return p?`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${c.is_player?3:2.2}" fill="${c.is_player?'#3ea6ff':_clr(c.class_color)}"/>`:''; }).join('');
-    set('e_trackmap', `<svg viewBox="0 0 100 100" style="width:100%;max-width:300px;display:block;margin:0 auto"><polyline points="${line}" fill="none" stroke="#5f6b7a" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>${dots}</svg>`); }
+  if(_trackShape.length){ const line=_trackShape.map(p=>`${p.x},${p.y}`).join(' ');  // без замыкания
+    const dots=rel.slice().sort((a,b)=>(a.is_player?1:0)-(b.is_player?1:0)).map(c=>{ const p=_posOnTrack(c.lap_pct||0,_trackShape); return p?mapCarDot(p.x,p.y,c):''; }).join('');
+    set('e_trackmap', `<svg viewBox="0 0 100 100" style="width:100%;max-width:320px;display:block;margin:0 auto"><polyline points="${line}" fill="none" stroke="#8b97a6" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>${dots}</svg>`); }
 }
 
 // ===== SETUP (доп. панели из уже собираемых данных) =====
@@ -755,16 +818,16 @@ function tickSetupExtra(){
   const live=_st.live||{}, strat=_st.strategy||{}, res=_st.result||{}, sym=res.symptoms||{};
   if(live.tires) set('s_tires', tireTempTiles(live.tires));
   if(sym.tire && sym.tire.front_rear_balance!=null){ const b=sym.tire.front_rear_balance;
-    set('s_balance', `<div class="mini" style="grid-template-columns:1fr"><div class="tire"><div class="cn">Баланс температур</div>
-      <div style="font-size:20px;font-weight:700;margin:2px 0">${b>0?'перёд':'зад'} теплее</div><div class="why">Δ ${fix(Math.abs(b),1)}° — ${b>0?'зад холоднее, добавить сзади нагрузки':'перёд холоднее'}</div></div></div>`); }
-  if(sym.balance){ const ph=[["Вход","entry"],["Середина","mid"],["Выход","exit"]];
+    set('s_balance', `<div class="mini" style="grid-template-columns:1fr"><div class="tire"><div class="cn">Temp balance</div>
+      <div style="font-size:20px;font-weight:700;margin:2px 0">${b>0?'front':'rear'} hotter</div><div class="why">Δ ${fix(Math.abs(b),1)}° — ${b>0?'rear colder, add load at the rear':'front colder'}</div></div></div>`); }
+  if(sym.balance){ const ph=[["Entry","entry"],["Mid","mid"],["Exit","exit"]];
     set('s_symptoms', `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">${ph.map(([n,k])=>{ const t=(sym.balance[k]||{}).tendency;
-      const m={understeer:['#f1c40f','недоруль'],oversteer:['#e74c3c','переруль'],neutral:['#2ecc71','нейтр.']}[t]||['#888','—'];
+      const m={understeer:['#f1c40f','understeer'],oversteer:['#e74c3c','oversteer'],neutral:['#2ecc71','neutral']}[t]||['#888','—'];
       return `<div class="tire"><div class="cn">${n}</div><div style="font-size:16px;font-weight:700;color:${m[0]}">${m[1]}</div></div>`;}).join('')}</div>`); }
   if(strat.tire_wear_per_lap!=null || strat.tire_min!=null){
     set('s_weartrend', `<div class="mini" style="grid-template-columns:1fr 1fr">
-      ${card('Износ/круг', strat.tire_wear_per_lap!=null?fix(strat.tire_wear_per_lap*100,2)+'%':'—', 'в среднем')}
-      ${card('Осталось шинам', strat.tire_laps_left!=null?fix(strat.tire_laps_left,0)+' кр.':'—', strat.tire_min!=null?`мин. износ ${fix(strat.tire_min*100,0)}%`:'')}</div>`); }
+      ${card('Wear/lap', strat.tire_wear_per_lap!=null?fix(strat.tire_wear_per_lap*100,2)+'%':'—', 'on average')}
+      ${card('Tires left', strat.tire_laps_left!=null?fix(strat.tire_laps_left,0)+' laps':'—', strat.tire_min!=null?`min. wear ${fix(strat.tire_min*100,0)}%`:'')}</div>`); }
 }
 
 // заметки в textarea с сохранением в localStorage
@@ -788,7 +851,7 @@ async function tickLive(){
   let l; try{ l = await (await fetch('/api/live')).json(); }catch{ return; }
   const live = l && l.speed!=null;
   $('dot').className = 'dot' + (live?' live':'');
-  $('hdr').textContent = live ? 'на трассе' : (l && l.status ? l.status : '');
+  $('hdr').textContent = live ? 'on track' : (l && l.status ? l.status : '');
   if(!live){ return; }
   $('speed').textContent = fix(l.speed*3.6,0);          // м/с → км/ч
   _lastSpeedKmh = l.speed*3.6; _st.live = l;
@@ -810,12 +873,11 @@ async function tickLive(){
   renderGforce(l);
   renderSteer(l);
   renderTopSpeed(l);
-  renderSlip(l);
 }
 
 function renderTires(t){
   $('tires-empty').style.display='none';
-  const order=[["LF","Перед лев"],["RF","Перед прав"],["LR","Зад лев"],["RR","Зад прав"]];
+  const order=[["LF","Front left"],["RF","Front right"],["LR","Rear left"],["RR","Rear right"]];
   $('tires').innerHTML = order.map(([c,name])=>{
     const x=t[c]||{}; const pads=["tl","tm","tr"].map(k=>{
       const v=x[k]; return `<div class="pad" style="background:${tempColor(v)}">${fix(v,0)}</div>`;
@@ -828,13 +890,14 @@ let _setupSig = null;   // подпись сетапа — чтобы не пе�
 async function tickResult(){
   let r; try{ r = await (await fetch('/api/result')).json(); }catch{ return; }
   _st.result = r;
+  renderDrivingLine();
   const s = r.symptoms;
   // пилотирование
   const exp = r.explanation;
   if(r.analyzing && !exp){
-    $('driving').innerHTML = `<div class="empty">⏳ Считаю разбор… (модель думает, дашборд работает)</div>`;
+    $('driving').innerHTML = `<div class="empty">⏳ Working out the analysis… (model is thinking, dashboard keeps running)</div>`;
   } else if(r.explanation_error){
-    $('driving').innerHTML = `<div class="err">Разбор от модели недоступен: ${r.explanation_error}.<br>Метрики ниже посчитаны.</div>`;
+    $('driving').innerHTML = `<div class="err">Model analysis unavailable: ${r.explanation_error}.<br>The metrics below are calculated.</div>`;
   } else if(exp && exp.driving && exp.driving.length){
     $('driving').innerHTML = '<ul class="drv">'+exp.driving.map(d=>`<li>${d}</li>`).join('')+'</ul>';
   }
@@ -844,8 +907,8 @@ async function tickResult(){
     const rows = ch.map(c=>`<tr><td>${shortField(c.field)}</td>
       <td class="chg"><span class="from">${c.from??'?'}</span><span class="arrow">→</span><span class="to">${c.to}</span></td>
       <td class="why">${c.why||''}</td></tr>`).join('');
-    $('setup').innerHTML = `<table><tr><th>Параметр</th><th>Изменение</th><th>Почему</th></tr>${rows}</table>`;
-  } else if(s){ $('setup').innerHTML = '<div class="empty">Модель не предложила правок.</div>'; }
+    $('setup').innerHTML = `<table><tr><th>Parameter</th><th>Change</th><th>Why</th></tr>${rows}</table>`;
+  } else if(s){ $('setup').innerHTML = '<div class="empty">The model suggested no changes.</div>'; }
   // полный сетап-лист по ВКЛАДКАМ (как экран настроек iRacing).
   // Перерисовываем ТОЛЬКО когда сетап изменился — иначе скролл/вкладка сбрасывались
   // наверх каждый тик (баг «прокрутка возвращается назад»).
@@ -872,8 +935,8 @@ function renderMetrics(s){
   const blocks=[];
   // «Круги» (разброс/лучший) не дублируем — стабильность живёт в «Итоги заезда»
   if(s.inputs){const i=s.inputs;
-    blocks.push(card('Датчики',`trail ${fix(i.trail_brake_pct,1)}%`,`плавность газа ${fix(i.throttle_smoothness*100,0)}%`));}
-  if(s.tire){blocks.push(card('Баланс шин',`${s.tire.front_rear_balance>0?'перёд':'зад'} теплее`,`Δ ${fix(Math.abs(s.tire.front_rear_balance),1)}°`));}
+    blocks.push(card('Sensors',`trail ${fix(i.trail_brake_pct,1)}%`,`throttle smoothness ${fix(i.throttle_smoothness*100,0)}%`));}
+  if(s.tire){blocks.push(card('Tire balance',`${s.tire.front_rear_balance>0?'front':'rear'} hotter`,`Δ ${fix(Math.abs(s.tire.front_rear_balance),1)}°`));}
   $('metrics').innerHTML = blocks.join('');
 }
 function card(t,big,sub){return `<div class="tire"><div class="cn">${t}</div>
@@ -914,6 +977,7 @@ async function tickStrategy(){
   let g; try{ g = await (await fetch('/api/strategy')).json(); }catch{ return; }
   if(!g || g.avg_burn==null){ return; }
   _lastStrategy = g; _st.strategy = g; renderFuelCalc();   // для калькулятора и вкладок
+  renderStintPlan(); renderPitWindow(); renderUndercut();  // вкладка Strategy
   if(g.last_burn!=null && g.last_burn!==_prevBurn){   // новый круг -> точка на графике расхода
     _prevBurn = g.last_burn; _burnHist.push(g.last_burn);
     if(_burnHist.length>40) _burnHist.shift();
@@ -921,17 +985,17 @@ async function tickStrategy(){
   }
   const refuelColor = g.pit_needed_for_fuel ? '#f1c40f' : '#2ecc71';
   const blocks = [];
-  blocks.push(card('Топливо', `${fix(g.fuel,1)} / ${fix(g.tank,0)} л`,
-    `хватит на ${fix(g.laps_on_fuel,1)} кругов`));
-  blocks.push(card('Расход', `${fix(g.last_burn,2)} л/круг`,
-    `средний за 5 кругов ${fix(g.avg_burn,2)} л`));
-  blocks.push(card('Осталось гонки', g.laps_to_go!=null ? `${g.laps_to_go} ${plural(g.laps_to_go,'круг','круга','кругов')}` : 'без лимита',
-    g.avg_lap_time ? `темп ${lapTime(g.avg_lap_time)}` : ''));
+  blocks.push(card('Fuel', `${fix(g.fuel,1)} / ${fix(g.tank,0)} L`,
+    `covers ${fix(g.laps_on_fuel,1)} laps`));
+  blocks.push(card('Burn', `${fix(g.last_burn,2)} L/lap`,
+    `5-lap average ${fix(g.avg_burn,2)} L`));
+  blocks.push(card('Race left', g.laps_to_go!=null ? `${g.laps_to_go} ${g.laps_to_go===1?'lap':'laps'}` : 'no limit',
+    g.avg_lap_time ? `pace ${lapTime(g.avg_lap_time)}` : ''));
   if(g.fuel_to_add!=null){
-    const big = g.fuel_to_add>0 ? `+${fix(g.fuel_to_add,1)} л` : 'не нужно';
+    const big = g.fuel_to_add>0 ? `+${fix(g.fuel_to_add,1)} L` : 'not needed';
     const extra = (g.fuel_to_add>0 && g.avg_burn) ? Math.round(g.fuel_to_add/g.avg_burn) : 0;
-    const sub = g.fuel_to_add>0 ? `хватит на ~${extra} ${plural(extra,'круг','круга','кругов')}` : 'до финиша хватает';
-    blocks.push(`<div class="tire" style="border-color:${refuelColor}"><div class="cn">Долить на пите</div>
+    const sub = g.fuel_to_add>0 ? `covers ~${extra} ${extra===1?'lap':'laps'}` : 'enough to finish';
+    blocks.push(`<div class="tire" style="border-color:${refuelColor}"><div class="cn">Add at pit</div>
       <div style="font-size:20px;font-weight:700;margin:2px 0;color:${refuelColor}">${big}</div>
       <div class="why">${sub}</div></div>`);
   }
@@ -939,28 +1003,28 @@ async function tickStrategy(){
   if(g.tire_min!=null){
     const ch = g.change_tires;
     const col = ch ? '#e74c3c' : '#2ecc71';
-    blocks.push(`<div class="tire" style="border-color:${col}"><div class="cn">Шины</div>
-      <div style="font-size:18px;font-weight:700;margin:2px 0;color:${col}">${ch?'менять':'оставить'}</div>
-      <div class="why">износ ${fix(g.tire_min*100,0)}%${g.tire_laps_left!=null?` · ещё ~${fix(g.tire_laps_left,0)} кр.`:''}</div></div>`);
+    blocks.push(`<div class="tire" style="border-color:${col}"><div class="cn">Tires</div>
+      <div style="font-size:18px;font-weight:700;margin:2px 0;color:${col}">${ch?'change':'keep'}</div>
+      <div class="why">wear ${fix(g.tire_min*100,0)}%${g.tire_laps_left!=null?` · ~${fix(g.tire_laps_left,0)} laps left`:''}</div></div>`);
   }
   let stratHtml = `<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>`;
   // план гонки: пит-стопы на всю дистанцию (Фаза 3)
   const pl = g.plan;
   if(pl){
     const pb = [];
-    pb.push(card('Пит-стопов', pl.stops===0 ? 'не нужно' : `${pl.stops} ${plural(pl.stops,'стоп','стопа','стопов')}`,
-      `стинт ~${pl.stint_laps} ${plural(pl.stint_laps,'круг','круга','кругов')}`));
+    pb.push(card('Pit stops', pl.stops===0 ? 'not needed' : `${pl.stops} ${pl.stops===1?'stop':'stops'}`,
+      `stint ~${pl.stint_laps} ${pl.stint_laps===1?'lap':'laps'}`));
     if(pl.stops>0){
-      const when = pl.next_stop_lap ? `круг ${pl.next_stop_lap}` : (pl.laps_until_stop!=null ? `через ${pl.laps_until_stop} кр.` : '—');
-      pb.push(card('Первый пит', when, pl.fuel_per_stop!=null ? `долить ~${pl.fuel_per_stop} л` : ''));
-      pb.push(card('Всего долить', `${pl.fuel_to_add_total} л`, `на ${pl.laps_to_go} ${plural(pl.laps_to_go,'круг','круга','кругов')} до финиша`));
+      const when = pl.next_stop_lap ? `lap ${pl.next_stop_lap}` : (pl.laps_until_stop!=null ? `in ${pl.laps_until_stop} laps` : '—');
+      pb.push(card('First pit', when, pl.fuel_per_stop!=null ? `add ~${pl.fuel_per_stop} L` : ''));
+      pb.push(card('Total to add', `${pl.fuel_to_add_total} L`, `for ${pl.laps_to_go} ${pl.laps_to_go===1?'lap':'laps'} to the finish`));
     }
     if(pl.save_to_skip!=null){
-      pb.push(`<div class="tire" style="border-color:#f1c40f"><div class="cn">Убрать пит</div>
-        <div style="font-size:16px;font-weight:700;margin:2px 0;color:#f1c40f">экономь ${pl.save_to_skip} л/кр</div>
-        <div class="why">и проедешь на 1 пит меньше</div></div>`);
+      pb.push(`<div class="tire" style="border-color:#f1c40f"><div class="cn">Drop a stop</div>
+        <div style="font-size:16px;font-weight:700;margin:2px 0;color:#f1c40f">save ${pl.save_to_skip} L/lap</div>
+        <div class="why">to drop one pit stop</div></div>`);
     }
-    stratHtml += `<div class="label" style="margin-top:14px">План гонки</div>
+    stratHtml += `<div class="label" style="margin-top:14px">Race plan</div>
       <div class="mini" style="grid-template-columns:1fr 1fr">${pb.join('')}</div>`;
   }
   $('strategy').innerHTML = stratHtml;
@@ -972,29 +1036,182 @@ async function tickInc(){
   _st.damage = d;
 }
 
+// лицензия: буква в цвете iRacing (A синий / B зелёный / C жёлтый / D оранж / R красный) + сам SR
+const licBadge = d => d.lic
+  ? `<span style="background:${d.lic_color};color:#0d0f12;font-weight:700;border-radius:3px;padding:0 4px">${d.lic}</span>
+     <span style="color:var(--muted)">${d.sr!=null?fix(d.sr,2):''}</span>`
+  : '<span style="color:var(--muted)">—</span>';
+
 async function tickStandings(){
   let s; try{ s = await (await fetch('/api/standings')).json(); }catch{ return; }
   if(!Array.isArray(s) || !s.length){ return; }
   _st.standings = s;
   const rows = s.map(d=>{
     const pit = d.on_pit ? ' <span style="color:#f1c40f">P</span>' : '';
-    const you = d.is_player ? ' style="background:#14202c"' : '';
-    return `<tr${you}><td style="text-align:right;color:var(--muted)">${d.pos}</td>
-      <td>${d.name||'—'}${pit}</td>
-      <td style="text-align:right;color:var(--muted)">${d.irating?Math.round(d.irating/1000)+'k':'—'}</td>
-      <td class="chg" style="text-align:right">${d.gap?'+'+fix(d.gap,1):'—'}</td>
-      <td class="chg" style="text-align:right;color:#c77dff">${lapTime(d.best)}</td></tr>`;
+    const you = d.is_player ? ' style="background:#14301f"' : '';
+    const dim = d.out ? 'opacity:.45;' : '';                 // сошёл — приглушаем строку
+    const gapC = d.laps_down>=1 ? '#f1c40f' : 'inherit';     // круг отставания — отдельным цветом
+    return `<tr${you}><td style="text-align:right;color:var(--muted);${dim}">${d.pos}</td>
+      <td style="${dim}">${numBadge(d)}</td>
+      <td style="${dim}">${d.name||'—'}${pit}</td>
+      <td style="text-align:right;color:var(--muted);${dim}">${d.irating?Math.round(d.irating/1000)+'k':'—'}</td>
+      <td style="text-align:right;white-space:nowrap;${dim}">${licBadge(d)}</td>
+      <td class="chg" style="text-align:right;color:${gapC};${dim}">${d.gap_txt||'—'}</td>
+      <td class="chg" style="text-align:right;${dim}">${lapTime(d.last)}</td>
+      <td class="chg" style="text-align:right;color:#c77dff;${dim}">${lapTime(d.best)}</td></tr>`;
   }).join('');
-  $('standings').innerHTML = `<div style="overflow-x:auto"><table><tr><th style="text-align:right">P</th><th>Пилот</th><th style="text-align:right">iR</th><th style="text-align:right">Отрыв</th><th style="text-align:right">Лучший</th></tr>${rows}</table></div>`;
+  const se = _st.session||{};
+  const head = `<div class="why" style="margin-bottom:6px"><b style="color:#f1c40f">SoF ${se.sof||'—'}</b>${
+    se.cars_class?` · ${se.cars_class} ${se.car_class?se.car_class+' ':''}cars`:''}</div>`;
+  $('standings').innerHTML = head + `<div style="overflow-x:auto"><table><tr><th style="text-align:right">P</th><th>#</th><th>Driver</th><th style="text-align:right">iR</th><th style="text-align:right">SR</th><th style="text-align:right">Gap</th><th style="text-align:right">Last</th><th style="text-align:right">Best</th></tr>${rows}</table></div>`;
 }
 
 const flagColor = k => ({green:'#2ecc71',yellow:'#f1c40f',yellow_waving:'#f1c40f',caution:'#f1c40f',
   caution_waving:'#f1c40f',blue:'#3498db',white:'#e8e8ee',checkered:'#cfcfcf',red:'#e74c3c',
   black:'#555',repair:'#e67e22',disqualify:'#e74c3c'}[k] || '#888');
-const windDir = rad => { if(rad==null) return ''; const d=['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'];
-  return 'с ' + d[Math.round((rad*180/Math.PI)/45)%8]; };
-const skiesTxt = s => ['ясно','малооблачно','облачно','пасмурно'][s] || '—';
-const wetnessTxt = w => w<=1 ? 'сухо' : (w<=3?'подсыхает':(w<=5?'влажно':'мокро'));
+const windDir = rad => { if(rad==null) return ''; const d=['N','NE','E','SE','S','SW','W','NW'];
+  return 'from ' + d[Math.round((rad*180/Math.PI)/45)%8]; };
+const skiesTxt = s => ['clear','partly cloudy','cloudy','overcast'][s] || '—';
+const wetnessTxt = w => w<=1 ? 'dry' : (w<=3?'drying':(w<=5?'damp':'wet'));
+
+// Разбор гонки → где потерял время: оптимальный сектор (мин по всем кругам) vs твой лучший круг
+function renderTimeLost(){
+  const el = $('an_sectors'); if(!el) return;
+  const log = (_st.race && _st.race.lap_log) || [];
+  const laps = log.filter(x=> x.time>0 && Array.isArray(x.sectors) && x.sectors.length);
+  if(!laps.length){ el.innerHTML = `<div class="empty">Drive laps with sector timing — losses appear here.</div>`; return; }
+  const nsec = Math.max(...laps.map(x=> x.sectors.length));
+  const best = [];
+  for(let i=0;i<nsec;i++){
+    const v = laps.map(x=> x.sectors[i]).filter(t=> typeof t==='number' && t>0);
+    best.push(v.length ? Math.min(...v) : null);
+  }
+  const refLap = laps.reduce((a,b)=> (b.time<a.time ? b : a));   // твой лучший круг
+  const ref = refLap.sectors;
+  let rows='', totalLoss=0, maxLoss=0, maxIdx=-1;
+  for(let i=0;i<nsec;i++){
+    const b=best[i], r=ref[i];
+    const loss = (typeof b==='number' && typeof r==='number') ? (r-b) : null;
+    if(typeof loss==='number' && loss>0){ totalLoss += loss; if(loss>maxLoss){ maxLoss=loss; maxIdx=i; } }
+    const col = loss==null ? 'var(--muted)' : (loss<=0.03?'#2ecc71':(loss<=0.15?'#f1c40f':'#e74c3c'));
+    rows += `<tr><td>S${i+1}</td><td style="text-align:right;color:var(--muted)">${b!=null?b.toFixed(2):'—'}</td><td style="text-align:right">${typeof r==='number'?r.toFixed(2):'—'}</td><td style="text-align:right;color:${col}">${loss==null?'—':(loss<=0?'0.00':'+'+loss.toFixed(2))}</td></tr>`;
+  }
+  const opt = best.reduce((a,b)=> a+(b||0), 0);
+  const worst = (maxIdx>=0 && maxLoss>0.03) ? ` · biggest loss <b style="color:#e74c3c">S${maxIdx+1}</b> (+${maxLoss.toFixed(2)}s)` : '';
+  el.innerHTML = `<table><tr><th>Sec</th><th style="text-align:right">Best</th><th style="text-align:right">Your best lap</th><th style="text-align:right">Loss</th></tr>${rows}</table>
+    <div class="why" style="margin-top:8px">Optimal lap <b>${lapTime(opt)}</b> · potential <b style="color:#2ecc71">−${totalLoss.toFixed(2)}s</b>${worst}</div>`;
+}
+
+// Разбор гонки → итог гонки: позиция, круги, лучший, отрыв, консистентность, инциденты
+function renderRaceResult(){
+  const el = $('an_result'); if(!el) return;
+  const r = _st.race || {};
+  if(r.position==null){ el.innerHTML = `<div class="empty">Race result appears once you're in a race.</div>`; return; }
+  const t = _goodTimes(r.lap_log||[]);
+  const best = t.length? Math.min(...t) : r.best_lap_time;
+  const spread = t.length? (Math.max(...t)-Math.min(...t)) : null;
+  const stand = (_st.standings||[]).find(x=> x.is_player) || {};
+  const finished = (r.flags||[]).some(f=> f.key==='checkered');
+  el.innerHTML = (finished? `<div class="why" style="margin-bottom:8px;color:#2ecc71"><b>🏁 Finished</b></div>` : '') +
+    `<div class="mini" style="grid-template-columns:1fr 1fr">
+    ${card('Position', r.class_position!=null?`P${r.class_position}`:(r.position!=null?`P${r.position}`:'—'), r.position!=null?`overall P${r.position}`:'')}
+    ${card('Laps', r.lap!=null? r.lap : '—', 'completed')}
+    ${card('Best lap', lapTime(best), `${t.length} ${t.length===1?'lap':'laps'}`)}
+    ${card('Gap to leader', stand.gap_txt || '—', 'in class')}
+    ${card('Consistency', spread!=null?`±${(spread/2).toFixed(2)}s`:'—', 'spread')}
+    ${card('Incidents', `${_incidents}x`, 'this race')}</div>`;
+}
+
+// Race analysis → Driving / line: как ты рулишь (из симптомов стинта)
+function renderDrivingLine(){
+  const el=$('an_driving'); if(!el) return;
+  const s=(_st.result&&_st.result.symptoms)||{};
+  if(!s.inputs && !s.tire){ el.innerHTML=`<div class="empty">Drive a stint and box — your driving metrics appear here.</div>`; return; }
+  const blocks=[]; const i=s.inputs;
+  if(i){
+    blocks.push(card('Trail braking', fix(i.trail_brake_pct,1)+'%', 'brake into the corner'));
+    blocks.push(card('Throttle smoothness', fix(i.throttle_smoothness*100,0)+'%', 'higher = smoother'));
+  }
+  if(s.tire && s.tire.front_rear_balance!=null){
+    const b=s.tire.front_rear_balance;
+    blocks.push(card('Tire balance', (b>0?'front':'rear')+' hotter', 'Δ '+fix(Math.abs(b),1)+'°'));
+  }
+  el.innerHTML=`<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>`;
+}
+
+// Records → Progress: времена кругов этой сессии (тренд)
+function renderProgress(){
+  const el=$('r_progress'); if(!el) return;
+  const t=_goodTimes((_st.race&&_st.race.lap_log)||[]);
+  if(!t.length){ el.innerHTML=`<div class="empty">Drive laps — your progress this session appears here.</div>`; return; }
+  const best=Math.min(...t), worst=Math.max(...t), rng=(worst-best)||1;
+  let bars='';
+  t.forEach(x=>{ const f=(x-best)/rng, bh=6+f*42, col=x===best?'#c77dff':(f<0.34?'#2ecc71':(f<0.67?'#f1c40f':'#e74c3c'));
+    bars+=`<div style="flex:1;height:54px;display:flex;align-items:flex-end"><div style="width:100%;height:${bh}px;background:${col};border-radius:2px"></div></div>`; });
+  el.innerHTML=`<div style="display:flex;gap:2px;align-items:flex-end">${bars}</div>
+    <div class="why" style="margin-top:6px">Best <b style="color:#c77dff">${lapTime(best)}</b> · ${t.length} laps this session</div>`;
+}
+
+// Strategy → Stint plan
+function renderStintPlan(){
+  const el=$('st_stints'); if(!el) return;
+  const g=_st.strategy||{}, pl=g.plan||{};
+  if(pl.stops==null){ el.innerHTML=`<div class="empty">Drive a few laps — stint plan appears here.</div>`; return; }
+  el.innerHTML=`<div class="mini" style="grid-template-columns:1fr 1fr">
+    ${card('Stints left', pl.stops+1, pl.stops===0?'no pit needed':pl.stops+' pit'+(pl.stops>1?'s':''))}
+    ${card('Laps to go', pl.laps_to_go!=null?pl.laps_to_go:'—', g.avg_lap_time?`pace ${lapTime(g.avg_lap_time)}`:'')}
+    ${card('This stint', pl.laps_until_stop!=null?pl.laps_until_stop+' laps':'—', 'until next pit')}
+    ${card('Fuel now', g.fuel!=null?fix(g.fuel,1)+' L':'—', g.laps_on_fuel!=null?`~${fix(g.laps_on_fuel,1)} laps`:'')}</div>`;
+}
+
+// Strategy → Pit window
+function renderPitWindow(){
+  const el=$('st_window'); if(!el) return;
+  const g=_st.strategy||{}, pl=g.plan||{};
+  if(pl.stops==null){ el.innerHTML=`<div class="empty">Fuel data needed — appears once you drive.</div>`; return; }
+  if(pl.stops===0){ el.innerHTML=`<div class="mini" style="grid-template-columns:1fr">${card('Pit','not needed','enough fuel to finish')}</div>`; return; }
+  const when=pl.next_stop_lap?`lap ${pl.next_stop_lap}`:(pl.laps_until_stop!=null?`in ${pl.laps_until_stop} laps`:'—');
+  const warn=(g.laps_on_fuel!=null && g.laps_on_fuel<2)?`<div class="why" style="color:#e74c3c;margin-bottom:6px"><b>⚠ Pit soon — low fuel (~${fix(g.laps_on_fuel,1)} laps)</b></div>`:'';
+  el.innerHTML=warn+`<div class="mini" style="grid-template-columns:1fr 1fr">
+    ${card('Next pit', when, 'fuel window')}
+    ${card('Add / stop', pl.fuel_per_stop!=null?`~${pl.fuel_per_stop} L`:'—', 'per pit')}
+    ${card('Total to add', pl.fuel_to_add_total!=null?`${pl.fuel_to_add_total} L`:'—', `${pl.stops} stop${pl.stops>1?'s':''}`)}
+    ${card('Add now', g.fuel_to_add!=null?`${g.fuel_to_add} L`:'—', 'to reach finish')}</div>`;
+}
+
+// Strategy → Undercut / Overcut (упрощённо: разрывы + экономия на пит)
+function renderUndercut(){
+  const el=$('st_uc'); if(!el) return;
+  const g=_st.strategy||{}, pl=g.plan||{};
+  const rel=(_st.relative&&_st.relative.cars)||[]; const me=rel.findIndex(c=>c.is_player);
+  const gapStr=c=> (c&&typeof c.gap==='number')? Math.abs(c.gap).toFixed(1)+'s' : '—';
+  const nm=c=> (c&&c.name)? String(c.name).split(' ').slice(-1)[0] : 'gap on track';
+  const ahead=(me>=0 && me<rel.length-1)? rel[me+1] : null;
+  const behind=(me>0)? rel[me-1] : null;
+  const blocks=[ card('Car ahead', gapStr(ahead), nm(ahead)), card('Car behind', gapStr(behind), nm(behind)) ];
+  if(pl.save_to_skip!=null) blocks.push(card('Save to skip pit', `${pl.save_to_skip} L/lap`, 'drop one stop'));
+  el.innerHTML=`<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>
+    <div class="why" style="margin-top:8px">Undercut = pit before the car ahead when the gap is small. Overcut = stay out on clear track and push.</div>`;
+}
+
+// Records → Track record: твой личный рекорд на текущей трассе/машине (из истории)
+function renderTrackRecord(){
+  const el=$('r_track'); if(!el) return;
+  const s=_st.session||{}, rec=s.record;
+  if(rec==null){ el.innerHTML=`<div class="empty">Drive a clean lap on this track/car — your record appears here.</div>`; return; }
+  const cur=_lastRaceBest, d=(cur!=null)?cur-rec:null, col=d==null?'#9099a6':(d<=0?'#2ecc71':'#e74c3c');
+  el.innerHTML=`<div class="mini" style="grid-template-columns:1fr 1fr">
+    ${card('Your record', lapTime(rec), 'this track / car')}
+    <div class="tire"><div class="cn">Best this session</div><div style="font-size:18px;font-weight:700;margin:2px 0">${lapTime(cur)}</div>
+      <div class="why" style="color:${col}">${d==null?'drive a lap':(d<=0?`new record! −${Math.abs(d).toFixed(2)}s`:`+${d.toFixed(2)}s to record`)}</div></div></div>`;
+}
+
+// Records → Rivals' times: честная заглушка (нужен официальный iRacing Data API + твой логин)
+function renderRivals(){
+  const el=$('r_rivals'); if(!el) return;
+  el.innerHTML=`<div class="empty">Rivals' times come from the official iRacing Data API — needs your iRacing login set up (by you, not scraped). We'll wire it next; for now your own records are on the left.</div>`;
+}
+renderRivals();
 
 async function tickRace(){
   let r; try{ r = await (await fetch('/api/race')).json(); }catch{ return; }
@@ -1010,6 +1227,9 @@ async function tickRace(){
   _lastCarLR = r.car_left_right||0; _lastRaceBest = r.best_lap_time;   // для радара/дельты рекорда
   _st.race = r;
   renderPitHelper(r);
+  renderTimeLost();
+  renderRaceResult();
+  renderProgress();
   if(r.position==null){ return; }
   renderSummary(r, r.lap_log||[]);
   renderPosTrend(r);
@@ -1018,12 +1238,12 @@ async function tickRace(){
     const pct = Math.max(0, Math.min(100, r.rpm/r.blink_rpm*100));
     const bar = $('rpmbar'); bar.style.width = pct+'%';
     bar.style.background = r.rpm>=r.blink_rpm ? '#e74c3c' : (r.rpm>=r.shift_rpm ? '#f1c40f' : '#2ecc71');
-    $('rpmv').textContent = Math.round(r.rpm) + (r.rpm>=r.shift_rpm ? '  ↑ переключай' : '');
+    $('rpmv').textContent = Math.round(r.rpm) + (r.rpm>=r.shift_rpm ? '  ↑ shift' : '');
   }
 
-  const tb = [card('Последний круг', lapTime(r.last_lap_time), 'завершённый'),
-              card('Прогноз круга', lapTime(r.predicted), 'к финишу по темпу'),
-              card('Лучший круг', lapTime(r.best_lap_time), 'сессии')];
+  const tb = [card('Last lap', lapTime(r.last_lap_time), 'completed'),
+              card('Predicted lap', lapTime(r.predicted), 'at current pace'),
+              card('Best lap', lapTime(r.best_lap_time), 'session')];
   let timing = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">${tb.join('')}</div>`;
   if(r.lap_log && r.lap_log.length){
     const log = r.lap_log;
@@ -1046,19 +1266,19 @@ async function tickRace(){
           x.sectors.map((s,i)=>`<span style="color:#9099a6;font-size:12px;margin-right:12px">S${i+1} <span style="color:${scol(s,i)}">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
           `</td></tr>`;
       }
-      return `<tr><td>круг ${x.lap}</td>
+      return `<tr><td>lap ${x.lap}</td>
         <td class="chg" style="text-align:right;color:${tcol(x.time,bestLap,worstLap)}">${lapTime(x.time)}</td></tr>${sct}`;
     }).join('');
     timing += `<table style="margin-top:8px">${rows}</table>`;
   }
   $('timing').innerHTML = timing;
 
-  const gapCard = `<div class="tire"><div class="cn">Разрыв на трассе</div>
-    <div style="font-size:18px;font-weight:700;margin:2px 0">▲ ${r.gap_ahead!=null?fix(r.gap_ahead,1)+' c':'—'}<span style="font-size:12px;font-weight:400">${gapTrend(r.gap_ahead,_prevGapA,false)}</span></div>
-    <div class="why">▼ ${r.gap_behind!=null?fix(r.gap_behind,1)+' c':'—'}${gapTrend(r.gap_behind,_prevGapB,true)}</div></div>`;
-  const rb = [card('Позиция в классе', r.class_position!=null?`P${r.class_position}`:'—', r.position!=null?`в общем P${r.position}`:''),
+  const gapCard = `<div class="tire"><div class="cn">Gap on track</div>
+    <div style="font-size:18px;font-weight:700;margin:2px 0">▲ ${r.gap_ahead!=null?fix(r.gap_ahead,1)+' s':'—'}<span style="font-size:12px;font-weight:400">${gapTrend(r.gap_ahead,_prevGapA,false)}</span></div>
+    <div class="why">▼ ${r.gap_behind!=null?fix(r.gap_behind,1)+' s':'—'}${gapTrend(r.gap_behind,_prevGapB,true)}</div></div>`;
+  const rb = [card('Class position', r.class_position!=null?`P${r.class_position}`:'—', r.position!=null?`overall P${r.position}`:''),
               gapCard,
-              card('Разрыв в гонке', r.standing_ahead!=null?`▲ ${fix(r.standing_ahead,1)} c`:'▲ —', r.standing_behind!=null?`▼ ${fix(r.standing_behind,1)} c`:'▼ —')];
+              card('Race gap', r.standing_ahead!=null?`▲ ${fix(r.standing_ahead,1)} s`:'▲ —', r.standing_behind!=null?`▼ ${fix(r.standing_behind,1)} s`:'▼ —')];
   let race = `<div class="mini" style="grid-template-columns:1fr 1fr">${rb.join('')}</div>`;
   if((++_rivalTick)%5===0){ _prevGapA=r.gap_ahead; _prevGapB=r.gap_behind; }   // сглаживание тренда (~2с)
   if(r.flags && r.flags.length){
@@ -1068,13 +1288,13 @@ async function tickRace(){
   const ind = [];
   if(r.abs_active) ind.push('<span style="background:#f1c40f;color:#0d0f12;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">ABS</span>');
   (r.warnings||[]).forEach(w=>ind.push(`<span style="background:#e74c3c;color:#fff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚠ ${w.label}</span>`));
-  if(r.energy_pct!=null) ind.push(`<span style="background:#1b1f26;border:1px solid #2a2f38;color:#3ea6ff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚡ батарея ${fix(r.energy_pct*100,0)}%</span>`);
+  if(r.energy_pct!=null) ind.push(`<span style="background:#1b1f26;border:1px solid #2a2f38;color:#3ea6ff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚡ battery ${fix(r.energy_pct*100,0)}%</span>`);
   if(ind.length) race += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${ind.join('')}</div>`;
   $('race').innerHTML = race;
 
-  const wb = [card('Ветер', `${fix(r.wind_vel,1)} м/с`, windDir(r.wind_dir)),
-              card('Влажность', `${fix(r.humidity*100,0)}%`, skiesTxt(r.skies)),
-              card('Покрытие', wetnessTxt(r.track_wetness), 'трасса')];
+  const wb = [card('Wind', `${fix(r.wind_vel,1)} m/s`, windDir(r.wind_dir)),
+              card('Humidity', `${fix(r.humidity*100,0)}%`, skiesTxt(r.skies)),
+              card('Surface', wetnessTxt(r.track_wetness), 'track')];
   $('weather').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">${wb.join('')}</div>`;
 }
 
@@ -1090,9 +1310,9 @@ async function tickRecords(){
 }
 
 // тип сессии iRacing -> человекочитаемое «событие»
-const evName = e => ({Race:'Гонка', Practice:'Практика', Qualify:'Квалификация',
-  'Open Qualify':'Квалификация', 'Lone Qualify':'Квалификация', Warmup:'Прогрев',
-  Test:'Тест', 'Time Trial':'Тайм-триал', 'Offline Testing':'Тест'}[e] || e || '—');
+const evName = e => ({Race:'Race', Practice:'Practice', Qualify:'Qualify',
+  'Open Qualify':'Qualify', 'Lone Qualify':'Qualify', Warmup:'Warmup',
+  Test:'Test', 'Time Trial':'Time Trial', 'Offline Testing':'Test'}[e] || e || '—');
 
 function renderRecords(){
   const byCar = new Map();
@@ -1113,9 +1333,9 @@ function renderRecords(){
     }).join('');
     return `<div class="pbcar" data-car="${encodeURIComponent(car)}"><span>${car}${cls}</span><span class="chev">${collapsed?'▾':'▴'}</span></div>
       <div class="pbtable" style="display:${collapsed?'none':'block'}">
-        <table><tr><th>Трасса</th><th>Событие</th><th>Лучшее</th></tr>${rows}</table></div>`;
+        <table><tr><th>Track</th><th>Event</th><th>Best</th></tr>${rows}</table></div>`;
   }).join('');
-  $('records').innerHTML = html || `<div class="empty">Накатай круги — здесь появятся твои рекорды по трассам.</div>`;
+  $('records').innerHTML = html || `<div class="empty">Put in some laps — your track records will show up here.</div>`;
   document.querySelectorAll('#records .pbcar').forEach(h=>{
     h.onclick = ()=>{ const c=decodeURIComponent(h.dataset.car);
       _collapsed.has(c) ? _collapsed.delete(c) : _collapsed.add(c); renderRecords(); };
@@ -1191,14 +1411,14 @@ function enableDrag(pane){
 
 function buildCustomizeMenu(){
   const pane = activePane(), menu = $('customizeMenu');
-  if(!pane || !paneCards(pane).length){ menu.innerHTML = `<div class="hint">На этой вкладке нечего настраивать.</div>`; return; }
+  if(!pane || !paneCards(pane).length){ menu.innerHTML = `<div class="hint">Nothing to customize on this tab.</div>`; return; }
   const hidden = new Set((loadLayout(pane.id).hidden)||[]);
   const rows = paneCards(pane).map(c=>{
     const k=c.dataset.card, t=c.dataset.title||k;
     return `<div class="cmrow"><span class="nm">${t}</span>
       <label class="tgl"><input type="checkbox" data-k="${k}" ${hidden.has(k)?'':'checked'}><span class="sl"></span></label></div>`;
   }).join('');
-  menu.innerHTML = `<h3>Настройка панелей</h3><div class="hint">Тумблер — показать/скрыть панель. А порядок меняй перетаскиванием карточек прямо на дашборде (зажми и тащи).</div>${rows}`;
+  menu.innerHTML = `<h3>Customize panels</h3><div class="hint">Toggle to show/hide a panel. Reorder by dragging the cards right on the dashboard (press and drag).</div>${rows}`;
   menu.querySelectorAll('input[data-k]').forEach(inp=>{
     inp.onchange = ()=>{ const card = pane.querySelector('.card[data-card="'+inp.dataset.k+'"]');
       if(card) card.style.display = inp.checked ? '' : 'none'; persistLayout(pane); };
@@ -1209,22 +1429,75 @@ $('customizeBtn').onclick = ()=>{
   if(show) buildCustomizeMenu();
   menu.style.display = show ? '' : 'none';
 };
+// ===== Пер-карточное ОФОРМЛЕНИЕ (⚙ у каждой таблички): фон/размер/шрифт/цвет заголовка =====
+const CS_FONTS = ["", "Consolas, monospace", "Cascadia Mono, monospace", "Tahoma", "Verdana", "Arial", "Impact"];
+const CS_ACC = ["", "#3ea6ff", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c", "#c77dff", "#22d3ee"];
+let _cardStyles = {};
+try{ _cardStyles = JSON.parse(localStorage.getItem('ire_cardstyle')||'{}'); }catch{}
+const _saveCS = ()=>{ try{ localStorage.setItem('ire_cardstyle', JSON.stringify(_cardStyles)); }catch{} };
+function applyCardStyle(card){
+  const s = _cardStyles[card.dataset.card] || {};
+  card.style.fontSize = s.font ? s.font+'%' : '';
+  card.style.fontFamily = s.family || '';
+  card.style.background = (s.bg!=null) ? `rgba(20,23,28,${s.bg})` : '';
+  const h2 = card.querySelector('h2'); if(h2) h2.style.color = s.accent || '';
+}
+function openStylePop(card, gear){
+  const key = card.dataset.card; const s = _cardStyles[key] || (_cardStyles[key]={});
+  let pop = $('stylePop');
+  if(!pop){ pop=document.createElement('div'); pop.id='stylePop'; pop.className='stylepop'; document.body.appendChild(pop); }
+  pop.innerHTML = `<div style="font-weight:700;margin-bottom:2px">⚙ ${card.dataset.title||key}</div>
+    <label>Background: <b id="csBgV"></b></label><input type="range" id="csBg" min="0" max="100">
+    <label>Text size: <b id="csFsV"></b>%</label><input type="range" id="csFs" min="70" max="170">
+    <label>Font</label><select id="csFam">${CS_FONTS.map(f=>`<option value="${f}">${f? f.split(',')[0] : 'Segoe UI'}</option>`).join('')}</select>
+    <label>Heading color</label><div>${CS_ACC.map(c=>`<span class="sw" data-c="${c}" style="background:${c||'#e8eaed'}"></span>`).join('')}</div>
+    <div class="row2"><button id="csReset">↺ Reset</button><button id="csClose">Close</button></div>`;
+  const r = gear.getBoundingClientRect();
+  pop.style.top = Math.min(r.bottom+6, innerHeight-330)+'px';
+  pop.style.left = Math.max(8, Math.min(r.right-250, innerWidth-262))+'px';
+  pop.style.display='block';
+  const bg=$('csBg'), fs=$('csFs'), fam=$('csFam'), bgv=$('csBgV'), fsv=$('csFsV');
+  bg.value = s.bg!=null? Math.round(s.bg*100):92; fs.value = s.font||100; fam.value = s.family||"";
+  const sync=()=>{ bgv.textContent=bg.value+'%'; fsv.textContent=fs.value; }; sync();
+  bg.oninput=()=>{ s.bg=bg.value/100; _saveCS(); applyCardStyle(card); sync(); };
+  fs.oninput=()=>{ s.font=+fs.value; _saveCS(); applyCardStyle(card); sync(); };
+  fam.onchange=()=>{ s.family=fam.value; _saveCS(); applyCardStyle(card); };
+  pop.querySelectorAll('.sw').forEach(sw=> sw.onclick=()=>{ s.accent=sw.dataset.c; _saveCS(); applyCardStyle(card); });
+  $('csReset').onclick=()=>{ delete _cardStyles[key]; _saveCS(); applyCardStyle(card); pop.style.display='none'; };
+  $('csClose').onclick=()=>{ pop.style.display='none'; };
+}
+function initCardGears(){
+  document.querySelectorAll('.card[data-card]').forEach(card=>{
+    applyCardStyle(card);
+    if(card.querySelector(':scope > .cardgear')) return;
+    const g=document.createElement('div'); g.className='cardgear'; g.textContent='⚙';
+    g.title='Card style'; g.setAttribute('draggable','false');
+    g.onmousedown=e=>e.stopPropagation();
+    g.onclick=e=>{ e.stopPropagation(); openStylePop(card, g); };
+    card.appendChild(g);
+  });
+}
+document.addEventListener('click', e=>{ const pop=$('stylePop');
+  if(pop && pop.style.display!=='none' && !pop.contains(e.target) && !e.target.classList.contains('cardgear')) pop.style.display='none'; });
+
 // применить сохранённую раскладку и включить перетаскивание для всех вкладок
 document.querySelectorAll('.mpane').forEach(p=>{ applyLayout(p); enableDrag(p); });
+initCardGears();
+buildSteer();   // переключатель рулей виден сразу (до выезда на трассу)
 
 tickLive(); tickResult(); tickStrategy(); tickInc(); tickRace(); tickRecords(); tickStandings();
 tickRelative(); tickWearSession(); tickTrackmap();
-setInterval(tickLive, 120);
+setInterval(tickLive, 90);      // ~11/сек — скорость/педали/G/шины (легче для машины)
 setInterval(tickResult, 1500);
 setInterval(tickStrategy, 1000);
 setInterval(tickInc, 1000);
-setInterval(tickRace, 200);
+setInterval(tickRace, 150);     // ~7/сек — обороты/разрывы/дельта/тайминг
 setInterval(tickRecords, 5000);
 setInterval(tickStandings, 2000);
-setInterval(tickRelative, 500);
+setInterval(tickRelative, 240);  // машинки на карте/relative (легче, данные с сервера 20/сек)
 setInterval(tickWearSession, 2000);
 setInterval(tickTrackmap, 3000);
-setInterval(tickEndurance, 700);
+setInterval(tickEndurance, 500);
 setInterval(tickSetupExtra, 1500);
 </script>
 </body>
