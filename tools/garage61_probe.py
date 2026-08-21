@@ -1,8 +1,20 @@
 """Разведка API Garage 61: что он реально отдаёт по нашему токену.
 
-Главный вопрос, ради которого написан скрипт: возвращает ли /laps круги
-ДРУГИХ пилотов или только свои. От ответа зависит, сможем ли мы брать
-эталонные круги оттуда вместо того, чтобы строить свою базу.
+На главный вопрос — отдаёт ли API круги ДРУГИХ пилотов — документация
+отвечает сама, и ответ ограничивающий:
+
+  «By default, applications can only query the authenticated user and their
+   teammates. Some applications may additionally be approved to search all
+   driving data that is visible to the authenticated user.»
+  (garage61.net/developer/permissions)
+
+По умолчанию персональный токен видит ТОЛЬКО свои круги и круги
+одноклубников. Чтобы искать шире, приложение должно пройти одобрение в
+Garage 61, а каждый пилот — отдельно согласиться делиться данными
+(driving_data: requires approval + requires user acceptance).
+
+Значит, взять чужие эталонные круги «просто по токену» не выйдет. Скрипт
+показывает, что реально разрешено НАШЕМУ токену.
 
 Токен НЕ передавать в командной строке и не вставлять в код. Скрипт берёт его
 из переменной окружения GARAGE61_TOKEN либо из файла data/garage61_token.txt
@@ -32,9 +44,10 @@ def token():
         return f.read_text(encoding="utf-8").strip()
     sys.exit(
         "Токена нет.\n"
-        "  1. Зайди на garage61.net под своим аккаунтом\n"
-        "  2. Настройки аккаунта -> раздел для разработчиков -> создать токен\n"
-        "  3. Сохрани его в файл data/garage61_token.txt (одной строкой)\n"
+        "  1. Войди в аккаунт на garage61.net\n"
+        "  2. Открой garage61.net/developer/applications, создай приложение,\n"
+        "  3. Открой приложение и нажми показать персональный токен\n"
+        "  4. Сохрани токен в файл data/garage61_token.txt (одной строкой)\n"
         "     Папка data/ в .gitignore — токен в репозиторий не уедет.\n"
     )
 
@@ -71,6 +84,11 @@ def main():
     my_id = me.get("id") or me.get("userId") or me.get("slug")
     print("  пользователь:", me.get("name") or me.get("displayName") or "?", "| id:", my_id)
     print("  поля ответа:", ", ".join(sorted(me)[:14]))
+    perms = me.get("permissions") or me.get("scopes") or []
+    print("  РАЗРЕШЕНИЯ ТОКЕНА:", ", ".join(perms) if perms else "в ответе не перечислены")
+    if "driving_data" not in str(perms):
+        print("  (без driving_data командные и чужие круги недоступны —")
+        print("   это нормально для свежего приложения без одобрения)")
 
     head("2. Справочники")
     for p in ("/tracks", "/cars"):
