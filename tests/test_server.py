@@ -1,4 +1,6 @@
 import os
+
+import pytest
 from fastapi.testclient import TestClient
 from ire.dashboard.server import app, STATE
 from ire.storage import history
@@ -92,3 +94,52 @@ def test_tokens_css_is_served():
     assert r.status_code == 200
     assert "text/css" in r.headers["content-type"]
     assert "--accent" in r.text and "--best" in r.text
+
+
+def test_site_pages_render():
+    c = TestClient(app)
+    for path, must in (("/about", "Гоночный инженер"),
+                       ("/catalog", "Виджеты и карточки"),
+                       ("/news", "Что изменилось")):
+        r = c.get(path)
+        assert r.status_code == 200, path
+        assert must in r.text, path
+        # все страницы берут палитру из того же файла, что и дашборд
+        assert "/tokens.css" in r.text, path
+
+
+def test_catalog_numbers_come_from_code():
+    """Цифры на сайте должны совпадать с реальным реестром виджетов, иначе
+    каталог начнёт врать, как врал docstring про 31 виджет вместо 42."""
+    import html as _html
+
+    from ire.dashboard import site
+    if not site.load_catalog()["widgets"]:
+        pytest.skip("каталог не собран: python tools/build_catalog.py")
+
+    from overlay.widgets import WIDGETS
+    text = TestClient(app).get("/catalog").text
+    assert str(len(WIDGETS)) in text, "число виджетов на странице разошлось с реестром"
+    for cls in WIDGETS[:5]:
+        # названия на странице экранированы: «Position & gaps» -> «Position &amp; gaps»
+        assert _html.escape(cls.TITLE) in text
+
+
+def test_news_rss_is_valid_xml():
+    import xml.etree.ElementTree as ET
+    r = TestClient(app).get("/news/rss.xml")
+    assert r.status_code == 200 and "rss" in r.headers["content-type"]
+    root = ET.fromstring(r.text)          # падает, если XML сломан
+    assert root.tag == "rss"
+    assert root.find("./channel/title") is not None
+
+
+def test_russian_plurals_on_site():
+    """«42 виджетов» и «6 вкладки» сразу выдают, что текст собрала машина."""
+    from ire.dashboard.site import plural
+    assert plural(1, "виджет", "виджета", "виджетов") == "виджет"
+    assert plural(42, "виджет", "виджета", "виджетов") == "виджета"
+    assert plural(6, "вкладка", "вкладки", "вкладок") == "вкладок"
+    assert plural(11, "круг", "круга", "кругов") == "кругов"     # 11, а не 1
+    assert plural(61, "карточка", "карточки", "карточек") == "карточка"
+    assert plural(13, "эндпоинт", "эндпоинта", "эндпоинтов") == "эндпоинтов"

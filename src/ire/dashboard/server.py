@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 import os
 
 from ire.storage import history
+from . import site
 
 app = FastAPI()
 STATE = {"live": {}, "result": {}, "strategy": {}, "damage": {}, "race": {}, "standings": [],
@@ -86,6 +87,29 @@ def wheel_image(name: str):
     if not (safe.endswith(".png") and os.path.exists(path)):
         return Response(status_code=404)
     return FileResponse(path, media_type="image/png")
+
+@app.get("/about", response_class=HTMLResponse)
+def about():
+    """Витрина проекта: что внутри и почему сделано именно так."""
+    return site.page_about(site.load_catalog())
+
+
+@app.get("/catalog", response_class=HTMLResponse)
+def catalog():
+    """Каталог виджетов и карточек — читается из собранного data/catalog.json."""
+    return site.page_catalog(site.load_catalog())
+
+
+@app.get("/news", response_class=HTMLResponse)
+def news():
+    """Свой чейнджлог из docs/news/*.md."""
+    return site.page_news(site.read_news())
+
+
+@app.get("/news/rss.xml")
+def news_rss():
+    return Response(site.news_rss(site.read_news()), media_type="application/rss+xml")
+
 
 @app.get("/tokens.css")
 def tokens():
