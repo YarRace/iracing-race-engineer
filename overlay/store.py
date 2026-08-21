@@ -13,7 +13,7 @@ import httpx
 
 DASH = "http://localhost:8000"
 ENDPOINTS = ("live", "race", "strategy", "standings", "relative",
-             "wear", "session", "damage", "trackmap")
+             "wear", "session", "damage", "trackmap", "result")
 
 
 class Store:
@@ -50,7 +50,7 @@ class Store:
                 except Exception:
                     pass
             self.ok = ok                                  # достучались ли до инженера
-            time.sleep(0.08)                              # ~12 опросов/сек (в фоне, GUI не трогает)
+            time.sleep(0.05)                              # ~20 опросов/сек — свежо и легко (в фоне, GUI не трогает)
 
     def get(self, ep: str):
         v = self._d.get(ep)
