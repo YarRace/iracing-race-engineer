@@ -5,12 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="google" content="notranslate">
 <title>Race Engineer</title>
+<link rel="stylesheet" href="/tokens.css">
 <style>
-  :root{
-    --bg:#0d0f12; --panel:#15181d; --panel2:#1b1f26; --line:#2a2f38;
-    --txt:#e8eaed; --muted:#9099a6; --accent:#3ea6ff;
-    --good:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; --cool:#3498db;
-  }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);
     font:16px/1.4 system-ui,Segoe UI,Roboto,sans-serif;padding:14px}
@@ -23,19 +19,19 @@
   .col{display:flex;flex-direction:column;gap:14px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;position:relative}
   .cardgear{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:#1e2228;
-    color:#cdd3dc;border:1px solid #2a2f38;cursor:pointer;font-size:13px;line-height:20px;text-align:center;
+    color:#cdd3dc;border:1px solid var(--line);cursor:pointer;font-size:13px;line-height:20px;text-align:center;
     opacity:.5;z-index:5;user-select:none}
   .cardgear:hover{opacity:1}
   .wnav{background:#1e2228;color:#cdd3dc;border:1px solid var(--line);border-radius:8px;width:30px;height:46px;font-size:22px;line-height:1;cursor:pointer;flex:0 0 auto}
-  .wnav:hover{background:#2a2f38;color:#fff}
+  .wnav:hover{background:var(--line);color:#fff}
   .stylepop{position:fixed;z-index:1000;background:var(--panel);border:1px solid var(--line);border-radius:12px;
     padding:12px 14px;width:250px;box-shadow:0 12px 34px rgba(0,0,0,.55);font-size:13px}
   .stylepop label{display:block;margin:9px 0 3px;color:var(--muted)}
   .stylepop input[type=range]{width:100%}
-  .stylepop select{width:100%;background:#0d0f12;color:#e8eaed;border:1px solid var(--line);border-radius:6px;padding:5px}
+  .stylepop select{width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:5px}
   .stylepop .sw{display:inline-block;width:22px;height:22px;border-radius:5px;margin:2px;cursor:pointer;border:1px solid #555}
   .stylepop .row2{display:flex;gap:8px;margin-top:10px}
-  .stylepop button{flex:1;background:#1e2228;color:#e8eaed;border:1px solid var(--line);border-radius:7px;padding:6px;cursor:pointer}
+  .stylepop button{flex:1;background:#1e2228;color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px;cursor:pointer}
   .card h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)}
 
   /* приборы */
@@ -45,11 +41,11 @@
   .gear{font-size:48px;text-align:center}
   .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
 
-  .bar{height:12px;background:#0a0c0f;border-radius:6px;overflow:hidden;margin-top:6px}
+  .bar{height:12px;background:var(--bg-deep);border-radius:6px;overflow:hidden;margin-top:6px}
   .bar>span{display:block;height:100%;width:0%}
   /* без плавности — сырые значения, чётко, обновление на высокой частоте */
-  .thr>span{background:linear-gradient(90deg,#1e7e34,#2ecc71)}
-  .brk>span{background:linear-gradient(90deg,#922,#e74c3c)}
+  .thr>span{background:linear-gradient(90deg,#1e7e34,var(--good))}
+  .brk>span{background:linear-gradient(90deg,#922,var(--bad))}
   .inputs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 
   /* шины */
@@ -58,7 +54,7 @@
   .tire .cn{font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:8px}
   .pads{display:flex;gap:5px}
   .pad{flex:1;text-align:center;border-radius:6px;padding:8px 2px;font-weight:700;
-    font-variant-numeric:tabular-nums;font-size:15px;color:#0d0f12}
+    font-variant-numeric:tabular-nums;font-size:15px;color:var(--bg)}
   .stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
   .stat:last-child{border-bottom:0}
   .progsel{width:100%;margin-bottom:12px;background:var(--panel);color:var(--txt);
@@ -174,7 +170,7 @@
         <div><div class="label">Brake <span id="brkv" style="float:right"></span></div><div class="bar brk"><span id="brk"></span></div></div>
       </div>
       <div style="margin-top:12px"><div class="label">RPM <span id="rpmv" style="float:right"></span></div>
-        <div class="bar" style="height:14px"><span id="rpmbar" style="background:#2ecc71"></span></div></div>
+        <div class="bar" style="height:14px"><span id="rpmbar" style="background:var(--good)"></span></div></div>
       <div class="cond">
         <div>Fuel <b><span id="fuel">—</span> L</b></div>
         <div>Track <b><span id="ttemp">—</span>°<span id="ttrend" style="font-size:13px;margin-left:3px"></span></b></div>
@@ -449,7 +445,7 @@ function renderTraining(log){
   let streak=0;
   for(let i=t.length-1;i>=0;i--){ if(t[i]<=_trainTarget+tol) streak++; else break; }
   const hit=t.filter(v=>v<=_trainTarget+tol).length;
-  const col = streak>=3?'#2ecc71':(streak>=1?'#f1c40f':'#9099a6');
+  const col = streak>=3?'var(--good)':(streak>=1?'var(--warn)':'var(--muted)');
   $('training').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
     <div class="tire"><div class="cn">Streak</div><div style="font-size:24px;font-weight:700;margin:2px 0;color:${col}">${streak}</div><div class="why">on target ${lapTime(_trainTarget)} (±${tol}s)</div></div>
     ${card('On target total', `${hit} of ${t.length}`, 'this session')}</div>`;
@@ -459,8 +455,8 @@ function renderTraining(log){
 function gapTrend(now, prev, foe){
   if(now==null||prev==null||Math.abs(now-prev)<0.05) return '';
   const closing=now<prev;
-  if(!foe) return closing?' <span style="color:#2ecc71">↗ closing</span>':' <span style="color:#e74c3c">↘ pulling away</span>';
-  return closing?' <span style="color:#e74c3c">↗ catching you</span>':' <span style="color:#2ecc71">↘ dropping back</span>';
+  if(!foe) return closing?' <span style="color:var(--good)">↗ closing</span>':' <span style="color:var(--bad)">↘ pulling away</span>';
+  return closing?' <span style="color:var(--bad)">↗ catching you</span>':' <span style="color:var(--good)">↘ dropping back</span>';
 }
 
 function renderSummary(r, log){
@@ -480,26 +476,26 @@ function renderSummary(r, log){
 function renderDeltaBar(r){
   const d=r.delta_best;
   if(d==null){ return; }
-  const col=d<=0?'#2ecc71':'#e74c3c', mag=Math.min(Math.abs(d),2)/2*50;
-  const left = d<0?`<div style="position:absolute;right:50%;width:${mag}%;height:100%;background:#2ecc71"></div>`:'';
-  const right= d>0?`<div style="position:absolute;left:50%;width:${mag}%;height:100%;background:#e74c3c"></div>`:'';
+  const col=d<=0?'var(--good)':'var(--bad)', mag=Math.min(Math.abs(d),2)/2*50;
+  const left = d<0?`<div style="position:absolute;right:50%;width:${mag}%;height:100%;background:var(--good)"></div>`:'';
+  const right= d>0?`<div style="position:absolute;left:50%;width:${mag}%;height:100%;background:var(--bad)"></div>`:'';
   $('deltabar').innerHTML = `<div style="text-align:center;font-size:30px;font-weight:700;color:${col};font-variant-numeric:tabular-nums">${d>0?'+':''}${d.toFixed(2)}</div>
-    <div style="position:relative;height:14px;background:#0a0c0f;border-radius:7px;margin-top:8px;overflow:hidden">${left}${right}
+    <div style="position:relative;height:14px;background:var(--bg-deep);border-radius:7px;margin-top:8px;overflow:hidden">${left}${right}
       <div style="position:absolute;left:50%;top:0;width:2px;height:100%;background:#5f6b7a"></div></div>
     <div class="why" style="text-align:center;margin-top:6px">${d<=0?'faster than best lap':'slower than best lap'}</div>`;
 }
 function renderShift(r){
   if(r.rpm==null||!r.blink_rpm){ return; }
   const pct=Math.max(0,Math.min(100,r.rpm/r.blink_rpm*100)), shift=r.rpm>=r.shift_rpm;
-  const col=r.rpm>=r.blink_rpm?'#e74c3c':(shift?'#f1c40f':'#2ecc71');
+  const col=r.rpm>=r.blink_rpm?'var(--bad)':(shift?'var(--warn)':'var(--good)');
   $('shiftbox').innerHTML = `<div style="text-align:center;font-size:28px;font-weight:700;color:${col}">${Math.round(r.rpm)}<span style="font-size:13px;color:var(--muted)"> RPM</span></div>
     <div class="bar" style="height:22px;margin-top:8px"><span style="width:${pct}%;background:${col};display:block;height:100%"></span></div>
-    <div style="text-align:center;margin-top:8px;font-size:18px;font-weight:700;color:${shift?'#f1c40f':'var(--muted)'}">${shift?'↑ SHIFT':'accelerating'}</div>`;
+    <div style="text-align:center;margin-top:8px;font-size:18px;font-weight:700;color:${shift?'var(--warn)':'var(--muted)'}">${shift?'↑ SHIFT':'accelerating'}</div>`;
 }
 function renderErs(r){
   if(r.energy_pct==null){ $('ers').innerHTML=`<div class="empty">No hybrid data (not for this car).</div>`; return; }
   const b=Math.round(r.energy_pct*100), dep=r.deploy_pct!=null?Math.round(r.deploy_pct*100):null;
-  const col=b>=50?'#2ecc71':(b>=20?'#f1c40f':'#e74c3c');
+  const col=b>=50?'var(--good)':(b>=20?'var(--warn)':'var(--bad)');
   $('ers').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
     <div class="tire"><div class="cn">Battery</div><div style="font-size:24px;font-weight:700;margin:2px 0;color:${col}">${b}%</div>
       <div class="bar" style="height:10px;margin-top:4px"><span style="width:${b}%;background:${col};display:block;height:100%"></span></div></div>
@@ -514,7 +510,7 @@ function renderFlagLog(r){
   if(!_flagLog.length){ return; }
   $('flaglog').innerHTML = _flagLog.slice().reverse().map(e=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0">
     <span style="color:var(--muted);font-size:12px;min-width:52px">lap ${e.lap??'—'}</span>
-    ${e.labels.map(x=>`<span style="background:${flagColor(x.k)};color:#0d0f12;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700">${x.l}</span>`).join(' ')}</div>`).join('');
+    ${e.labels.map(x=>`<span style="background:${flagColor(x.k)};color:var(--bg);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700">${x.l}</span>`).join(' ')}</div>`).join('');
 }
 function renderGforce(l){
   if(l.lat_accel==null||l.long_accel==null){ return; }
@@ -524,10 +520,10 @@ function renderGforce(l){
   if(!dot){                                        // статичную часть строим один раз
     $('gforce').innerHTML = `<div style="display:flex;gap:14px;align-items:center">
       <svg viewBox="0 0 100 100" style="width:120px;height:120px;flex:none">
-        <circle cx="50" cy="50" r="45" fill="#0a0c0f" stroke="#2a2f38"/>
-        <circle cx="50" cy="50" r="30" fill="none" stroke="#2a2f38" stroke-dasharray="2 3"/>
-        <line x1="50" y1="5" x2="50" y2="95" stroke="#2a2f38" stroke-width="0.5"/><line x1="5" y1="50" x2="95" y2="50" stroke="#2a2f38" stroke-width="0.5"/>
-        <circle class="gfdot" cx="50" cy="50" r="5" fill="#3ea6ff"/></svg>
+        <circle cx="50" cy="50" r="45" fill="var(--bg-deep)" stroke="var(--line)"/>
+        <circle cx="50" cy="50" r="30" fill="none" stroke="var(--line)" stroke-dasharray="2 3"/>
+        <line x1="50" y1="5" x2="50" y2="95" stroke="var(--line)" stroke-width="0.5"/><line x1="5" y1="50" x2="95" y2="50" stroke="var(--line)" stroke-width="0.5"/>
+        <circle class="gfdot" cx="50" cy="50" r="5" fill="var(--accent)"/></svg>
       <div><div class="label">Lateral</div><div class="gfx" style="font-size:20px;font-weight:700">0.0g</div>
         <div class="label" style="margin-top:8px">Longitudinal</div><div class="gfy" style="font-size:20px;font-weight:700">0.0g</div></div></div>`;
     dot=document.querySelector('#gforce .gfdot');
@@ -584,7 +580,7 @@ function renderOptimal(log){
 function renderBestSectors(log){
   const best=_bestSectors(log);
   if(!best.length) return;
-  const cells=best.map((v,i)=>`<div class="tire"><div class="cn">S${i+1}</div><div style="font-size:18px;font-weight:700;margin:2px 0;color:#c77dff">${v!=null?v.toFixed(2):'—'}</div></div>`).join('');
+  const cells=best.map((v,i)=>`<div class="tire"><div class="cn">S${i+1}</div><div style="font-size:18px;font-weight:700;margin:2px 0;color:var(--best)">${v!=null?v.toFixed(2):'—'}</div></div>`).join('');
   $('bestsectors').innerHTML = `<div class="mini" style="grid-template-columns:repeat(${Math.max(1,best.length)},1fr)">${cells}</div>`;
 }
 function renderTopSpeed(l){
@@ -599,7 +595,7 @@ function renderPosTrend(r){
   if(r.position==null) return;
   if(_posStart==null) _posStart=r.position;
   const diff=_posStart-r.position;
-  const arrow=diff>0?`<span style="color:#2ecc71">▲ +${diff}</span>`:(diff<0?`<span style="color:#e74c3c">▼ ${diff}</span>`:'<span style="color:var(--muted)">= 0</span>');
+  const arrow=diff>0?`<span style="color:var(--good)">▲ +${diff}</span>`:(diff<0?`<span style="color:var(--bad)">▼ ${diff}</span>`:'<span style="color:var(--muted)">= 0</span>');
   $('postrend').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
     ${card('Position', `P${r.position}`, r.class_position!=null?`in class P${r.class_position}`:'')}
     <div class="tire"><div class="cn">Since session start</div><div style="font-size:22px;font-weight:700;margin:2px 0">${arrow}</div><div class="why">start P${_posStart}</div></div></div>`;
@@ -607,13 +603,13 @@ function renderPosTrend(r){
 function renderFuelGraph(){
   if(_burnHist.length<1) return;
   const mn=Math.min(..._burnHist), mx=Math.max(..._burnHist), span=(mx-mn)||1;
-  const bars=_burnHist.map(v=>`<div style="flex:1;min-width:3px;height:${(10+(v-mn)/span*40).toFixed(0)}px;background:#3ea6ff;border-radius:2px 2px 0 0"></div>`).join('');
+  const bars=_burnHist.map(v=>`<div style="flex:1;min-width:3px;height:${(10+(v-mn)/span*40).toFixed(0)}px;background:var(--accent);border-radius:2px 2px 0 0"></div>`).join('');
   $('fuelgraph').innerHTML = `<div style="display:flex;align-items:flex-end;gap:2px;height:56px">${bars}</div>
     <div class="cond" style="margin-top:8px"><div>Min <b>${mn.toFixed(2)} L</b></div><div>Max <b>${mx.toFixed(2)} L</b></div><div>Laps <b>${_burnHist.length}</b></div></div>`;
 }
 
 // ===== Бэкенд-пачка: Relative / радар / трек-ринг / износ / сессия / рекорд / пит =====
-const _clr = c => (c ? '#'+(c>>>0).toString(16).padStart(6,'0') : '#e74c3c');
+const _clr = c => (c ? '#'+(c>>>0).toString(16).padStart(6,'0') : 'var(--bad)');
 const fmtTime = s => { if(s==null) return '—'; s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;
   return h?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`; };
 const fmtClock = s => { if(s==null) return '—'; s=Math.round(s)%86400; return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}`; };
@@ -621,17 +617,17 @@ const fmtClock = s => { if(s==null) return '—'; s=Math.round(s)%86400; return 
 // бейдж «номер машины в цвете класса» (GTP жёлтый / LMP2 синий / GT3 алый — цвет с сервера)
 function numBadge(c){
   const num=(c.number!=null && c.number!=='')?String(c.number):'';
-  return `<span style="display:inline-block;min-width:22px;text-align:center;background:${_clr(c.class_color)};color:#0d0f12;font-weight:700;border-radius:4px;padding:1px 4px">${num}</span>`;
+  return `<span style="display:inline-block;min-width:22px;text-align:center;background:${_clr(c.class_color)};color:var(--bg);font-weight:700;border-radius:4px;padding:1px 4px">${num}</span>`;
 }
 function renderRelative(data){
   const cars=(data&&data.cars)||[]; const meI=cars.findIndex(c=>c.is_player);
   if(meI<0) return;
   const slice=cars.slice(Math.max(0,meI-3), meI+4).reverse();   // впереди сверху, сзади снизу
   const rows=slice.map(c=>{
-    const you=c.is_player?' style="background:#14301f"':'';
+    const you=c.is_player?' style="background:var(--good-bg)"':'';
     const g=c.is_player?'—':(c.gap>0?`+${c.gap.toFixed(1)}`:c.gap.toFixed(1));
-    const col=c.is_player?'#e8eaed':(c.gap>0?'#e74c3c':'#2ecc71');
-    return `<tr${you}><td>${numBadge(c)}</td><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}${c.on_pit?' <span style="color:#f1c40f">P</span>':''}</td>
+    const col=c.is_player?'var(--txt)':(c.gap>0?'var(--bad)':'var(--good)');
+    return `<tr${you}><td>${numBadge(c)}</td><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}${c.on_pit?' <span style="color:var(--warn)">P</span>':''}</td>
       <td class="chg" style="text-align:right;color:${col}">${g}</td></tr>`;
   }).join('');
   $('relative').innerHTML = `<div style="overflow-x:auto"><table><tr><th>#</th><th>P</th><th>Driver</th><th style="text-align:right">Gap</th></tr>${rows}</table></div>`;
@@ -642,25 +638,25 @@ function renderRadar(data){
   const dots=near.map(c=>{ const y=50-Math.max(-1,Math.min(1,c.rel_pct/0.04))*40;
     return `<circle cx="50" cy="${y.toFixed(1)}" r="4" fill="${_clr(c.class_color)}"/>`; }).join('');
   const lr=_lastCarLR||0;
-  const lB=(lr===1||lr===3||lr===4)?'<rect x="6" y="30" width="6" height="40" fill="#f1c40f"/>':'';
-  const rB=(lr===2||lr===3||lr===5)?'<rect x="88" y="30" width="6" height="40" fill="#f1c40f"/>':'';
+  const lB=(lr===1||lr===3||lr===4)?'<rect x="6" y="30" width="6" height="40" fill="var(--warn)"/>':'';
+  const rB=(lr===2||lr===3||lr===5)?'<rect x="88" y="30" width="6" height="40" fill="var(--warn)"/>':'';
   $('radar').innerHTML = `<svg viewBox="0 0 100 100" style="width:140px;height:140px;display:block;margin:0 auto">
-    <rect x="14" y="10" width="72" height="80" rx="8" fill="#0a0c0f" stroke="#2a2f38"/>
-    <line x1="14" y1="50" x2="86" y2="50" stroke="#2a2f38" stroke-width="0.5"/>
-    <rect x="46" y="44" width="8" height="12" rx="2" fill="#2ecc71"/>${dots}${lB}${rB}</svg>
+    <rect x="14" y="10" width="72" height="80" rx="8" fill="var(--bg-deep)" stroke="var(--line)"/>
+    <line x1="14" y1="50" x2="86" y2="50" stroke="var(--line)" stroke-width="0.5"/>
+    <rect x="46" y="44" width="8" height="12" rx="2" fill="var(--good)"/>${dots}${lB}${rB}</svg>
     <div class="why" style="text-align:center;margin-top:6px">${near.length} nearby · ahead on top, behind below</div>`;
 }
 function renderTrackRing(data){
   const cars=(data&&data.cars)||[]; if(!cars.length) return;
   const dots=cars.map(c=>{ const a=(c.lap_pct||0)*2*Math.PI-Math.PI/2, x=50+40*Math.cos(a), y=50+40*Math.sin(a);
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${c.is_player?4:3}" fill="${c.is_player?'#2ecc71':_clr(c.class_color)}"/>`; }).join('');
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${c.is_player?4:3}" fill="${c.is_player?'var(--good)':_clr(c.class_color)}"/>`; }).join('');
   $('trackring').innerHTML = `<svg viewBox="0 0 100 100" style="width:150px;height:150px;display:block;margin:0 auto">
-    <circle cx="50" cy="50" r="40" fill="none" stroke="#2a2f38" stroke-width="3"/>${dots}</svg>
+    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--line)" stroke-width="3"/>${dots}</svg>
     <div class="why" style="text-align:center;margin-top:6px">all cars on the lap (you are green)</div>`;
 }
 function renderWear(w){
   if(!w || !Object.keys(w).length) return;
-  const cell=(c,name)=>{ const v=w[c], pct=v!=null?Math.round(v*100):null, col=v==null?'#333':(v>0.5?'#2ecc71':(v>0.3?'#f1c40f':'#e74c3c'));
+  const cell=(c,name)=>{ const v=w[c], pct=v!=null?Math.round(v*100):null, col=v==null?'#333':(v>0.5?'var(--good)':(v>0.3?'var(--warn)':'var(--bad)'));
     return `<div class="tire"><div class="cn">${name}</div><div style="font-size:20px;font-weight:700;color:${col}">${pct!=null?pct+'%':'—'}</div>
       <div class="bar" style="height:8px;margin-top:4px"><span style="width:${pct||0}%;background:${col};display:block;height:100%"></span></div></div>`; };
   $('wear').innerHTML = `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`;
@@ -677,7 +673,7 @@ function renderSessionInfo(s){
 function renderRecordDelta(s){
   const rec=s&&s.record;
   if(rec==null){ $('recorddelta').innerHTML=`<div class="empty">No record for this track/car yet — drive a clean lap and it will appear.</div>`; return; }
-  const cur=_lastRaceBest, d=cur!=null?cur-rec:null, col=d==null?'#9099a6':(d<=0?'#2ecc71':'#e74c3c');
+  const cur=_lastRaceBest, d=cur!=null?cur-rec:null, col=d==null?'var(--muted)':(d<=0?'var(--good)':'var(--bad)');
   $('recorddelta').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
     ${card('Your record', lapTime(rec), 'on this track')}
     <div class="tire"><div class="cn">Best now</div><div style="font-size:18px;font-weight:700;margin:2px 0">${lapTime(cur)}</div>
@@ -687,7 +683,7 @@ function renderPitHelper(r){
   if(!r.on_pit){ $('pithelper').innerHTML=`<div class="empty">Not on pit lane. Appears when you come into the box.</div>`; return; }
   const kmh=_lastSpeedKmh, over=kmh!=null&&kmh>62, add=_lastStrategy?_lastStrategy.fuel_to_add:null;
   $('pithelper').innerHTML = `<div class="mini" style="grid-template-columns:1fr 1fr">
-    <div class="tire"><div class="cn">Pit speed</div><div style="font-size:22px;font-weight:700;color:${over?'#e74c3c':'#2ecc71'}">${kmh!=null?Math.round(kmh):'—'} km/h</div><div class="why">${over?'SLOW DOWN! limit ~60':'OK'}</div></div>
+    <div class="tire"><div class="cn">Pit speed</div><div style="font-size:22px;font-weight:700;color:${over?'var(--bad)':'var(--good)'}">${kmh!=null?Math.round(kmh):'—'} km/h</div><div class="why">${over?'SLOW DOWN! limit ~60':'OK'}</div></div>
     ${card('Add', add!=null?(add>0?'+'+fix(add,1)+' L':'not needed'):'—', 'per strategy')}</div>`;
 }
 async function tickRelative(){
@@ -719,11 +715,11 @@ function _posOnTrack(pct, pts){
 // кружок машины на карте: цвет класса + номер внутри (ты — синий)
 function mapCarDot(x, y, c){
   const r = c.is_player ? 5 : 4.2;
-  const fill = c.is_player ? '#2ecc71' : _clr(c.class_color);   // игрок зелёный (не путать с синими LMP2)
+  const fill = c.is_player ? 'var(--good)' : _clr(c.class_color);   // игрок зелёный (не путать с синими LMP2)
   const num = (c.number!=null && c.number!=='') ? String(c.number) : '';
-  const txt = num ? `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${(r*1.15).toFixed(1)}" font-weight="700" fill="#0d0f12">${num}</text>` : '';
-  const ring = c.is_player ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r+2).toFixed(1)}" fill="none" stroke="#2ecc71" stroke-width="0.9" opacity="0.75"/>` : '';
-  return `${ring}<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" stroke="#0d0f12" stroke-width="0.6"/>${txt}`;
+  const txt = num ? `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${(r*1.15).toFixed(1)}" font-weight="700" fill="var(--bg)">${num}</text>` : '';
+  const ring = c.is_player ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r+2).toFixed(1)}" fill="none" stroke="var(--good)" stroke-width="0.9" opacity="0.75"/>` : '';
+  return `${ring}<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" stroke="var(--bg)" stroke-width="0.6"/>${txt}`;
 }
 function renderTrackMap(){
   const pts=_trackShape;
@@ -801,11 +797,11 @@ function tickEndurance(){
   const rel=(_st.relative&&_st.relative.cars)||[]; const meI=rel.findIndex(c=>c.is_player);
   if(meI>=0){ const sl=rel.slice(Math.max(0,meI-2),meI+3).reverse();
     set('e_relative', `<table><tr><th>#</th><th>P</th><th>Driver</th><th style="text-align:right">Gap</th></tr>${sl.map(c=>{
-      const you=c.is_player?' style="background:#14301f"':''; const g=c.is_player?'—':(c.gap>0?'+'+c.gap.toFixed(1):c.gap.toFixed(1));
-      return `<tr${you}><td>${numBadge(c)}</td><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}</td><td class="chg" style="text-align:right;color:${c.is_player?'#e8eaed':(c.gap>0?'#e74c3c':'#2ecc71')}">${g}</td></tr>`;}).join('')}</table>`); }
+      const you=c.is_player?' style="background:var(--good-bg)"':''; const g=c.is_player?'—':(c.gap>0?'+'+c.gap.toFixed(1):c.gap.toFixed(1));
+      return `<tr${you}><td>${numBadge(c)}</td><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}</td><td class="chg" style="text-align:right;color:${c.is_player?'var(--txt)':(c.gap>0?'var(--bad)':'var(--good)')}">${g}</td></tr>`;}).join('')}</table>`); }
   if(stand.length) set('e_standings', `<div style="overflow-x:auto"><table><tr><th style="text-align:right">P</th><th>#</th><th>Driver</th><th style="text-align:right">Gap</th><th style="text-align:right">Best</th></tr>${stand.map(d=>{
-    const you=d.is_player?' style="background:#14301f"':''; return `<tr${you}><td style="text-align:right;color:var(--muted)">${d.pos}</td><td>${numBadge(d)}</td><td>${d.name||'—'}${d.on_pit?' <span style="color:#f1c40f">P</span>':''}</td><td class="chg" style="text-align:right">${d.gap?'+'+fix(d.gap,1):'—'}</td><td class="chg" style="text-align:right;color:#c77dff">${lapTime(d.best)}</td></tr>`;}).join('')}</table></div>`);
-  if(Object.keys(wear).length){ const cell=(c,n)=>{ const v=wear[c],p=v!=null?Math.round(v*100):null,col=v==null?'#333':(v>0.5?'#2ecc71':(v>0.3?'#f1c40f':'#e74c3c'));
+    const you=d.is_player?' style="background:var(--good-bg)"':''; return `<tr${you}><td style="text-align:right;color:var(--muted)">${d.pos}</td><td>${numBadge(d)}</td><td>${d.name||'—'}${d.on_pit?' <span style="color:var(--warn)">P</span>':''}</td><td class="chg" style="text-align:right">${d.gap?'+'+fix(d.gap,1):'—'}</td><td class="chg" style="text-align:right;color:var(--best)">${lapTime(d.best)}</td></tr>`;}).join('')}</table></div>`);
+  if(Object.keys(wear).length){ const cell=(c,n)=>{ const v=wear[c],p=v!=null?Math.round(v*100):null,col=v==null?'#333':(v>0.5?'var(--good)':(v>0.3?'var(--warn)':'var(--bad)'));
     return `<div class="tire"><div class="cn">${n}</div><div style="font-size:20px;font-weight:700;color:${col}">${p!=null?p+'%':'—'}</div><div class="bar" style="height:8px;margin-top:4px"><span style="width:${p||0}%;background:${col};display:block;height:100%"></span></div></div>`; };
     set('e_wear', `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`); }
   if(live.tires) set('e_tires', tireTempTiles(live.tires));
@@ -829,7 +825,7 @@ function tickSetupExtra(){
       <div style="font-size:20px;font-weight:700;margin:2px 0">${b>0?'front':'rear'} hotter</div><div class="why">Δ ${fix(Math.abs(b),1)}° — ${b>0?'rear colder, add load at the rear':'front colder'}</div></div></div>`); }
   if(sym.balance){ const ph=[["Entry","entry"],["Mid","mid"],["Exit","exit"]];
     set('s_symptoms', `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">${ph.map(([n,k])=>{ const t=(sym.balance[k]||{}).tendency;
-      const m={understeer:['#f1c40f','understeer'],oversteer:['#e74c3c','oversteer'],neutral:['#2ecc71','neutral']}[t]||['#888','—'];
+      const m={understeer:['var(--warn)','understeer'],oversteer:['var(--bad)','oversteer'],neutral:['var(--good)','neutral']}[t]||['#888','—'];
       return `<div class="tire"><div class="cn">${n}</div><div style="font-size:16px;font-weight:700;color:${m[0]}">${m[1]}</div></div>`;}).join('')}</div>`); }
   if(strat.tire_wear_per_lap!=null || strat.tire_min!=null){
     set('s_weartrend', `<div class="mini" style="grid-template-columns:1fr 1fr">
@@ -847,11 +843,11 @@ function bindNotes(id, key){
 // цвет температуры шины (GT: оптимум ~85-100°C)
 function tempColor(t){
   if(t==null) return "#333";
-  if(t<70) return "#3498db";        // холодно
+  if(t<70) return "var(--cool)";        // холодно
   if(t<85) return "#27ae60";        // прогрев
-  if(t<100) return "#2ecc71";       // оптимум
-  if(t<108) return "#f1c40f";       // тепло
-  return "#e74c3c";                  // перегрев
+  if(t<100) return "var(--good)";       // оптимум
+  if(t<108) return "var(--warn)";       // тепло
+  return "var(--bad)";                  // перегрев
 }
 
 async function tickLive(){
@@ -870,7 +866,7 @@ async function tickLive(){
   if(l.track_temp!=null){
     if(_prevTrackTemp==null) _prevTrackTemp=l.track_temp;
     const d=l.track_temp-_prevTrackTemp;
-    $('ttrend').innerHTML = Math.abs(d)<0.05?'':(d>0?'<span style="color:#e74c3c">↑</span>':'<span style="color:#3498db">↓</span>');
+    $('ttrend').innerHTML = Math.abs(d)<0.05?'':(d>0?'<span style="color:var(--bad)">↑</span>':'<span style="color:var(--cool)">↓</span>');
     if((++_ttTick)%8===0) _prevTrackTemp=l.track_temp;
   }
   $('atemp').textContent = fix(l.air_temp,1);
@@ -990,7 +986,7 @@ async function tickStrategy(){
     if(_burnHist.length>40) _burnHist.shift();
     renderFuelGraph();
   }
-  const refuelColor = g.pit_needed_for_fuel ? '#f1c40f' : '#2ecc71';
+  const refuelColor = g.pit_needed_for_fuel ? 'var(--warn)' : 'var(--good)';
   const blocks = [];
   blocks.push(card('Fuel', `${fix(g.fuel,1)} / ${fix(g.tank,0)} L`,
     `covers ${fix(g.laps_on_fuel,1)} laps`));
@@ -1009,7 +1005,7 @@ async function tickStrategy(){
   // шины
   if(g.tire_min!=null){
     const ch = g.change_tires;
-    const col = ch ? '#e74c3c' : '#2ecc71';
+    const col = ch ? 'var(--bad)' : 'var(--good)';
     blocks.push(`<div class="tire" style="border-color:${col}"><div class="cn">Tires</div>
       <div style="font-size:18px;font-weight:700;margin:2px 0;color:${col}">${ch?'change':'keep'}</div>
       <div class="why">wear ${fix(g.tire_min*100,0)}%${g.tire_laps_left!=null?` · ~${fix(g.tire_laps_left,0)} laps left`:''}</div></div>`);
@@ -1027,8 +1023,8 @@ async function tickStrategy(){
       pb.push(card('Total to add', `${pl.fuel_to_add_total} L`, `for ${pl.laps_to_go} ${pl.laps_to_go===1?'lap':'laps'} to the finish`));
     }
     if(pl.save_to_skip!=null){
-      pb.push(`<div class="tire" style="border-color:#f1c40f"><div class="cn">Drop a stop</div>
-        <div style="font-size:16px;font-weight:700;margin:2px 0;color:#f1c40f">save ${pl.save_to_skip} L/lap</div>
+      pb.push(`<div class="tire" style="border-color:var(--warn)"><div class="cn">Drop a stop</div>
+        <div style="font-size:16px;font-weight:700;margin:2px 0;color:var(--warn)">save ${pl.save_to_skip} L/lap</div>
         <div class="why">to drop one pit stop</div></div>`);
     }
     stratHtml += `<div class="label" style="margin-top:14px">Race plan</div>
@@ -1045,7 +1041,7 @@ async function tickInc(){
 
 // лицензия: буква в цвете iRacing (A синий / B зелёный / C жёлтый / D оранж / R красный) + сам SR
 const licBadge = d => d.lic
-  ? `<span style="background:${d.lic_color};color:#0d0f12;font-weight:700;border-radius:3px;padding:0 4px">${d.lic}</span>
+  ? `<span style="background:${d.lic_color};color:var(--bg);font-weight:700;border-radius:3px;padding:0 4px">${d.lic}</span>
      <span style="color:var(--muted)">${d.sr!=null?fix(d.sr,2):''}</span>`
   : '<span style="color:var(--muted)">—</span>';
 
@@ -1054,10 +1050,10 @@ async function tickStandings(){
   if(!Array.isArray(s) || !s.length){ return; }
   _st.standings = s;
   const rows = s.map(d=>{
-    const pit = d.on_pit ? ' <span style="color:#f1c40f">P</span>' : '';
-    const you = d.is_player ? ' style="background:#14301f"' : '';
+    const pit = d.on_pit ? ' <span style="color:var(--warn)">P</span>' : '';
+    const you = d.is_player ? ' style="background:var(--good-bg)"' : '';
     const dim = d.out ? 'opacity:.45;' : '';                 // сошёл — приглушаем строку
-    const gapC = d.laps_down>=1 ? '#f1c40f' : 'inherit';     // круг отставания — отдельным цветом
+    const gapC = d.laps_down>=1 ? 'var(--warn)' : 'inherit';     // круг отставания — отдельным цветом
     return `<tr${you}><td style="text-align:right;color:var(--muted);${dim}">${d.pos}</td>
       <td style="${dim}">${numBadge(d)}</td>
       <td style="${dim}">${d.name||'—'}${pit}</td>
@@ -1065,17 +1061,17 @@ async function tickStandings(){
       <td style="text-align:right;white-space:nowrap;${dim}">${licBadge(d)}</td>
       <td class="chg" style="text-align:right;color:${gapC};${dim}">${d.gap_txt||'—'}</td>
       <td class="chg" style="text-align:right;${dim}">${lapTime(d.last)}</td>
-      <td class="chg" style="text-align:right;color:#c77dff;${dim}">${lapTime(d.best)}</td></tr>`;
+      <td class="chg" style="text-align:right;color:var(--best);${dim}">${lapTime(d.best)}</td></tr>`;
   }).join('');
   const se = _st.session||{};
-  const head = `<div class="why" style="margin-bottom:6px"><b style="color:#f1c40f">SoF ${se.sof||'—'}</b>${
+  const head = `<div class="why" style="margin-bottom:6px"><b style="color:var(--warn)">SoF ${se.sof||'—'}</b>${
     se.cars_class?` · ${se.cars_class} ${se.car_class?se.car_class+' ':''}cars`:''}</div>`;
   $('standings').innerHTML = head + `<div style="overflow-x:auto"><table><tr><th style="text-align:right">P</th><th>#</th><th>Driver</th><th style="text-align:right">iR</th><th style="text-align:right">SR</th><th style="text-align:right">Gap</th><th style="text-align:right">Last</th><th style="text-align:right">Best</th></tr>${rows}</table></div>`;
 }
 
-const flagColor = k => ({green:'#2ecc71',yellow:'#f1c40f',yellow_waving:'#f1c40f',caution:'#f1c40f',
-  caution_waving:'#f1c40f',blue:'#3498db',white:'#e8e8ee',checkered:'#cfcfcf',red:'#e74c3c',
-  black:'#555',repair:'#e67e22',disqualify:'#e74c3c'}[k] || '#888');
+const flagColor = k => ({green:'var(--good)',yellow:'var(--warn)',yellow_waving:'var(--warn)',caution:'var(--warn)',
+  caution_waving:'var(--warn)',blue:'var(--cool)',white:'#e8e8ee',checkered:'#cfcfcf',red:'var(--bad)',
+  black:'#555',repair:'#e67e22',disqualify:'var(--bad)'}[k] || '#888');
 const windDir = rad => { if(rad==null) return ''; const d=['N','NE','E','SE','S','SW','W','NW'];
   return 'from ' + d[Math.round((rad*180/Math.PI)/45)%8]; };
 const skiesTxt = s => ['clear','partly cloudy','cloudy','overcast'][s] || '—';
@@ -1100,13 +1096,13 @@ function renderTimeLost(){
     const b=best[i], r=ref[i];
     const loss = (typeof b==='number' && typeof r==='number') ? (r-b) : null;
     if(typeof loss==='number' && loss>0){ totalLoss += loss; if(loss>maxLoss){ maxLoss=loss; maxIdx=i; } }
-    const col = loss==null ? 'var(--muted)' : (loss<=0.03?'#2ecc71':(loss<=0.15?'#f1c40f':'#e74c3c'));
+    const col = loss==null ? 'var(--muted)' : (loss<=0.03?'var(--good)':(loss<=0.15?'var(--warn)':'var(--bad)'));
     rows += `<tr><td>S${i+1}</td><td style="text-align:right;color:var(--muted)">${b!=null?b.toFixed(2):'—'}</td><td style="text-align:right">${typeof r==='number'?r.toFixed(2):'—'}</td><td style="text-align:right;color:${col}">${loss==null?'—':(loss<=0?'0.00':'+'+loss.toFixed(2))}</td></tr>`;
   }
   const opt = best.reduce((a,b)=> a+(b||0), 0);
-  const worst = (maxIdx>=0 && maxLoss>0.03) ? ` · biggest loss <b style="color:#e74c3c">S${maxIdx+1}</b> (+${maxLoss.toFixed(2)}s)` : '';
+  const worst = (maxIdx>=0 && maxLoss>0.03) ? ` · biggest loss <b style="color:var(--bad)">S${maxIdx+1}</b> (+${maxLoss.toFixed(2)}s)` : '';
   el.innerHTML = `<table><tr><th>Sec</th><th style="text-align:right">Best</th><th style="text-align:right">Your best lap</th><th style="text-align:right">Loss</th></tr>${rows}</table>
-    <div class="why" style="margin-top:8px">Optimal lap <b>${lapTime(opt)}</b> · potential <b style="color:#2ecc71">−${totalLoss.toFixed(2)}s</b>${worst}</div>`;
+    <div class="why" style="margin-top:8px">Optimal lap <b>${lapTime(opt)}</b> · potential <b style="color:var(--good)">−${totalLoss.toFixed(2)}s</b>${worst}</div>`;
 }
 
 // Разбор гонки → итог гонки: позиция, круги, лучший, отрыв, консистентность, инциденты
@@ -1119,7 +1115,7 @@ function renderRaceResult(){
   const spread = t.length? (Math.max(...t)-Math.min(...t)) : null;
   const stand = (_st.standings||[]).find(x=> x.is_player) || {};
   const finished = (r.flags||[]).some(f=> f.key==='checkered');
-  el.innerHTML = (finished? `<div class="why" style="margin-bottom:8px;color:#2ecc71"><b>🏁 Finished</b></div>` : '') +
+  el.innerHTML = (finished? `<div class="why" style="margin-bottom:8px;color:var(--good)"><b>🏁 Finished</b></div>` : '') +
     `<div class="mini" style="grid-template-columns:1fr 1fr">
     ${card('Position', r.class_position!=null?`P${r.class_position}`:(r.position!=null?`P${r.position}`:'—'), r.position!=null?`overall P${r.position}`:'')}
     ${card('Laps', r.lap!=null? r.lap : '—', 'completed')}
@@ -1153,10 +1149,10 @@ function renderProgress(){
   if(!t.length){ el.innerHTML=`<div class="empty">Drive laps — your progress this session appears here.</div>`; return; }
   const best=Math.min(...t), worst=Math.max(...t), rng=(worst-best)||1;
   let bars='';
-  t.forEach(x=>{ const f=(x-best)/rng, bh=6+f*42, col=x===best?'#c77dff':(f<0.34?'#2ecc71':(f<0.67?'#f1c40f':'#e74c3c'));
+  t.forEach(x=>{ const f=(x-best)/rng, bh=6+f*42, col=x===best?'var(--best)':(f<0.34?'var(--good)':(f<0.67?'var(--warn)':'var(--bad)'));
     bars+=`<div style="flex:1;height:54px;display:flex;align-items:flex-end"><div style="width:100%;height:${bh}px;background:${col};border-radius:2px"></div></div>`; });
   el.innerHTML=`<div style="display:flex;gap:2px;align-items:flex-end">${bars}</div>
-    <div class="why" style="margin-top:6px">Best <b style="color:#c77dff">${lapTime(best)}</b> · ${t.length} laps this session</div>`;
+    <div class="why" style="margin-top:6px">Best <b style="color:var(--best)">${lapTime(best)}</b> · ${t.length} laps this session</div>`;
 }
 
 // Strategy → Stint plan
@@ -1178,7 +1174,7 @@ function renderPitWindow(){
   if(pl.stops==null){ el.innerHTML=`<div class="empty">Fuel data needed — appears once you drive.</div>`; return; }
   if(pl.stops===0){ el.innerHTML=`<div class="mini" style="grid-template-columns:1fr">${card('Pit','not needed','enough fuel to finish')}</div>`; return; }
   const when=pl.next_stop_lap?`lap ${pl.next_stop_lap}`:(pl.laps_until_stop!=null?`in ${pl.laps_until_stop} laps`:'—');
-  const warn=(g.laps_on_fuel!=null && g.laps_on_fuel<2)?`<div class="why" style="color:#e74c3c;margin-bottom:6px"><b>⚠ Pit soon — low fuel (~${fix(g.laps_on_fuel,1)} laps)</b></div>`:'';
+  const warn=(g.laps_on_fuel!=null && g.laps_on_fuel<2)?`<div class="why" style="color:var(--bad);margin-bottom:6px"><b>⚠ Pit soon — low fuel (~${fix(g.laps_on_fuel,1)} laps)</b></div>`:'';
   el.innerHTML=warn+`<div class="mini" style="grid-template-columns:1fr 1fr">
     ${card('Next pit', when, 'fuel window')}
     ${card('Add / stop', pl.fuel_per_stop!=null?`~${pl.fuel_per_stop} L`:'—', 'per pit')}
@@ -1206,7 +1202,7 @@ function renderTrackRecord(){
   const el=$('r_track'); if(!el) return;
   const s=_st.session||{}, rec=s.record;
   if(rec==null){ el.innerHTML=`<div class="empty">Drive a clean lap on this track/car — your record appears here.</div>`; return; }
-  const cur=_lastRaceBest, d=(cur!=null)?cur-rec:null, col=d==null?'#9099a6':(d<=0?'#2ecc71':'#e74c3c');
+  const cur=_lastRaceBest, d=(cur!=null)?cur-rec:null, col=d==null?'var(--muted)':(d<=0?'var(--good)':'var(--bad)');
   el.innerHTML=`<div class="mini" style="grid-template-columns:1fr 1fr">
     ${card('Your record', lapTime(rec), 'this track / car')}
     <div class="tire"><div class="cn">Best this session</div><div style="font-size:18px;font-weight:700;margin:2px 0">${lapTime(cur)}</div>
@@ -1244,7 +1240,7 @@ async function tickRace(){
   if(r.rpm!=null && r.blink_rpm){
     const pct = Math.max(0, Math.min(100, r.rpm/r.blink_rpm*100));
     const bar = $('rpmbar'); bar.style.width = pct+'%';
-    bar.style.background = r.rpm>=r.blink_rpm ? '#e74c3c' : (r.rpm>=r.shift_rpm ? '#f1c40f' : '#2ecc71');
+    bar.style.background = r.rpm>=r.blink_rpm ? 'var(--bad)' : (r.rpm>=r.shift_rpm ? 'var(--warn)' : 'var(--good)');
     $('rpmv').textContent = Math.round(r.rpm) + (r.rpm>=r.shift_rpm ? '  ↑ shift' : '');
   }
 
@@ -1255,8 +1251,8 @@ async function tickRace(){
   if(r.lap_log && r.lap_log.length){
     const log = r.lap_log;
     // лучший/худший круг и сектор ЗА ВСЮ ГОНКУ → фиолетовый/зелёный/красный
-    const PURPLE='#c77dff', GREEN='#2ecc71', RED='#e74c3c', GREY='#9099a6';
-    const tcol = (v,mn,mx)=> (v==null||v<=0)?'#e8eaed' : (v===mn?PURPLE:(v===mx?RED:GREEN));
+    const PURPLE='var(--best)', GREEN='var(--good)', RED='var(--bad)', GREY='var(--muted)';
+    const tcol = (v,mn,mx)=> (v==null||v<=0)?'var(--txt)' : (v===mn?PURPLE:(v===mx?RED:GREEN));
     const times = log.map(x=>x.time).filter(t=>t>0);
     const bestLap = times.length?Math.min(...times):null, worstLap = times.length?Math.max(...times):null;
     const nsec = Math.max(0,...log.map(x=>(x.sectors||[]).length));
@@ -1270,7 +1266,7 @@ async function tickRace(){
       let sct = '';
       if(x.sectors && x.sectors.length){
         sct = `<tr><td colspan="2" style="padding-top:2px;padding-bottom:6px;border-bottom:1px solid #333">` +
-          x.sectors.map((s,i)=>`<span style="color:#9099a6;font-size:12px;margin-right:12px">S${i+1} <span style="color:${scol(s,i)}">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
+          x.sectors.map((s,i)=>`<span style="color:var(--muted);font-size:12px;margin-right:12px">S${i+1} <span style="color:${scol(s,i)}">${s!=null?s.toFixed(2):'—'}</span></span>`).join('') +
           `</td></tr>`;
       }
       return `<tr><td>lap ${x.lap}</td>
@@ -1290,12 +1286,12 @@ async function tickRace(){
   if((++_rivalTick)%5===0){ _prevGapA=r.gap_ahead; _prevGapB=r.gap_behind; }   // сглаживание тренда (~2с)
   if(r.flags && r.flags.length){
     race += `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">` +
-      r.flags.map(f=>`<span style="background:${flagColor(f.key)};color:#0d0f12;padding:4px 11px;border-radius:8px;font-weight:700;font-size:13px">${f.label}</span>`).join('') + `</div>`;
+      r.flags.map(f=>`<span style="background:${flagColor(f.key)};color:var(--bg);padding:4px 11px;border-radius:8px;font-weight:700;font-size:13px">${f.label}</span>`).join('') + `</div>`;
   }
   const ind = [];
-  if(r.abs_active) ind.push('<span style="background:#f1c40f;color:#0d0f12;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">ABS</span>');
-  (r.warnings||[]).forEach(w=>ind.push(`<span style="background:#e74c3c;color:#fff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚠ ${w.label}</span>`));
-  if(r.energy_pct!=null) ind.push(`<span style="background:#1b1f26;border:1px solid #2a2f38;color:#3ea6ff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚡ battery ${fix(r.energy_pct*100,0)}%</span>`);
+  if(r.abs_active) ind.push('<span style="background:var(--warn);color:var(--bg);padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">ABS</span>');
+  (r.warnings||[]).forEach(w=>ind.push(`<span style="background:var(--bad);color:#fff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚠ ${w.label}</span>`));
+  if(r.energy_pct!=null) ind.push(`<span style="background:var(--panel2);border:1px solid var(--line);color:var(--accent);padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700">⚡ battery ${fix(r.energy_pct*100,0)}%</span>`);
   if(ind.length) race += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${ind.join('')}</div>`;
   $('race').innerHTML = race;
 
@@ -1336,7 +1332,7 @@ function renderRecords(){
       return `<tr>
         <td>${trk}</td>
         <td style="color:var(--muted)">${evName(r.session_type)}</td>
-        <td class="chg" style="color:#c77dff;font-weight:700">${lapTime(r.best_lap)}</td></tr>`;
+        <td class="chg" style="color:var(--best);font-weight:700">${lapTime(r.best_lap)}</td></tr>`;
     }).join('');
     return `<div class="pbcar" data-car="${encodeURIComponent(car)}"><span>${car}${cls}</span><span class="chev">${collapsed?'▾':'▴'}</span></div>
       <div class="pbtable" style="display:${collapsed?'none':'block'}">
@@ -1426,16 +1422,16 @@ function renderProgress(combos, laps){
   box.className = '';
   box.innerHTML = picker + `
     <div class="progstat">
-      <div><div class="label">Best</div><div class="v" style="color:#c77dff">${lapTime(best)}</div></div>
+      <div><div class="label">Best</div><div class="v" style="color:var(--best)">${lapTime(best)}</div></div>
       <div><div class="label">Laps</div><div class="v">${n}</div></div>
       <div><div class="label">Gained</div><div class="v" style="color:${gain>0?'#4ade80':'var(--muted)'}">${gain>0?'−'+gain.toFixed(2)+'s':'—'}</div></div>
       <div><div class="label">Spread</div><div class="v">${(cap-best).toFixed(2)}s</div></div>
     </div>
     <svg class="progsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-      <path d="${runline}" fill="none" stroke="#c77dff" stroke-width="0.5" vector-effect="non-scaling-stroke"/>
+      <path d="${runline}" fill="none" stroke="var(--best)" stroke-width="0.5" vector-effect="non-scaling-stroke"/>
       ${dots}
       <circle cx="${x(bestIdx).toFixed(2)}" cy="${y(best).toFixed(2)}" r="1.4" fill="none"
-              stroke="#c77dff" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
+              stroke="var(--best)" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
     </svg>
     <div class="progax"><span>${first}</span><span>${lapTime(cap)} — ${lapTime(best)}</span><span>${last}</span></div>`;
   bindProgPick(combos);
@@ -1539,7 +1535,7 @@ $('customizeBtn').onclick = ()=>{
 };
 // ===== Пер-карточное ОФОРМЛЕНИЕ (⚙ у каждой таблички): фон/размер/шрифт/цвет заголовка =====
 const CS_FONTS = ["", "Consolas, monospace", "Cascadia Mono, monospace", "Tahoma", "Verdana", "Arial", "Impact"];
-const CS_ACC = ["", "#3ea6ff", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c", "#c77dff", "#22d3ee"];
+const CS_ACC = ["", "var(--accent)", "var(--good)", "var(--warn)", "#e67e22", "var(--bad)", "var(--best)", "#22d3ee"];
 let _cardStyles = {};
 try{ _cardStyles = JSON.parse(localStorage.getItem('ire_cardstyle')||'{}'); }catch{}
 const _saveCS = ()=>{ try{ localStorage.setItem('ire_cardstyle', JSON.stringify(_cardStyles)); }catch{} };
@@ -1558,7 +1554,7 @@ function openStylePop(card, gear){
     <label>Background: <b id="csBgV"></b></label><input type="range" id="csBg" min="0" max="100">
     <label>Text size: <b id="csFsV"></b>%</label><input type="range" id="csFs" min="70" max="170">
     <label>Font</label><select id="csFam">${CS_FONTS.map(f=>`<option value="${f}">${f? f.split(',')[0] : 'Segoe UI'}</option>`).join('')}</select>
-    <label>Heading color</label><div>${CS_ACC.map(c=>`<span class="sw" data-c="${c}" style="background:${c||'#e8eaed'}"></span>`).join('')}</div>
+    <label>Heading color</label><div>${CS_ACC.map(c=>`<span class="sw" data-c="${c}" style="background:${c||'var(--txt)'}"></span>`).join('')}</div>
     <div class="row2"><button id="csReset">↺ Reset</button><button id="csClose">Close</button></div>`;
   const r = gear.getBoundingClientRect();
   pop.style.top = Math.min(r.bottom+6, innerHeight-330)+'px';

@@ -87,6 +87,16 @@ def wheel_image(name: str):
         return Response(status_code=404)
     return FileResponse(path, media_type="image/png")
 
+@app.get("/tokens.css")
+def tokens():
+    """Палитра проекта. Отдельным файлом, чтобы цвета правились в одном месте."""
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "static", "tokens.css"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/")
 def index():
     # no-store: браузер не кеширует страницу — всегда свежий UI без Ctrl+F5

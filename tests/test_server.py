@@ -83,3 +83,12 @@ def test_limit_is_clamped(tmp_path):
         assert c.get("/api/stints", params={"limit": 0}).json() == []
     finally:
         del os.environ["IRE_DB_PATH"]
+
+
+def test_tokens_css_is_served():
+    r = TestClient(app).get("/tokens.css")
+    # index.html подключает этот файл; если он не отдаётся, дашборд теряет
+    # всю палитру и становится чёрно-белым
+    assert r.status_code == 200
+    assert "text/css" in r.headers["content-type"]
+    assert "--accent" in r.text and "--best" in r.text
