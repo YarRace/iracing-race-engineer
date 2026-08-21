@@ -1,0 +1,166 @@
+{
+ "sources": [
+  {
+   "name": "iRacing.com — официальные новости (WordPress RSS)",
+   "url": "https://www.iracing.com/category/news/",
+   "feed": "https://www.iracing.com/feed/ — проверено, валидный RSS 2.0, свежие записи (19–20 авг 2026). Подленты по разделам: https://www.iracing.com/category/news/latest-news/feed/ , https://www.iracing.com/category/iracing-news/feed/ , https://www.iracing.com/category/news/sim-racing-news/feed/ , https://www.iracing.com/category/news/press-coverage-news/feed/ . Работает шаблон WordPress: к ЛЮБОЙ категории/тегу добавляется /feed/",
+   "legal": "robots.txt (https://www.iracing.com/robots.txt) разрешает всё, кроме двух служебных папок темы; отдельных запретов для ИИ-ботов НЕТ. НО в Conditions of Use (https://www.iracing.com/membership/conditions-of-use/) прямая фраза: «You agree not to perform data mining, robots, screen scraping or other activities that could compromise our brand without express written consent», плюс «non-exclusive, limited license ... may not download it, copy it, modify it or sell it». Вывод: HTML-страницы парсить нельзя, а RSS — это канал, который они сами публикуют для синдикации. Безопасный режим: тянуть только RSS, показывать заголовок + краткое описание из <description> + кликабельную ссылку на iracing.com, НЕ хранить и не показывать полный текст статьи (<content:encoded>), не убирать атрибуцию. Полный текст ToU/EULA — PDF: https://ir-core-sites.iracing.com/members/pdfs/20250702-iRacing_Website_Conditions_of_use_dated_July_02_2025.pdf",
+   "content": "Главный официальный источник: релизы и патчи сезона, анонсы контента (машины/трассы), еженедельный «iRacing Weekly Tune-in» (расписание эфиров и комьюнити-событий), отчёты и превью eNASCAR/Grand Prix World Championship, пресс-релизы."
+  },
+  {
+   "name": "iRacing Special Events — расписание особых событий",
+   "url": "https://www.iracing.com/special-events/",
+   "feed": "https://www.iracing.com/tag/special-events/feed/ — проверено, валидный RSS («Special Events Archives»), в ленте идут анонсы «THIS WEEK: iRacing Portimao 1000 / Knoxville Nationals / 24 Hours of Spa ...». Сама страница /special-events/ — обычный HTML, без JSON/API; календарь 2026 (Crandon 25–30 авг, Southern 500 2–7 сен, Suzuka 1000km 10–15 сен, Britcar 24HR 18–20 сен, Petit Le Mans 25–27 сен, Bathurst 1000 2–4 окт, 8H Indianapolis 16–18 окт, Winter Derby, Chili Bowl и т.д.)",
+   "legal": "Те же Conditions of Use, что и у основного сайта: RSS — да, парсинг HTML-календаря — формально под запретом (data mining/screen scraping). Календарь лучше брать не парсингом, а из официального Data API (см. ниже) или вести вручную — он меняется 4 раза в год.",
+   "content": "Даты и окна регистрации спецсобытий: Daytona 24, Bathurst 12/1000, Sebring 12, Nürburgring 24, Indy 500, Spa 24, Petit Le Mans, Suzuka 1000km, Britcar 24 и др. Это самая ценная вещь для оверлея эндуранс-пилота."
+  },
+  {
+   "name": "iRacing Data API (members-ng) — официальный API",
+   "url": "https://members-ng.iracing.com/data/doc",
+   "feed": "Ленты новостей нет, но есть официальный JSON API. Базовый URL https://members-ng.iracing.com/data/ , самодокументируемый эндпоинт /data/doc. Нужные группы: series, series/seasons, season/list, season/race_guide, track, car, stats/*. Ответ отдаётся ссылкой на S3, которую надо докачать. Обёртки: pypi `iracingdataapi` (jasondilworth56), .NET Aydsko.iRacingData, TS `@iracing-data/api-schema`.",
+   "legal": "ЛЕГАЛЬНЫЙ путь по умолчанию: iRacing сами называют Data API «supported method of accessing data». Требуется авторизация членством (email+хеш пароля) либо OAuth2 client_id/secret, который выдают по запросу в iRacing. Есть рейт-лимиты — обязательно кэшировать. Внимание: с июля 2024 старый web UI и CSV убраны, API — единственный официальный путь.",
+   "content": "Расписания сезонов и недель, список серий и их лицензий, гайд по гонкам (race_guide) с ближайшими стартами, трассы, машины, статистика пилота. Идеально для блока «ближайшие гонки/эндуранс» рядом с новостной лентой."
+  },
+  {
+   "name": "iRacing — официальный YouTube-канал",
+   "url": "https://www.youtube.com/channel/UCPEcqkRG-kf2Vk6Rn_2WZSQ",
+   "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPEcqkRG-kf2Vk6Rn_2WZSQ — проверено, валидный Atom, свежие ролики (20 авг 2026)",
+   "legal": "Эндпоинт feeds/videos.xml — публичный, отдаётся самим YouTube без ключа и без авторизации, это штатный механизм подписки. Ограничения: по YouTube ToS нельзя скачивать/перезаливать видео и нельзя выдавать метаданные за свои — показывайте заголовок, дату, превью и ссылку/встраиваемый плеер. Скрейпинг HTML youtube.com запрещён. Если понадобится больше данных (просмотры, длительность) — официальный YouTube Data API v3 с квотой 10 000 units/день.",
+   "content": "Официальные ролики iRacing: анонсы сезонов, трейлеры новых машин/трасс, dev-апдейты, хайлайты, Creator Series."
+  },
+  {
+   "name": "iRacerHUB (бывший iRacerStuff) — единственное издание строго про iRacing",
+   "url": "https://iracerhub.com/",
+   "feed": "https://iracerhub.com/feed — проверено, валидный RSS 2.0, «The Ultimate Hub for All Things iRacing», по нескольку записей в день (20 авг 2026). Внимание: старый адрес https://www.iracerstuff.com/feed отдаёт 301 на новый — редирект надо следовать.",
+   "legal": "Публичный WordPress-фид без ограничений в robots.txt и без AI-блокировок. Стандартный этикет: заголовок + анонс + обратная ссылка, не тащить <content:encoded> целиком, User-Agent с названием вашего приложения и контактом, опрос не чаще 1 раза в 15–30 минут, поддержка ETag/If-Modified-Since.",
+   "content": "Ровно ваша ниша: гайды по iRacing (трейл-брейкинг, open setup для новичков), разбор обновлений (Gen 7 superspeedway aero), железо/VR, результаты eNASCAR. Лучший «профильный» источник после самого iRacing."
+  },
+  {
+   "name": "Bsimracing",
+   "url": "https://www.bsimracing.com/",
+   "feed": "https://www.bsimracing.com/feed/ — проверено, валидный RSS («Sim Racing Resources and News for the racing enthousiast»), обновлялся 18 авг 2026",
+   "legal": "Публичный WordPress-фид, ограничений на автоматическое чтение не обнаружено. Правило то же: анонс + ссылка на оригинал.",
+   "content": "Ежедневные новости всего симрейсинга: патчи Le Mans Ultimate, релизы GT7/ACC/AC Evo, анонсы моддинга и железа. Хорошая «широкая» лента в дополнение к iRacing-специфике."
+  },
+  {
+   "name": "BoxThisLap",
+   "url": "https://boxthislap.org/",
+   "feed": "https://boxthislap.org/feed/ — проверено, валидный RSS 2.0, «Racing Games And Sim Racing News», 5 свежих материалов за 20 авг 2026",
+   "legal": "Публичный WordPress-фид, спецограничений не найдено.",
+   "content": "Новости индустрии и железа (Fanatec, Podium Pedals), патчи Le Mans Ultimate / Project Motor Racing, аналитика по iRacing (например, разбор платных сетапов). Пишут часто и по делу."
+  },
+  {
+   "name": "GTPlanet",
+   "url": "https://www.gtplanet.net/",
+   "feed": "https://www.gtplanet.net/feed/ — проверено, валидный RSS 2.0, ежедневные записи (20 авг 2026)",
+   "legal": "robots.txt закрывает только /wp-admin/, разделы форума (аккаунты, поиск, логин, ответы) и контактные формы; поимённо блокирует SEO-ботов (PetalBot, AhrefsBot, SemrushBot, DotBot, MauiBot, MJ12bot, DataForSeoBot). Правил против ИИ/фид-читалок нет — фид читать можно.",
+   "content": "Крупнейшее издание, но уклон в Gran Turismo 7 и консоли. Для iRacing-приложения — второстепенно, брать только как общую индустриальную ленту, либо фильтровать по ключевым словам."
+  },
+  {
+   "name": "OverTake.gg (бывший RaceDepartment)",
+   "url": "https://www.overtake.gg/",
+   "feed": "Главный /feed/ и /rss/ отдают 403 (Cloudflare режет незнакомый User-Agent). РАБОТАЕТ форумный XenForo-фид: https://www.overtake.gg/forums/-/index.rss — проверено, валидный RSS 2.0 со свежими темами (21 авг 2026). Шаблон XenForo: https://www.overtake.gg/forums/<node-slug>.<id>/index.rss для конкретного раздела. Историческая справка: у RaceDepartment фронтовая лента была /threads/featured/index.rss — сейчас 404.",
+   "legal": "robots.txt: общий Allow: /, закрыты /account, /attachments, /goto, /login, /posts, /search, /whats-new, /misc, admin.php; поимённо забанены PetalBot, AspiegelBot, AhrefsBot, SemrushBot, DotBot, MauiBot, MJ12bot. Явных ИИ-запретов нет. Практика: 403 снимается адекватным User-Agent (не дефолтным python-requests) — но это уже серая зона, лучше писать честный UA вида `IREngineer/1.0 (+ссылка на ваш сайт)` и не долбить чаще раза в 15 минут.",
+   "content": "Крупнейший симрейсинг-портал + форум + база модов. Форумный фид даёт очень много шума (темы про AC-моды, ливреи), для новостей нужна фильтрация по разделу."
+  },
+  {
+   "name": "Sim Racing Info",
+   "url": "https://www.simracinginfo.com/",
+   "feed": "https://www.simracinginfo.com/rss/ — проверено, валидный RSS 2.0",
+   "legal": "Публичный фид, ограничений не обнаружено.",
+   "content": "Редкие (пара штук в месяц), но содержательные материалы: «iRacing price increase», разборы Rennsport, обновления Le Mans Ultimate, железо Moza. Как единственный источник не годится, в миксе — полезен."
+  },
+  {
+   "name": "OnlineRaceDriver",
+   "url": "https://www.onlineracedriver.com/",
+   "feed": "https://feeds.feedburner.com/OnlineRaceDriver — проверено, валидный RSS 2.0, последняя запись 3 авг 2026 (жив, но пишут неровно)",
+   "legal": "FeedBurner — публичная витрина фида, автоматическое чтение — прямое назначение сервиса. Ограничений нет.",
+   "content": "Новости гоночных игр и симов, релизы модов, железо, киберспорт-анонсы (FIA F4 Global Esports и т.п.)."
+  },
+  {
+   "name": "MySimRig — Race Ready Blog",
+   "url": "https://mysimrig.nl/en/",
+   "feed": "https://mysimrig.nl/en/rss.xml — проверено, валидный RSS 2.0, en-US",
+   "legal": "Публичный фид, ограничений не найдено.",
+   "content": "Железо (директ-драйв базы, педали, VR), гайды по настройке + еженедельные новостные дайджесты симрейсинга («Sim Racing News — Week NN 2026»). Дайджесты удобны как «одна карточка = неделя»."
+  },
+  {
+   "name": "Coach Dave Academy",
+   "url": "https://coachdaveacademy.com/",
+   "feed": "https://coachdaveacademy.com/feed/ — проверено, валидный RSS 2.0, WordPress 6.9.7, свежее от 6 авг 2026",
+   "legal": "Публичный фид без ограничений. Важно: это коммерческий магазин сетапов — их материалы наполовину промо. Если ваше приложение платное, стоит либо помечать такие карточки как partner/blog, либо не смешивать с новостями.",
+   "content": "Сетапы и обучение: гайды по ACC/LMU/iRacing, релизы сетапов под конкретные трассы (Daytona, Laguna Seca для LMGT3/LMP2/Hypercar), Setup IQ. Тематически ближе всего к «гоночному инженеру»."
+  },
+  {
+   "name": "Simracingsetup.com",
+   "url": "https://simracingsetup.com/",
+   "feed": "https://simracingsetup.com/feed/ — проверено, валидный RSS («The Best Setups For All Sim Racing Games»), но пишут редко (последнее — 13 авг 2026, до этого июль/июнь)",
+   "legal": "Публичный фид, ограничений не найдено.",
+   "content": "Настройки руля/FFB, гайды под F1 26, VR (Pimax) и iRacing. Много SEO-контента и партнёрских ссылок — по качеству ниже остальных."
+  },
+  {
+   "name": "Motorsport.com (реальный автоспорт, для контекста эндуранса)",
+   "url": "https://www.motorsport.com/",
+   "feed": "https://www.motorsport.com/rss/all/news/ — проверено, валидный RSS 2.0 («Motorsport.com - All - Stories»). Есть покатегорийные шаблоны: /rss/f1/news/, /rss/nascar-cup/news/, /rss/wec/news/. Отдельной esports-ленты НЕ нашлось.",
+   "legal": "RSS публичный. Но Motorsport Network — крупный медиахолдинг с жёсткой позицией по переиспользованию контента: только заголовок + ссылка, никакой полнотекстовой выдачи, обязательная атрибуция. Для коммерческого продукта я бы либо ограничился WEC-лентой, либо вовсе не включал без письменного разрешения.",
+   "content": "Настоящий WEC/IMSA/Le Mans/NASCAR — полезно, если хотите блок «что происходит в реальном эндурансе», раз ваш пользователь ездит 24-часовые."
+  },
+  {
+   "name": "Michelin 24H SERIES / Creventic (эндуранс, реальная серия-первоисточник)",
+   "url": "https://www.24hseries.com/news",
+   "feed": "НЕТ. Проверено: самописная PHP-CMS, в <head> нет <link rel=\"alternate\" type=\"application/rss+xml\">, ни /feed, ни /rss не отдают ленту, публичного API нет.",
+   "legal": "Раз фида нет, единственный автоматический путь — парсинг HTML, а это без разрешения делать не стоит (у них нет явного разрешающего robots-правила, и это коммерческая серия с лицензированным контентом). Практичный обход: их симрейсинговое ответвление освещает сам iRacing — берите тег-ленту https://www.iracing.com/tag/creventic-endurance-series/feed/ , она легальна и покрывает нужное.",
+   "content": "Календари 12H/24H, победители, анонсы (например, «iRacing Creventic Endurance Series возвращается в сезоне 2026»: пять этапов, микс 12-часовых и финальные 24 часа в Барселоне)."
+  },
+  {
+   "name": "VCO Esports (Virtual Competition Organisation)",
+   "url": "https://vco-esports.com/",
+   "feed": "https://vco-esports.com/feed/ — проверено, валидный RSS 2.0, НО фактически мёртв: последняя запись «The Esports Racing League (ERL) returns» от 11 сен 2025, дальше 2024 и 2023 год.",
+   "legal": "Публичный WordPress-фид, ограничений нет. Есть Media Office с пресс-контактом (mey@vco-esports.com) — при желании можно официально попросить доступ к пресс-рассылке.",
+   "content": "Крупнейший организатор симрейсингового киберспорта: ERL, VCO INFINITY, Simmy Awards, Team Redline и т.п. Подключать можно, но карточки будут старыми — либо не включайте, либо помечайте «архив»."
+  },
+  {
+   "name": "Studio 397 / rFactor 2 (Le Mans Ultimate — соседняя экосистема)",
+   "url": "https://www.studio-397.com/",
+   "feed": "https://www.studio-397.com/feed/ — проверено, валидный RSS, но подзаброшен: последняя запись 6 окт 2025",
+   "legal": "Публичный WordPress-фид, ограничений нет.",
+   "content": "Патчи rFactor 2, KartSim, лицензионный контент. Актуальные новости про Le Mans Ultimate сейчас быстрее приходят через Bsimracing/BoxThisLap, чем через сам Studio 397."
+  },
+  {
+   "name": "YouTube-каналы симрейсинга (универсальный механизм)",
+   "url": "https://www.youtube.com/",
+   "feed": "Шаблон: https://www.youtube.com/feeds/videos.xml?channel_id=<UC...> . Проверенные ID: iRacing (официальный) UCPEcqkRG-kf2Vk6Rn_2WZSQ — работает, свежее; TraxionGG UC2kR8Nkf-OUhrNJqHbdx8tQ — работает, свежее (20 авг 2026); Dave Cam UCnwafXeJvjNzMttB1ptFPnQ; Jimmy Broadbent UCq-ylUNa9RoTK5jr6TBOYag; Suellio Almeida UC1eSjUtLYybrFxrgMg2ef6g; Driver61 UCtbLA0YM6EpwUQhFUyPQU9Q; VRS Sim Racing UCQuRNwlPj3RFYjPEEFIXanQ; iRacing Broadcast Archive UCUowOZM6lA-tS77XGmuzhbw — МЁРТВ (последнее видео ноябрь 2020, не подключайте). Как найти channel_id для любого @handle: открыть страницу канала и взять значение \"channelId\" из исходника, либо ссылку вида youtube.com/channel/UC... из поиска.",
+   "legal": "videos.xml — официальный публичный Atom-эндпоинт Google, ключ и авторизация не нужны, это и есть предусмотренный способ подписки. Нельзя: скачивать/перезаливать видео, скрейпить HTML youtube.com, показывать метаданные без ссылки на источник. Для расширенных данных — YouTube Data API v3 (квота 10 000 units/сутки, бесплатно). Отдельный нюанс: TraxionGG на своём САЙТЕ запрещает ИИ-ботов, но его YouTube-фид отдаёт Google, и он под правилами YouTube, а не Traxion — это легальная лазейка, чтобы всё же показывать их контент.",
+   "content": "Самый живой и визуальный слой ленты: превью-картинки уже есть в Atom (media:thumbnail), карточки красиво смотрятся в оверлее/дашборде. Гайды по трассам, разборы обновлений, обзоры железа, эфиры."
+  },
+  {
+   "name": "Traxion.GG — ⚠️ ЮРИДИЧЕСКИ ЗАКРЫТ для автоматики",
+   "url": "https://traxion.gg/",
+   "feed": "https://traxion.gg/feed/ формально существует (фигурирует во всех каталогах RSS), но при обращении отдаёт HTTP 403 — Cloudflare режет ботов.",
+   "legal": "❌ ЯВНЫЙ ЗАПРЕТ. В https://traxion.gg/robots.txt прописан заголовок `Content-Signal: search=yes, ai-train=no, use=reference` и поимённо запрещены ClaudeBot, GPTBot, Google-Extended и другие ИИ-агенты. Это самый жёсткий случай из всего списка: обходить 403 подменой User-Agent = сознательно нарушать выраженную волю правообладателя. НЕ подключайте их сайт в ленту. Единственный законный способ показать их материалы — их YouTube-канал (UC2kR8Nkf-OUhrNJqHbdx8tQ) или прямая ссылка, которую кликает сам пользователь.",
+   "content": "Одно из лучших симрейсинговых изданий (ежедневные новости, обзоры, гайды) — обидно, но по правилам мимо."
+  },
+  {
+   "name": "Форум iRacing — ⛔ автоматически недоступен",
+   "url": "https://forums.iracing.com/",
+   "feed": "НЕТ публичного. Проверено: движок Vanilla Forums, штатный путь https://forums.iracing.com/discussions/feed.rss даёт 302 на https://oauth.iracing.com/oauth2/authorize?...&prompt=login — то есть даже robots.txt отдать не может, всё за авторизацией. Даже /robots.txt редиректит на OAuth.",
+   "legal": "Контент только для членов iRacing, доступ через iRacing OAuth2 (client_id vanilla_oauth2, scope iracing.profile:extended). Автоматическое чтение чужим приложением потребует у КАЖДОГО пользователя логина в iRacing и, по-хорошему, разрешения от iRacing. Плюс Conditions of Use прямо запрещают robots/screen scraping. Вывод: в ленту НЕ включать.",
+   "content": "Там живут release notes перед релизом, обсуждения багов, голосования за трассы, анонсы. Замена: те же темы дублируются в официальный /feed/ на iracing.com и на iRacerHUB."
+  },
+  {
+   "name": "Reddit r/iRacing — ⚠️ включать с осторожностью",
+   "url": "https://www.reddit.com/r/iRacing/",
+   "feed": "Формально https://www.reddit.com/r/iRacing/.rss (Atom) и https://www.reddit.com/r/iRacing/new/.json . Проверить из этой среды не удалось — Reddit блокирует запрос. На практике .rss часто отдаёт 403 для дата-центровых IP и незарегистрированных User-Agent.",
+   "legal": "⚠️ Reddit Public Content Policy и Data API Terms: любое систематическое/коммерческое использование контента требует регистрации приложения (OAuth-клиент), уникального описательного User-Agent и соблюдения лимита ~100 запросов/мин на клиента; бесплатный тир — только для некоммерческого использования, для коммерческого нужен платный доступ. robots.txt Reddit давно закрывает почти всех краулеров. Для продукта, который вы планируете продавать, — риск. Либо не включайте, либо оформляйте OAuth-приложение легально.",
+   "content": "Самый живой поток комьюнити: реакция на патчи, баги, дискуссии по сериям. Ценно по содержанию, но дороже всех по юридической цене."
+  },
+  {
+   "name": "RaceLab Garage — блог и релиз-ноуты самого RaceLab",
+   "url": "https://garage.racelab.app/news/",
+   "feed": "ЕСТЬ, хотя ссылка на неё не выведена на странице (сайт на Docusaurus, фиды генерируются автоматически): https://garage.racelab.app/news/rss.xml и https://garage.racelab.app/news/atom.xml — обе проверены, валидны («Racelab Garage Blog»). Отдельно релиз-ноуты: https://garage.racelab.app/release-notes/rss.xml — проверено, версии 7.13.0 (16 июн 2026), 7.12.2, 7.11.0 и т.д.",
+   "legal": "Публичный, никаких ограничений не заявлено. Но это ваш прямой конкурент — читать их ленту стоит для мониторинга (что они выпускают), а не встраивать в свой продукт как «новости для пользователя».",
+   "content": "Только их собственные анонсы: Tools Manager, Trackmap V3, Stream Deck-плагин, интеграция RaceRoom, новые виджеты (Odometer, G-Force Meter), RacelabVR. Ничего стороннего."
+  }
+ ],
+ "howRacelabDoesIt": "КОРОТКИЙ ОТВЕТ: у RaceLab НЕТ агрегированной новостной ленты симрейсинга. То, что выглядит как «новости», — это их собственный блог о самом приложении, отдаваемый через штатные фиды Docusaurus.\n\nЧто проверено:\n1. Раздел «News» в RaceLab живёт на https://garage.racelab.app/news/ — это не оверлей, а сайт-документация, куда ведёт трей-приложение RaceLab Garage. Все записи подписаны автором «Racelab» (26 постов на https://garage.racelab.app/news/authors/racelab/), внешних источников и чужих авторов там нет вообще.\n2. Содержание — исключительно продуктовые анонсы: Tools Manager (авто-запуск сим-стека), Trackmap V3, Stream Deck-плагин, интеграция RaceRoom, Car Class Grouping, виджеты Odometer и G-Force Meter, RacelabVR 3.0. Плюс отдельная ветка версионных релиз-ноутов (7.13.0 от 16 июня 2026 и ниже).\n3. На странице ссылки на RSS не выведено, но сайт собран на Docusaurus, а он генерирует фиды автоматически — я их нашёл и проверил вручную: https://garage.racelab.app/news/rss.xml , https://garage.racelab.app/news/atom.xml , https://garage.racelab.app/release-notes/rss.xml . Все три отдают валидный XML. То есть внутри приложения им достаточно тянуть собственный JSON/RSS со своего же домена — никакой сторонней агрегации, никаких лицензий, никаких юридических рисков.\n4. Единственное, что RaceLab действительно тянет извне, — это НЕ новости, а данные: виджет Race Schedule («живые предстоящие события, время старта, длительность, окна регистрации») и «series data for iRacing». Это официальный iRacing Data API (members-ng), а не новостная лента. То же самое сможете сделать и вы.\n\nВЫВОД ДЛЯ ВАШЕГО ПРОЕКТА: RaceLab тут не пример для копирования — он решил задачу минимальным способом («новости» = «наш ченджлог»). Агрегированная лента симрейсинговых новостей — это реальная фича, которой у конкурента нет, и она может стать отличием вашего инженера.\n\nРЕКОМЕНДУЕМАЯ АРХИТЕКТУРА ЛЕНТЫ (3 уровня, по убыванию юридического риска — все нулевые):\n• Уровень 1 «Официальное» (включать всем, по умолчанию): https://www.iracing.com/feed/ + https://www.iracing.com/tag/special-events/feed/ + YouTube iRacing (channel_id UCPEcqkRG-kf2Vk6Rn_2WZSQ). Дальше — iRacing Data API для блока «ближайшие гонки».\n• Уровень 2 «Профильные издания» (галочки в настройках, по умолчанию 2–3 включены): iRacerHUB, Bsimracing, BoxThisLap, Sim Racing Info, MySimRig.\n• Уровень 3 «Видео» (карточки с превью — самое красивое в оверлее): YouTube-фиды по channel_id, TraxionGG / Dave Cam / Jimmy Broadbent / Suellio Almeida / Driver61 / VRS.\n\nТЕХНИЧЕСКИЕ ПРАВИЛА, чтобы фича была продакшн-качества и без претензий (важно, раз цель — продажа):\n1. Опрос не чаще 1 раза в 15–30 минут на источник, обязательно ETag + If-Modified-Since (экономит трафик и снимает 90% претензий).\n2. Честный User-Agent: `iRacingRaceEngineer/1.0 (+https://ваш-сайт; contact@почта)`. Никогда не маскироваться под браузер, чтобы обойти 403 — именно это превращает легальное чтение в нарушение.\n3. Показывать ТОЛЬКО заголовок + 1–2 строки из <description> + дату + логотип источника + кликабельную ссылку на оригинал. Никогда не сохранять и не отображать <content:encoded> целиком — это и есть граница между синдикацией и перепубликацией.\n4. Список источников хранить в редактируемом конфиге (JSON/YAML), а не в коде: если сайт умрёт (как Team VVV — последний пост 2024, или VCO — сентябрь 2025) или запретит ботов, вы правите конфиг, а не выпускаете билд.\n5. Кэш на диск + graceful degradation: нет интернета или источник отвалился — показываем последние сохранённые карточки с пометкой «offline», а не пустой виджет.\n6. Реализация на Python: `feedparser` для разбора (сам понимает и RSS 2.0, и Atom от YouTube), `httpx` с таймаутом 10 с, сбор в фоне через ваш orchestrator, отдача во фронт через существующий dashboard-сервер.\n7. ⛔ Чёрный список — не подключать ни при каких условиях: traxion.gg (robots.txt поимённо запрещает ClaudeBot/GPTBot, Content-Signal ai-train=no + Cloudflare 403), forums.iracing.com (весь за OAuth, включая robots.txt). Reddit r/iRacing — только если оформите OAuth-приложение, для платного продукта нужен платный тир.\n8. Учитывая вашу заметку «UI только английский» — заголовки из фидов и так придут на английском, ничего переводить не нужно; а вот сортировку лучше делать по pubDate по убыванию с дедупликацией по нормализованному заголовку, потому что iRacerHUB и Bsimracing часто пишут об одном и том же в один день."
+}
