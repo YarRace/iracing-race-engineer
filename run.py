@@ -31,7 +31,7 @@ from ire.collector import track_svg
 from ire.collector.standings import build_standings, strength_of_field, cars_in_class
 from ire.collector.stint_recorder import StintDetector
 from ire.metrics.consistency import consistency_metrics
-from ire.storage import history
+from ire.storage import history, laps as lap_store
 from ire.dashboard.server import app, STATE
 
 
@@ -50,6 +50,27 @@ def _session_key(ir):
     """Идентификатор сессии — меняется при заходе в другую сессию/смене фазы."""
     wk = ir["WeekendInfo"] or {}
     return (ir["SessionNum"], wk.get("SubSessionID"), ir["SessionUniqueID"])
+
+
+def _save_lap_bg(ident, lap_num, frames):
+    """Кладёт завершённый круг на диск в фоне.
+
+    В фоне, потому что живой цикл крутится 60 раз в секунду: сжатие и запись
+    даже на 30 КБ дают заметную паузу, а пауза в цикле — это рывок телеметрии
+    в оверлее ровно в момент пересечения линии.
+    """
+    def work(fr):
+        try:
+            t = lap_store.lap_time(fr)
+            if t is None:
+                return
+            path = lap_store.save_lap(lap_store.default_root(), ident, lap_num, t, fr)
+            if path:
+                print(f"Lap {lap_num} saved ({t:.3f}s) -> {path.name}")
+        except Exception as e:
+            print("Lap storage: failed to save lap:", e)
+
+    threading.Thread(target=work, args=(list(frames),), daemon=True).start()
 
 
 def _analyze_bg(frames, setup, conditions):
@@ -83,6 +104,8 @@ def main():
     tmb = None            # построитель карты трассы
     ident = {}            # трасса/машина/сессия — для привязки сохранённых кругов
     frames = []
+    lap_frames = []       # кадры ТЕКУЩЕГО круга — пишутся на диск по его завершении
+    cur_lap = None        # номер круга, который сейчас пишем
     lap_log = []          # история времён кругов (для блока «Лог кругов»)
     last_logged_lap = None
     last_sess = None      # ключ сессии — для авто-сброса при смене
@@ -106,6 +129,8 @@ def main():
                 sector_timer = None
                 tmb = None
                 frames = []
+                lap_frames = []
+                cur_lap = None
                 lap_log = []
                 last_logged_lap = None
                 det = StintDetector()
@@ -223,6 +248,15 @@ def main():
                 f["on_track"] = True                         # едем сами → точно на трассе
                 STATE["live"] = f
                 frames.append(f)
+                # Телеметрию пишем ПОКРУГОВО, а не в конце стинта: 24-часовая
+                # гонка иначе копила бы миллионы кадров в памяти и теряла всё
+                # при вылете сима.
+                if f.get("lap") != cur_lap:
+                    if cur_lap is not None and lap_frames and ident.get("track"):
+                        _save_lap_bg(ident, cur_lap, lap_frames)
+                    cur_lap = f.get("lap")
+                    lap_frames = []
+                lap_frames.append(f)
             elif state == "closed" and frames:
                 # разбор уходит В ФОН — живой цикл не зависает на время инференса LLM
                 print(f"Stint closed ({len(frames)} frames) → analysis in background…")
@@ -244,6 +278,8 @@ def main():
                     daemon=True,
                 ).start()
                 frames = []
+                lap_frames = []                          # круг оборван заездом в боксы
+                cur_lap = None
                 det = StintDetector()                    # готов к следующему стинту
             time.sleep(1 / 60)
     finally:
