@@ -11,45 +11,44 @@ LLM-провайдер выбирается через переменную ок
 import json, os
 import httpx
 
-# Глоссарий: как правильно называть параметры по-русски (поля сетапа адресуются
+# Глоссарий: как правильно называть параметры по-английски (поля сетапа адресуются
 # английскими путями вида "Chassis.Front.ArbSize", но в тексте 'why'/'driving' —
-# человеческие русские термины).
+# человеческие английские термины).
 GLOSSARY = (
-    "Термины (пиши в тексте по-русски правильно): ARB/ArbSize = стабилизатор поперечной "
-    "устойчивости; Camber = развал; ToeIn = схождение; RideHeight = клиренс; SpringRate = "
-    "жёсткость пружины; Shock/Damping = амортизатор (Comp = сжатие, Rbd = отбой); Preload = "
-    "преднатяг дифференциала; BrakePressureBias = баланс тормозов; StartingPressure = давление "
-    "в шине; understeer = недостаточная поворачиваемость (недоруль); oversteer = избыточная (переруль)."
+    "Terms (use these exact words in your text): ARB/ArbSize = anti-roll bar; Camber = camber; "
+    "ToeIn = toe; RideHeight = ride height; SpringRate = spring rate; Shock/Damping = damper "
+    "(Comp = compression, Rbd = rebound); Preload = differential preload; BrakePressureBias = "
+    "brake bias; StartingPressure = tire pressure; understeer = the front will not turn in (the "
+    "car pushes); oversteer = the rear steps out (the car is loose)."
 )
 
 # Базовые инженерные правила, чтобы советы шли в верную сторону.
 RULES = (
-    "Правила настройки. При НЕДОСТАТОЧНОЙ поворачиваемости (understeer) — добавить переднего "
-    "сцепления: смягчить ПЕРЕДНИЙ стабилизатор ИЛИ ужестчить ЗАДНИЙ; снизить давление передних "
-    "шин или повысить задних; добавить отрицательного развала спереди; смягчить передние пружины "
-    "или ужестчить задние. При ИЗБЫТОЧНОЙ (oversteer) — всё наоборот. Меняй значения маленькими "
-    "шагами и только в сторону, согласованную с симптомами заезда."
+    "Setup rules. For UNDERSTEER — add front grip: soften the FRONT anti-roll bar OR stiffen the "
+    "REAR; lower the front tire pressure or raise the rear; add negative camber at the front; "
+    "soften the front springs or stiffen the rear. For OVERSTEER — do the opposite. Change values "
+    "in small steps, and only in the direction that matches the symptoms from the stint."
 )
 
 SYSTEM = (
-    "Ты — гоночный инженер по сетапам iRacing. Отвечай СТРОГО на русском языке "
-    "(весь текст внутри JSON — по-русски, без китайских иероглифов). На вход: посчитанные "
-    "симптомы заезда и текущие значения сетапа. Меняй ТОЛЬКО переданные поля сетапа. "
+    "You are an iRacing race engineer working on car setup. Write STRICTLY in English "
+    "(all text inside the JSON in English — clear, simple words, no Chinese characters). Input: "
+    "computed stint symptoms and the current setup values. Change ONLY the setup fields you are given. "
     + GLOSSARY + " " + RULES + " "
-    "Верни СТРОГО один JSON-объект без текста вне него, по схеме: "
-    '{"driving": ["совет по пилотированию", ...], '
-    '"setup_changes": [{"field": "имя поля", "from": "текущее значение", "to": "новое значение", "why": "причина"}], '
-    '"delta": {"имя поля": "новое значение"}}. '
-    "ВАЖНО: значения 'to' и значения в 'delta' — это ИТОГОВЫЕ значения той же формы и в тех же "
-    'единицах, что в исходном сетапе (например "148 kPa", "-3.1 deg"), а НЕ приращения. '
-    "Пары field→to из setup_changes должны точно совпадать с парами в delta."
+    "Return STRICTLY one JSON object with no text outside it, using this schema: "
+    '{"driving": ["driving tip", ...], '
+    '"setup_changes": [{"field": "field name", "from": "current value", "to": "new value", "why": "reason"}], '
+    '"delta": {"field name": "new value"}}. '
+    "IMPORTANT: the 'to' values and the values in 'delta' are FINAL values, in the same form and the "
+    'same units as in the source setup (for example "148 kPa", "-3.1 deg"), NOT increments. '
+    "The field→to pairs in setup_changes must exactly match the pairs in delta."
 )
 
 def build_prompt(symptoms, setup_fields, car, track):
-    return (f"Машина: {car}. Трасса: {track}.\n"
-            f"Текущий сетап (только эти поля можно менять):\n{json.dumps(setup_fields, ensure_ascii=False, indent=2)}\n"
-            f"Симптомы заезда:\n{json.dumps(symptoms, ensure_ascii=False, indent=2)}\n"
-            "Дай разбор пилотирования и правки сетапа.")
+    return (f"Car: {car}. Track: {track}.\n"
+            f"Current setup (only these fields may be changed):\n{json.dumps(setup_fields, ensure_ascii=False, indent=2)}\n"
+            f"Stint symptoms:\n{json.dumps(symptoms, ensure_ascii=False, indent=2)}\n"
+            "Give the driving analysis and the setup changes.")
 
 def parse_response(text):
     start, end = text.find("{"), text.rfind("}")

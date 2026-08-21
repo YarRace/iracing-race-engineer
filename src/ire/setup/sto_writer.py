@@ -42,7 +42,7 @@ def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
 
     `.sto` загрузить в iRacing нельзя (формат закрыт), поэтому это «шпаргалка» —
     текст со всеми текущими значениями, где правки видны как
-    ``← ИЗМЕНИТЬ (было …)``. Удобно держать рядом и внести в гараже.
+    ``<- CHANGE (was …)``. Удобно держать рядом и внести в гараже.
 
     Args:
         setup: результат :func:`ire.setup.sto_reader.read_sto` (`{"fields", ...}`).
@@ -54,21 +54,21 @@ def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
     fields = setup["fields"]
     n = len(delta or {})
     lines = [
-        "РЕКОМЕНДОВАННЫЙ СЕТАП — Cadillac GTP",
-        f"Изменений: {n}. Строки с пометкой ИЗМЕНИТЬ внести в гараже iRacing вручную.",
-        "(.sto-файл закрыт и не загружается — это справочный лист.)",
+        "RECOMMENDED SETUP — Cadillac GTP",
+        f"Changes: {n}. Enter the lines marked CHANGE by hand in the iRacing garage.",
+        "(The .sto file is closed and cannot be loaded — this is a reference sheet.)",
         "",
     ]
     last_section = object()
     for path, val in fields.items():
         parts = path.split(".")
-        section = ".".join(parts[:-1]) if len(parts) > 1 else "(прочее)"
+        section = ".".join(parts[:-1]) if len(parts) > 1 else "(other)"
         name = parts[-1]
         if section != last_section:
             lines.append(f"[{section}]")
             last_section = section
         if delta and path in delta:
-            lines.append(f"  {name}: {delta[path]}   <- ИЗМЕНИТЬ (было {val})")
+            lines.append(f"  {name}: {delta[path]}   <- CHANGE (was {val})")
         else:
             lines.append(f"  {name}: {val}")
     return "\n".join(lines)
@@ -76,11 +76,11 @@ def build_setup_sheet(setup: dict[str, Any], delta: dict[str, Any]) -> str:
 
 # Верхние секции CarSetup = вкладки, как в гараже iRacing (короткие подписи).
 SECTION_TITLES = {
-    "TiresAero": "Шины и аэро",
-    "Chassis": "Шасси",
-    "BrakesDriveUnit": "Тормоза и транс.",
-    "Dampers": "Амортизаторы",
-    "Suspension": "Подвеска",
+    "TiresAero": "Tires & aero",
+    "Chassis": "Chassis",
+    "BrakesDriveUnit": "Brakes & drive unit",
+    "Dampers": "Dampers",
+    "Suspension": "Suspension",
 }
 
 

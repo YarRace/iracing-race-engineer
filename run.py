@@ -27,7 +27,8 @@ from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
 from ire.collector.race_state import (race_extras, SectorTimer, sector_starts,
                                        build_relative)
 from ire.collector.track_map import TrackMapBuilder, save_map, load_map
-from ire.collector.standings import build_standings
+from ire.collector import track_svg
+from ire.collector.standings import build_standings, strength_of_field, cars_in_class
 from ire.collector.stint_recorder import StintDetector
 from ire.metrics.consistency import consistency_metrics
 from ire.storage import history
@@ -57,25 +58,25 @@ def _analyze_bg(frames, setup, conditions):
         STATE["result"] = {"symptoms": build_symptoms(frames, conditions), "analyzing": True}
         res = orchestrator.analyze_stint(frames, setup_path=setup, conditions=conditions)
         STATE["result"] = res
-        print("Готово. Разбор на дашборде.")
+        print("Done. Analysis is on the dashboard.")
     except Exception as e:
         r = STATE.get("result") or {}
         r["analyzing"] = False
         r["explanation_error"] = str(e)
         STATE["result"] = r
-        print("Разбор от модели недоступен (метрики есть):", e)
+        print("Model analysis unavailable (metrics are there):", e)
 
 
 def main():
     # Сервер дашборда поднимается СРАЗУ и работает независимо от состояния сима,
     # поэтому http://localhost:8000 открывается ещё до выезда на трассу.
     threading.Thread(target=_serve, daemon=True).start()
-    print("Дашборд: http://localhost:8000  (ждёт подключения iRacing…)")
-    STATE["live"] = {"status": "ожидание iRacing…"}
+    print("Dashboard: http://localhost:8000  (waiting for iRacing…)")
+    STATE["live"] = {"status": "waiting for iRacing…"}
 
     ir = irsdk.IRSDK()
     hist = history.connect()                      # база истории (круги/стинты) — Фаза 1
-    print(f"История: {history.default_path()}")
+    print(f"History: {history.default_path()}")
     det = StintDetector()
     tracker = None
     sector_timer = None
@@ -85,11 +86,14 @@ def main():
     lap_log = []          # история времён кругов (для блока «Лог кругов»)
     last_logged_lap = None
     last_sess = None      # ключ сессии — для авто-сброса при смене
-    frame_n = 0           # счётчик кадров для троттлинга standings
+    frame_n = 0           # счётчик кадров
+    record = None         # кэш рекорда трассы (запрос к БД — дорогой, обновляем реже)
+    official_map = False  # есть официальная геометрия трассы (тогда не строим из телеметрии)
+    sof_frozen = None     # SoF снимаем ОДИН раз на входе в сессию (см. ниже)
     try:
         while True:
             if not _connected(ir):
-                STATE["live"] = {"status": "ожидание iRacing… (запусти сим и сядь в машину)"}
+                STATE["live"] = {"status": "waiting for iRacing… (start the sim and get in the car)"}
                 time.sleep(1)
                 continue
             ir.freeze_var_buffer_latest()
@@ -97,7 +101,7 @@ def main():
             sess = _session_key(ir)
             if sess != last_sess:
                 if last_sess is not None:
-                    print("Новая сессия — сбрасываю данные дашборда.")
+                    print("New session — resetting dashboard data.")
                 tracker = None
                 sector_timer = None
                 tmb = None
@@ -109,22 +113,37 @@ def main():
                 STATE["strategy"] = {}
                 STATE["race"] = {}
                 STATE["trackmap"] = {}
+                record = None                                # рекорд перечитаем для новой трассы
+                official_map = False
+                sof_frozen = None                            # новая сессия — новый состав, новый SoF
                 last_sess = sess
             if tracker is None:                              # инициализация на первом подключении
                 tracker = StrategyTracker(tank_capacity=fuel_capacity(ir))
                 sector_timer = SectorTimer(sector_starts(ir))  # [] если трасса без секторов
                 ident = session_identity(ir)                 # трасса/машина для истории
                 tmb = TrackMapBuilder()
+                official_map = False
                 if ident.get("track"):
-                    print(f"Трасса: {ident['track_display']} / машина: {ident['car']}")
-                    cached = load_map(ident["track"])         # карта уже построена ранее?
-                    if cached:
-                        tmb.load(cached)
-                        STATE["trackmap"] = {"points": cached}
-                        print("Карта трассы загружена из кэша.")
+                    print(f"Track: {ident['track_display']} / car: {ident['car']}")
+                    tid = (ir["WeekendInfo"] or {}).get("TrackID")
+                    # официальное имя трассы едет вместе с картой — им подписываем её в UI
+                    tinfo = {"track": ident.get("track_display") or ident.get("track"),
+                             "config": ident.get("config")}
+                    off = track_svg.fetch(tid)                # ОФИЦИАЛЬНАЯ геометрия (полная/точная)
+                    if off:
+                        STATE["trackmap"] = {"points": off, "source": "official", **tinfo}
+                        official_map = True
+                        print(f"Track map: OFFICIAL iRacing (track_id {tid}, {len(off)} points).")
+                    else:
+                        reason = track_svg.LAST_ERROR or "?"  # почему официальная не скачалась
+                        cached = load_map(ident["track"])     # иначе — из телеметрии (кэш прошлого круга)
+                        if cached:
+                            tmb.load(cached)
+                            STATE["trackmap"] = {"points": cached, "source": f"own (cached) · no official: {reason}", **tinfo}
+                        print(f"Track map: NO official one (track_id={tid}, {reason}) → telemetry.")
                 # прогрев LLM в фоне, пока едешь — первый разбор будет быстрым
                 threading.Thread(target=warm_up, daemon=True).start()
-                print("Прогрев модели в фоне…")
+                print("Warming up the model in the background…")
             # стратегия считается всегда, пока в сессии (топливо/износ по кругам)
             try:
                 tracker.update(**strategy_inputs(ir))
@@ -134,16 +153,22 @@ def main():
                 # live-кадр ПОСТОЯННО (не только когда сам за рулём) — чтобы в эндурансе
                 # гаражный вид был живым, пока машину ведёт напарник
                 STATE["live"] = live_frame(ir)
+                STATE["live"]["on_track"] = is_on_track(ir)   # для «прятать оверлеи вне трассы»
                 race = race_extras(ir)
                 sector_timer.update(ir["LapDistPct"], ir["SessionTime"])
-                # карта трассы: копим форму по кругу, только пока на трассе
-                if is_on_track(ir):
-                    tmb.update(ir["LapDistPct"], ir["Speed"], ir["YawRate"], ir["SessionTime"])
-                if tmb.new:                                  # круг завершён — карта готова
-                    STATE["trackmap"] = tmb.snapshot()
-                    if ident.get("track"):
-                        save_map(ident["track"], tmb.map)
-                        print("Карта трассы построена и сохранена.")
+                # карта трассы из телеметрии — ТОЛЬКО если нет официальной (полной/точной)
+                if not official_map:
+                    if is_on_track(ir):
+                        tmb.update(ir["LapDistPct"], ir["Speed"], ir["YawRate"], ir["SessionTime"])
+                    if tmb.new:                              # круг завершён — карта готова
+                        snap = tmb.snapshot() or {}
+                        snap["source"] = "own (telemetry)"
+                        snap["track"] = ident.get("track_display") or ident.get("track")
+                        snap["config"] = ident.get("config")
+                        STATE["trackmap"] = snap
+                        if ident.get("track"):
+                            save_map(ident["track"], tmb.map)
+                            print("Track map built and saved.")
                     tmb.new = False
                 # лог кругов: при смене номера круга фиксируем время + сектора
                 if race["lap"] != last_logged_lap:
@@ -156,33 +181,51 @@ def main():
                                 history.save_lap(hist, ident, last_logged_lap, lap_time, sectors)
                             except Exception as e:
                                 if not getattr(main, "_hist_warned", False):
-                                    print("История: не удалось сохранить круг:", e)
+                                    print("History: failed to save lap:", e)
                                     main._hist_warned = True
                     sector_timer.reset()
                     last_logged_lap = race["lap"]
                 race["lap_log"] = lap_log[-20:]              # последние 20 кругов
                 STATE["race"] = race
                 frame_n += 1
-                if frame_n % 15 == 0:                        # таблица + relative ~4 раза/сек
-                    STATE["standings"] = build_standings(ir)
-                    STATE["relative"] = build_relative(ir)   # Relative / радар / трек-ринг
-                if frame_n % 120 == 0:                       # инфо о сессии + рекорд ~1/2сек
+                # рекорд из БД — дорого, поэтому КЭШ: берём один раз и обновляем ~1/2сек
+                # (рекорд меняется максимум раз в круг, чаще спрашивать БД смысла нет)
+                if ident.get("track") and (record is None or frame_n % 120 == 0):
+                    record = history.best_lap(hist, ident["track"], ident["car"])
+                # ВСЕ каналы для оверлея/дашборда — часто и РАВНОМЕРНО (~20/сек, выше частоты
+                # опроса оверлея), чтобы живым был КАЖДЫЙ виджет, а не «пара частичек».
+                # 20/сек (а не 60) — баланс: плавно, но CPU не отбираем у iRacing
+                if frame_n % 3 == 0:
+                    st = build_standings(ir)
+                    STATE["standings"] = st
+                    STATE["relative"] = build_relative(ir)   # Relative / радар / трек-мапа / стинт
                     info = session_info(ir)
-                    info["record"] = (history.best_lap(hist, ident["track"], ident["car"])
-                                      if ident.get("track") else None)
+                    info["record"] = record
+                    # SoF снимаем ОДИН раз, на входе в сессию — как показывает сам iRacing.
+                    # Пересчёт каждый кадр заставлял цифру прыгать от захода/выхода пилотов.
+                    if sof_frozen is None:
+                        irs = [r["irating"] for r in st if r.get("irating")]
+                        if len(irs) >= 2:
+                            sof_frozen = strength_of_field(irs)
+                            print(f"Session SoF: {sof_frozen} ({len(irs)} drivers).")
+                    info["sof"] = sof_frozen
+                    info["cars_class"] = cars_in_class(st)   # live: сошедшие вычитаются
+                    info["cars_total"] = len(st)
+                    info["car_class"] = next((r.get("car_class") for r in st if r.get("is_player")), None)
                     STATE["session"] = info
             except Exception as e:
                 if not getattr(main, "_strat_warned", False):
-                    print("Стратегия/гонка: ошибка чтения каналов:", e)
+                    print("Strategy/race: channel read error:", e)
                     main._strat_warned = True
             state = det.update(on_track=is_on_track(ir))
             if state == "running":
                 f = live_frame(ir)
+                f["on_track"] = True                         # едем сами → точно на трассе
                 STATE["live"] = f
                 frames.append(f)
             elif state == "closed" and frames:
                 # разбор уходит В ФОН — живой цикл не зависает на время инференса LLM
-                print(f"Стинт закрыт ({len(frames)} кадров) → разбор в фоне…")
+                print(f"Stint closed ({len(frames)} frames) → analysis in background…")
                 # сводка стинта в историю (Фаза 1) — считается детерминированно, без LLM
                 if ident.get("track"):
                     try:
@@ -193,7 +236,7 @@ def main():
                             "incidents": (STATE.get("damage") or {}).get("incidents"),
                         })
                     except Exception as e:
-                        print("История: не удалось сохранить стинт:", e)
+                        print("History: failed to save stint:", e)
                 conditions = {"track_temp": frames[0]["track_temp"]}
                 threading.Thread(
                     target=_analyze_bg,

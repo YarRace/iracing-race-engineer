@@ -28,7 +28,7 @@ def test_setup_sheet_lists_all_fields_and_marks_changes():
     # все поля присутствуют (лист полный)
     assert len(sheet.splitlines()) > len(setup["fields"])
     # изменённое поле помечено новым значением и старым в скобках
-    assert "148 kPa   <- ИЗМЕНИТЬ (было 152 kPa)" in sheet
+    assert "148 kPa   <- CHANGE (was 152 kPa)" in sheet
     # неизменённое поле выводится как есть
     assert "Camber: -2.9 deg" in sheet
 
@@ -40,7 +40,7 @@ def test_setup_tabs_grouped_by_section_with_changes():
     sections = [t["section"] for t in tabs]
     assert sections == ["TiresAero", "Chassis", "BrakesDriveUnit"]   # порядок как в CarSetup
     tires = tabs[0]
-    assert tires["title"] == "Шины и аэро" and tires["changed"] == 1
+    assert tires["title"] == "Tires & aero" and tires["changed"] == 1
     # находим изменённую строку
     lf = next(g for g in tires["groups"] if g["group"] == "LeftFront")
     row = next(r for r in lf["rows"] if r["name"] == "StartingPressure")
