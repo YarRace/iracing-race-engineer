@@ -15,8 +15,22 @@ import os
 import re
 
 
+def resample(pts, n=240):
+    """Прорядить путь до n точек, СОХРАНЯЯ порядок движения (НЕ сортируя по pct).
+
+    За круг на 60 Гц копится 5000+ точек — карта «мохнатая» и тяжёлая. Берём n точек
+    равномерно по индексу: форма чистая, порядок = реальная траектория (сортировка
+    по шумному pct «скребла» бы форму), рендер лёгкий.
+    """
+    if len(pts) <= n:
+        return list(pts)
+    step = (len(pts) - 1) / (n - 1)
+    return [pts[round(i * step)] for i in range(n)]
+
+
 def normalize_path(pts):
-    """[(pct, x, y)] сырого пути → [{pct,x,y}] в боксе 0..100 (с полями), по pct."""
+    """[(pct, x, y)] сырого пути → [{pct,x,y}] в боксе 0..100. Порядок НЕ трогаем
+    (он = траектория движения; pct и так растёт по кругу — сортировка бы «скребла»)."""
     xs = [p[1] for p in pts]
     ys = [p[2] for p in pts]
     minx, maxx = min(xs), max(xs)
@@ -26,12 +40,10 @@ def normalize_path(pts):
     scale = 90.0 / max(w, h)                       # вписать в ~90 с полями
     ox = (100 - w * scale) / 2
     oy = (100 - h * scale) / 2
-    out = [{"pct": round(pct, 4),
-            "x": round(ox + (x - minx) * scale, 2),
-            "y": round(oy + (y - miny) * scale, 2)}
-           for pct, x, y in pts]
-    out.sort(key=lambda p: p["pct"])
-    return out
+    return [{"pct": round(pct, 4),
+             "x": round(ox + (x - minx) * scale, 2),
+             "y": round(oy + (y - miny) * scale, 2)}
+            for pct, x, y in pts]
 
 
 class TrackMapBuilder:
@@ -80,7 +92,7 @@ class TrackMapBuilder:
 
     def _finalize(self):
         if len(self._pts) >= self.min_points:
-            self.map = normalize_path(self._pts)
+            self.map = normalize_path(resample(self._pts))   # чистая лёгкая форма
             self.new = True
 
     def snapshot(self):
