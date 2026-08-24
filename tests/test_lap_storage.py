@@ -127,3 +127,37 @@ def test_list_laps_ignores_broken_files(tmp_path):
     (tmp_path / "monza full" / "broken.json.gz").write_bytes(b"not gzip at all")
     # битый файл не должен ронять весь список
     assert len(laps.list_laps(tmp_path)) == 1
+
+
+# ── запись переживает выход из программы ────────────────────────────────────
+
+def test_save_is_atomic_no_half_written_file(tmp_path, monkeypatch):
+    """Обрыв посреди записи не оставляет обрезанный круг в списке.
+
+    Поток записи демонический: закрытие run.py убивает его на месте.
+    Раньше писали прямо в финальный файл — на диске оставался огрызок,
+    который list_laps молча пропускал: круг проехан, а его нет и не видно.
+    """
+    real_dump = laps.json.dump
+
+    def die_midway(obj, fh, **kw):
+        fh.write('{"track":"monza full","channels":{"speed":[1,2')  # оборвались
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(laps.json, "dump", die_midway)
+    with pytest.raises(KeyboardInterrupt):
+        laps.save_lap(tmp_path, IDENT, 7, 105.0, _lap_frames(7))
+
+    monkeypatch.setattr(laps.json, "dump", real_dump)
+    assert laps.list_laps(tmp_path) == []                  # огрызка в списке нет
+    assert list(tmp_path.rglob("*.json.gz")) == []          # и на диске тоже
+    assert list(tmp_path.rglob("*.tmp")) == []              # временный убран за собой
+
+
+def test_save_replaces_only_after_full_write(tmp_path):
+    """Файл под финальным именем появляется уже целым."""
+    path = laps.save_lap(tmp_path, IDENT, 8, 104.5, _lap_frames(8))
+    assert path is not None and path.exists()
+    m = laps.load_lap(path)                                  # читается без ошибки
+    assert m["lap_num"] == 8
+    assert len(m["channels"]["speed"]) == laps.POINTS

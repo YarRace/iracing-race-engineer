@@ -20,6 +20,7 @@ POINTS=1000 — это 0.1% дистанции, около пяти метров
 """
 import gzip
 import json
+import os
 import pathlib
 
 from . import history
@@ -156,8 +157,26 @@ def save_lap(root, identity, lap_num, lap_t, frames, valid=None):
     d.mkdir(parents=True, exist_ok=True)
     name = f"{_slug(identity.get('car'))}-{meta['ts'][:19].replace(':', '')}-l{lap_num}.json.gz"
     path = d / name
-    with gzip.open(path, "wt", encoding="utf-8") as fh:
-        json.dump({**meta, "channels": ch}, fh, separators=(",", ":"))
+
+    # Пишем во временный файл и подменяем одним движением. Сохранение идёт
+    # в фоновом потоке, а поток демонический: закрыл run.py сразу после линии —
+    # его убили посреди записи. Без подмены на диске оставался обрезанный
+    # .json.gz, который list_laps молча пропускает: круг проехан, а его нет.
+    # Расширение .tmp не попадает под маску *.json.gz, поэтому недописанный
+    # файл невидим для списка даже до уборки.
+    tmp = d / (name + ".tmp")
+    try:
+        with gzip.open(tmp, "wt", encoding="utf-8") as fh:
+            json.dump({**meta, "channels": ch}, fh, separators=(",", ":"))
+        os.replace(tmp, path)
+    except BaseException:
+        # BaseException, а не Exception: поток гасят через SystemExit,
+        # и мусор надо убрать в том числе на этом пути.
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
     return path
 
 
