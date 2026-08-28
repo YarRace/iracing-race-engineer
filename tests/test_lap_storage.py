@@ -127,3 +127,72 @@ def test_list_laps_ignores_broken_files(tmp_path):
     (tmp_path / "monza full" / "broken.json.gz").write_bytes(b"not gzip at all")
     # битый файл не должен ронять весь список
     assert len(laps.list_laps(tmp_path)) == 1
+
+
+# ── запись переживает выход из программы ────────────────────────────────────
+
+def test_save_is_atomic_no_half_written_file(tmp_path, monkeypatch):
+    """Обрыв посреди записи не оставляет обрезанный круг в списке.
+
+    Поток записи демонический: закрытие run.py убивает его на месте.
+    Раньше писали прямо в финальный файл — на диске оставался огрызок,
+    который list_laps молча пропускал: круг проехан, а его нет и не видно.
+    """
+    real_dump = laps.json.dump
+
+    def die_midway(obj, fh, **kw):
+        fh.write('{"track":"monza full","channels":{"speed":[1,2')  # оборвались
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(laps.json, "dump", die_midway)
+    with pytest.raises(KeyboardInterrupt):
+        laps.save_lap(tmp_path, IDENT, 7, 105.0, _lap_frames(7))
+
+    monkeypatch.setattr(laps.json, "dump", real_dump)
+    assert laps.list_laps(tmp_path) == []                  # огрызка в списке нет
+    assert list(tmp_path.rglob("*.json.gz")) == []          # и на диске тоже
+    assert list(tmp_path.rglob("*.tmp")) == []              # временный убран за собой
+
+
+def test_save_replaces_only_after_full_write(tmp_path):
+    """Файл под финальным именем появляется уже целым."""
+    path = laps.save_lap(tmp_path, IDENT, 8, 104.5, _lap_frames(8))
+    assert path is not None and path.exists()
+    m = laps.load_lap(path)                                  # читается без ошибки
+    assert m["lap_num"] == 8
+    assert len(m["channels"]["speed"]) == laps.POINTS
+
+
+def test_two_writers_same_lap_never_corrupt(tmp_path):
+    """Два одновременных сохранения одного круга не портят файл.
+
+    28.08.2026: у Ярослава были запущены два run.py. Оба увидели одну смену
+    круга и начали писать файл с одинаковым именем — имя строится из машины,
+    времени с точностью до СЕКУНДЫ и номера круга, так что совпало. Четыре
+    круга из пяти легли кашей: битый CRC, буквы посреди чисел.
+
+    Гонку не убираем — она возможна всегда. Убираем порчу: у каждого писателя
+    свой .tmp, а os.replace подменяет файл целиком.
+    """
+    import threading as th
+    frames = _lap_frames(5)
+    errors = []
+
+    def write():
+        try:
+            laps.save_lap(tmp_path, IDENT, 5, 105.0, frames)
+        except Exception as e:                      # noqa: BLE001 — важен сам факт
+            errors.append(e)
+
+    ts = [th.Thread(target=write) for _ in range(6)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert not errors
+    got = laps.list_laps(tmp_path)
+    assert len(got) == 1                            # имя одно — файл один
+    m = laps.load_lap(got[0]["path"])               # и он ЧИТАЕТСЯ
+    assert len(m["channels"]["speed"]) == laps.POINTS
+    assert not list(tmp_path.rglob("*.tmp"))        # временные убраны за собой

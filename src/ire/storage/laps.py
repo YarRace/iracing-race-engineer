@@ -20,7 +20,10 @@ POINTS=1000 — это 0.1% дистанции, около пяти метров
 """
 import gzip
 import json
+import os
 import pathlib
+import threading
+import time
 
 from . import history
 
@@ -156,9 +159,58 @@ def save_lap(root, identity, lap_num, lap_t, frames, valid=None):
     d.mkdir(parents=True, exist_ok=True)
     name = f"{_slug(identity.get('car'))}-{meta['ts'][:19].replace(':', '')}-l{lap_num}.json.gz"
     path = d / name
-    with gzip.open(path, "wt", encoding="utf-8") as fh:
-        json.dump({**meta, "channels": ch}, fh, separators=(",", ":"))
+
+    # Пишем во временный файл и подменяем одним движением. Сохранение идёт
+    # в фоновом потоке, а поток демонический: закрыл run.py сразу после линии —
+    # его убили посреди записи. Без подмены на диске оставался обрезанный
+    # .json.gz, который list_laps молча пропускает: круг проехан, а его нет.
+    # Расширение .tmp не попадает под маску *.json.gz, поэтому недописанный
+    # файл невидим для списка даже до уборки.
+    #
+    # Имя временного файла уникально для каждого писателя (процесс + поток).
+    # Имя КРУГА уникальности не даёт: в него входит время с точностью до
+    # секунды, и два запущенных run.py видят одну и ту же смену круга в один
+    # и тот же миг. 28.08.2026 так и вышло — два процесса писали один файл,
+    # и четыре круга из пяти легли на диск перемешанной кашей (битый CRC,
+    # буквы посреди чисел). С уникальным .tmp гонка остаётся, но каждый пишет
+    # своё, а os.replace подменяет целиком: побеждает последний, файл всегда
+    # читается.
+    tmp = d / f"{name}.{os.getpid()}-{threading.get_ident()}.tmp"
+    try:
+        with gzip.open(tmp, "wt", encoding="utf-8") as fh:
+            json.dump({**meta, "channels": ch}, fh, separators=(",", ":"))
+        _replace_with_retry(tmp, path)
+    except BaseException:
+        # BaseException, а не Exception: поток гасят через SystemExit,
+        # и мусор надо убрать в том числе на этом пути.
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
     return path
+
+
+def _replace_with_retry(tmp, path, tries=6, pause=0.05):
+    """Подменить файл, переждав соседа.
+
+    Windows отказывает в доступе, если тот же файл прямо сейчас подменяет
+    другой писатель, — в отличие от POSIX, где os.replace просто выигрывает.
+    Ждём и пробуем снова; если сосед всё-таки успел раньше, круг уже лежит
+    на диске (данные те же — то же имя означает ту же машину, ту же секунду
+    и тот же номер круга), и настаивать не на чем.
+    """
+    for attempt in range(tries):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                if path.exists():
+                    tmp.unlink(missing_ok=True)     # сосед записал тот же круг
+                    return
+                raise
+            time.sleep(pause)
 
 
 def load_lap(path):

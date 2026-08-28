@@ -52,6 +52,9 @@ def _session_key(ir):
     return (ir["SessionNum"], wk.get("SubSessionID"), ir["SessionUniqueID"])
 
 
+_lap_writers = []     # живые потоки записи — их дожидаемся на выходе
+
+
 def _save_lap_bg(ident, lap_num, frames):
     """Кладёт завершённый круг на диск в фоне.
 
@@ -70,7 +73,20 @@ def _save_lap_bg(ident, lap_num, frames):
         except Exception as e:
             print("Lap storage: failed to save lap:", e)
 
-    threading.Thread(target=work, args=(list(frames),), daemon=True).start()
+    th = threading.Thread(target=work, args=(list(frames),), daemon=True)
+    th.start()
+    _lap_writers[:] = [t for t in _lap_writers if t.is_alive()] + [th]
+
+
+def _flush_lap_writers(timeout=5.0):
+    """Дать записи кругов договорить перед выходом.
+
+    Потоки демонические: без этого выход из программы убивает их на месте,
+    и круг, пересечённый за секунду до закрытия, пропадает. Ждём не больше
+    timeout — зависшая запись не должна держать программу.
+    """
+    for th in [t for t in _lap_writers if t.is_alive()]:
+        th.join(timeout)
 
 
 def _analyze_bg(frames, setup, conditions, identity=None):
@@ -284,6 +300,7 @@ def main():
                 det = StintDetector()                    # готов к следующему стинту
             time.sleep(1 / 60)
     finally:
+        _flush_lap_writers()
         ir.shutdown()
 
 
