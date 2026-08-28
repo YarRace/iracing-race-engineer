@@ -161,3 +161,38 @@ def test_save_replaces_only_after_full_write(tmp_path):
     m = laps.load_lap(path)                                  # читается без ошибки
     assert m["lap_num"] == 8
     assert len(m["channels"]["speed"]) == laps.POINTS
+
+
+def test_two_writers_same_lap_never_corrupt(tmp_path):
+    """Два одновременных сохранения одного круга не портят файл.
+
+    28.08.2026: у Ярослава были запущены два run.py. Оба увидели одну смену
+    круга и начали писать файл с одинаковым именем — имя строится из машины,
+    времени с точностью до СЕКУНДЫ и номера круга, так что совпало. Четыре
+    круга из пяти легли кашей: битый CRC, буквы посреди чисел.
+
+    Гонку не убираем — она возможна всегда. Убираем порчу: у каждого писателя
+    свой .tmp, а os.replace подменяет файл целиком.
+    """
+    import threading as th
+    frames = _lap_frames(5)
+    errors = []
+
+    def write():
+        try:
+            laps.save_lap(tmp_path, IDENT, 5, 105.0, frames)
+        except Exception as e:                      # noqa: BLE001 — важен сам факт
+            errors.append(e)
+
+    ts = [th.Thread(target=write) for _ in range(6)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert not errors
+    got = laps.list_laps(tmp_path)
+    assert len(got) == 1                            # имя одно — файл один
+    m = laps.load_lap(got[0]["path"])               # и он ЧИТАЕТСЯ
+    assert len(m["channels"]["speed"]) == laps.POINTS
+    assert not list(tmp_path.rglob("*.tmp"))        # временные убраны за собой
