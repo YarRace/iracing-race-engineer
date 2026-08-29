@@ -147,6 +147,9 @@ def test_russian_plurals_on_site():
 
 # ── виджеты оверлея: износ по зонам и пит-лимитер ───────────────────────────
 
+from overlay.widgets import PURPLE, RED          # цвета для проверок
+
+
 def _widget(title):
     import sys
     sys.path.insert(0, ".")
@@ -190,3 +193,111 @@ def test_pit_helper_shows_excess_speed():
                      live={"speed": 26.4}, strategy={})     # 95 км/ч
     rows = dict((r[0], r[1]) for r in w.rows())
     assert rows["Over limit"].startswith("+35")
+
+
+# ── доведённые виджеты: проверяем смысл, а не отрисовку ─────────────────────
+
+class _Cfg:
+    """Конфиг-заглушка: отдаёт значения по умолчанию либо заданные."""
+
+    def __init__(self, **opts):
+        self._o = opts
+
+    def widget_opt(self, key, name, default=None):
+        return self._o.get(name, default)
+
+
+def _mk(title, store, **opts):
+    """Виджет без конструктора Qt: нужны только rows() и настройки."""
+    W = _widget(title)
+    w = W.__new__(W)
+    w.store = store
+    w.config = _Cfg(**opts)
+    return w
+
+
+def test_laps_shows_delta_to_best_and_marks_personal_best():
+    """Разница с лучшим — то, ради чего на виджет смотрят посреди круга."""
+    w = _mk("Laps", _Store(race={"last_lap_time": 92.4, "best_lap_time": 91.8}))
+    rows = {r[0]: r[1] for r in w.rows()}
+    assert rows["Δ to best"] == "+0.600"
+
+    w = _mk("Laps", _Store(race={"last_lap_time": 91.5, "best_lap_time": 91.5}))
+    rows = w.rows()
+    last = next(r for r in rows if r[0] == "Last")
+    assert last[2] == PURPLE                      # личный рекорд виден сразу
+
+
+def test_shift_offset_moves_the_threshold():
+    """Многие переключают раньше SDK — сдвиг обязан менять момент подсказки."""
+    store = _Store(race={"rpm": 6600, "shift_rpm": 7000})
+    assert {r[0]: r[1] for r in _mk("RPM & shift", store).rows()}["To shift"] == "400"
+    # сдвинули точку на 600 ниже — переключаться пора уже сейчас
+    early = _mk("RPM & shift", store, shift_offset=-600)
+    assert {r[0]: r[1] for r in early.rows()}["To shift"] == "NOW"
+
+
+def test_session_warns_in_last_five_minutes():
+    w = _mk("Session", _Store(session={"time_remain": 240.0}))
+    tl = next(r for r in w.rows() if r[0] == "Time left")
+    assert tl[2] == RED
+    w = _mk("Session", _Store(session={"time_remain": 1800.0}))
+    tl = next(r for r in w.rows() if r[0] == "Time left")
+    assert tl[2] != RED
+
+
+def test_weather_shows_temperatures_and_converts_units():
+    """Раньше виджет молчал про температуры — два самых нужных числа."""
+    store = _Store(race={}, live={"track_temp": 27.0, "air_temp": 21.0})
+    rows = {r[0]: r[1] for r in _mk("Weather", store).rows()}
+    assert rows["Track"] == "27°C" and rows["Air"] == "21°C"
+    rows = {r[0]: r[1] for r in _mk("Weather", store, units="f").rows()}
+    assert rows["Track"] == "81°F"
+
+
+def test_top_speed_resets_max_on_new_lap():
+    """Максимум за сессию снимается один раз; полезен максимум ЗА КРУГ."""
+    w = _mk("Top speed", _Store(live={"speed": 80.0}, race={"lap": 3}))
+    w.rows()
+    w.store = _Store(live={"speed": 50.0}, race={"lap": 3})
+    assert {r[0]: r[1] for r in w.rows()}["This lap"] == "288 km/h"
+    w.store = _Store(live={"speed": 50.0}, race={"lap": 4})     # новый круг
+    rows = {r[0]: r[1] for r in w.rows()}
+    assert rows["This lap"] == "180 km/h"
+    assert rows["Last lap"] == "288 km/h"
+    assert rows["Session"] == "288 km/h"                        # за сессию помним
+
+
+def test_slip_learns_the_car_then_tells_understeer_from_oversteer():
+    """Снос и занос лечатся противоположным — одно слово на оба бесполезно.
+
+    Норму связи «руль → рыскание» виджет выучивает сам: она зависит от
+    передаточного числа рулевой и базы, а SDK отдаёт угол руля, не колёс.
+    """
+    w = _mk("Slip", _Store(live={}))
+
+    # спокойные круги: машина держит, копим норму этой машины
+    for _ in range(60):
+        w.store = _Store(live={"yaw_rate": 0.30, "steer": 0.20, "speed": 50.0})
+        w.rows()
+    assert {r[0]: r[1] for r in w.rows()}["Balance"] == "balanced"
+
+    # тот же руль и скорость, а рыскания почти нет — не поворачивает
+    w.store = _Store(live={"yaw_rate": 0.05, "steer": 0.20, "speed": 50.0})
+    assert {r[0]: r[1] for r in w.rows()}["Balance"] == "understeer"
+
+    # рыскание втрое выше нормы при том же руле — поехала задняя ось
+    w.store = _Store(live={"yaw_rate": 1.00, "steer": 0.20, "speed": 50.0})
+    assert {r[0]: r[1] for r in w.rows()}["Balance"] == "oversteer"
+
+
+def test_slip_says_it_is_still_learning():
+    """Пока нормы нет — честное «учусь», а не выдуманный вердикт."""
+    w = _mk("Slip", _Store(live={"yaw_rate": 0.3, "steer": 0.2, "speed": 50.0}))
+    assert {r[0]: r[1] for r in w.rows()}["Balance"] == "learning…"
+
+
+def test_slip_stays_quiet_in_the_pits():
+    """На малой скорости руль вывернут, но это не срыв."""
+    w = _mk("Slip", _Store(live={"yaw_rate": 0.1, "steer": 0.9, "speed": 3.0}))
+    assert {r[0]: r[1] for r in w.rows()}["Balance"] == "—"

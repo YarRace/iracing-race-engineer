@@ -228,38 +228,176 @@ class DeltaWidget(OverlayWidget):
 
 
 class ShiftWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "shift", "RPM & shift", (180, 90), "solo", ("race",)
+    """Обороты и момент переключения.
+
+    Голое число оборотов бесполезно: важно, сколько осталось до переключения.
+    Показываем процент от точки шифта и сколько оборотов в запасе — на это
+    можно смотреть боковым зрением, не считая цифры.
+
+    Смещение точки: многие переключают раньше, чем советует SDK, потому что
+    держат машину в полке момента. Настройка сдвигает порог на ±500 об/мин.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "shift", "RPM & shift", (200, 130), "solo", ("race",)
+
+    def extra_settings(self, lay):
+        self.opt_slider(lay, "Сдвиг точки шифта (об/мин)", "shift_offset", -500, 500, 0)
+        self.opt_check(lay, "Остаток до шифта", "show_left", True)
 
     def rows(self):
         r = self.store.get("race")
-        rpm, sh = fastval("rpm", r.get("rpm")), fastval("shift_rpm", r.get("shift_rpm"))
-        up = rpm is not None and sh and rpm >= sh
-        return [("RPM", str(round(rpm)) if rpm is not None else "—", RED if up else WHITE),
-                ("", "↑ SHIFT" if up else "accelerating", AMBER if up else MUTED)]
+        rpm = fastval("rpm", r.get("rpm"))
+        sh = fastval("shift_rpm", r.get("shift_rpm"))
+        if isinstance(sh, (int, float)) and sh > 0:
+            sh = max(1000.0, sh + self._opt("shift_offset", 0))
+
+        if not isinstance(rpm, (int, float)):
+            return [("RPM", "—"), ("Shift at", "—")]
+
+        frac = rpm / sh if isinstance(sh, (int, float)) and sh > 0 else None
+        up = frac is not None and frac >= 1.0
+        near = frac is not None and frac >= 0.94
+
+        col = RED if up else (AMBER if near else WHITE)
+        out = [("RPM", str(round(rpm)), col)]
+        if frac is not None:
+            out.append(("Of shift", f"{round(frac * 100)}%", col))
+            if self._opt("show_left", True):
+                left = sh - rpm
+                out.append(("To shift", f"{round(left)}" if left > 0 else "NOW",
+                            AMBER if near and not up else MUTED))
+            out.append(("Shift at", str(round(sh))))
+        else:
+            out.append(("Shift at", "—"))
+        return out
 
 
 class TopSpeedWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "topspeed", "Top speed", (190, 90), "solo", ("live",)
+    """Скорость: сейчас, максимум за круг и максимум за сессию.
+
+    Максимум за сессию сам по себе бесполезен — он снимается один раз
+    и больше не меняется. А вот максимум ЗА КРУГ показывает, теряешь ли
+    ты на прямой: упал на 4 км/ч — значит вышел из поворота хуже.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "topspeed", "Top speed", (210, 130), "solo", ("live", "race")
+
+    def extra_settings(self, lay):
+        self.opt_choice(lay, "Единицы", "units",
+                        [("kmh", "км/ч"), ("mph", "mph")])
+        self.opt_check(lay, "Максимум за круг", "show_lap_max", True)
+
+    def _sp(self, kmh):
+        if not isinstance(kmh, (int, float)):
+            return "—"
+        if self._opt("units", "kmh") == "mph":
+            return f"{round(kmh / 1.609)} mph"
+        return f"{round(kmh)} km/h"
 
     def rows(self):
         spd = self.store.get("live").get("speed")
+        lap = self.store.get("race").get("lap")
         kmh = spd * 3.6 if isinstance(spd, (int, float)) else None
+
+        if lap is not None and lap != getattr(self, "_lap", None):
+            self._lap = lap
+            self._prev_lap_mx = getattr(self, "_lap_mx", None)
+            self._lap_mx = 0.0
         if kmh is not None:
-            self._mx = max(getattr(self, "_mx", 0), kmh)
-        return [("Now", f"{round(kmh)} km/h" if kmh is not None else "—"),
-                ("Max", f"{round(getattr(self, '_mx', 0))} km/h", BLUE)]
+            self._mx = max(getattr(self, "_mx", 0.0), kmh)
+            self._lap_mx = max(getattr(self, "_lap_mx", 0.0), kmh)
+
+        out = [("Now", self._sp(kmh))]
+        if self._opt("show_lap_max", True):
+            lm = getattr(self, "_lap_mx", None)
+            prev = getattr(self, "_prev_lap_mx", None)
+            col = WHITE
+            if isinstance(lm, (int, float)) and isinstance(prev, (int, float)) and prev > 0:
+                col = GREEN if lm >= prev else AMBER
+            out.append(("This lap", self._sp(lm), col))
+            if isinstance(prev, (int, float)) and prev > 0:
+                out.append(("Last lap", self._sp(prev), MUTED))
+        out.append(("Session", self._sp(getattr(self, "_mx", None)), BLUE))
+        return out
 
 
 class SlipWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "slip", "Slip", (180, 90), "solo", ("live",)
+    """Срыв: не просто «скользит», а В КАКУЮ СТОРОНУ.
+
+    Раньше виджет смотрел только на скорость рыскания и говорил «sliding».
+    Но снос передней оси и занос задней лечатся ПРОТИВОПОЛОЖНЫМ: при сносе
+    руль надо распустить, при заносе — ловить. Одно слово на оба случая
+    ничем не помогает.
+
+    Различаем по несоответствию руля и рыскания: много руля при слабом
+    рыскании — машина не поворачивает, снос; рыскание больше, чем просит
+    руль, — задняя ось поехала.
+
+    Виджет САМ КАЛИБРУЕТСЯ под машину. Связь руля и рыскания зависит от
+    передаточного числа рулевой и колёсной базы, а SDK отдаёт угол РУЛЯ,
+    а не колёс. Любая зашитая константа врала бы: у формулы и у GT3 эти
+    числа разные. Поэтому копим отношение рыскания к рулю на СПОКОЙНЫХ
+    участках, берём медиану за норму этой машины и сравниваем с ней.
+
+    Это признак, а не измерение: настоящий угол увода требует данных
+    с колёс, которых в SDK нет.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "slip", "Slip", (210, 130), "solo", ("live",)
+    MIN_SPEED = 8.0                                  # м/с, ниже — манёвры в боксе
+
+
+    CALIB_N = 200                                    # замеров нормы (≈ 3 секунды)
+    CALIB_MIN = 40                                   # с чего начинаем верить медиане
+
+    def _balance(self, live, yr, dps, thr):
+        """Снос / занос / нейтрально — по отклонению от нормы ЭТОЙ машины."""
+        steer = fastval("steer", live.get("steer"))
+        spd = fastval("speed", live.get("speed"))
+        if not (isinstance(steer, (int, float)) and isinstance(spd, (int, float))):
+            return ("Balance", "—", MUTED)
+        if spd <= self.MIN_SPEED or abs(steer) < 0.05:
+            return ("Balance", "—", MUTED)      # стоим или едем прямо — судить не о чем
+
+        k = abs(yr) / (abs(steer) * spd)
+        base = getattr(self, "_calib", [])
+        if dps < thr:                                # норму копим только на держащей машине
+            base = (base + [k])[-self.CALIB_N:]
+            self._calib = base
+        if len(base) < self.CALIB_MIN:
+            return ("Balance", "learning…", MUTED)
+
+        ref = sorted(base)[len(base) // 2]            # медиана устойчивее среднего к выбросам
+        if ref <= 1e-9:
+            return ("Balance", "—", MUTED)
+        ratio = k / ref
+        if ratio < 0.6:
+            return ("Balance", "understeer", AMBER)
+        if ratio > 1.6:
+            return ("Balance", "oversteer", RED)
+        return ("Balance", "balanced", GREEN)
+
+    def extra_settings(self, lay):
+        self.opt_slider(lay, "Порог срыва (°/с)", "thr", 10, 60, 25)
+        self.opt_check(lay, "Различать снос и занос", "detect_kind", True)
 
     def rows(self):
-        yr = self.store.get("live").get("yaw_rate")
-        if yr is None:
+        l = self.store.get("live")
+        yr = fastval("yaw_rate", l.get("yaw_rate"))
+        if not isinstance(yr, (int, float)):
             return [("Slip", "—")]
+
         dps = abs(yr * 180 / math.pi)
-        lab, col = ("stable", GREEN) if dps < 25 else (("sliding", AMBER) if dps < 50 else ("spinning!", RED))
-        return [("State", lab, col), ("Yaw rate", f"{round(dps)}°/s")]
+        thr = self._opt("thr", 25)
+        state, col = (("stable", GREEN) if dps < thr
+                      else ("sliding", AMBER) if dps < thr * 2 else ("spinning!", RED))
+        out = [("State", state, col)]
+
+        if self._opt("detect_kind", True):
+            out.append(self._balance(l, yr, dps, thr))
+
+        out.append(("Yaw rate", f"{round(dps)}°/s"))
+        return out
 
 
 class PosTrendWidget(StatWidget):
@@ -290,13 +428,41 @@ class PositionWidget(StatWidget):
 
 
 class TimingWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "timing", "Laps", (210, 110), "solo", ("race",)
+    """Времена круга. Голые три времени мало говорят: важна РАЗНИЦА между
+    последним и лучшим — по ней видно, едешь ты в темпе или сыплешься."""
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "timing", "Laps", (210, 150), "solo", ("race",)
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Разница с лучшим", "show_delta", True)
+        self.opt_check(lay, "Прогноз круга", "show_pred", True)
+        self.opt_check(lay, "Номер круга", "show_lap", False)
 
     def rows(self):
         r = self.store.get("race")
-        return [("Last", lap_time(r.get("last_lap_time"))),
-                ("Best", lap_time(r.get("best_lap_time")), PURPLE),
-                ("Predicted", lap_time(r.get("predicted")))]
+        last, best = r.get("last_lap_time"), r.get("best_lap_time")
+        out = []
+        if self._opt("show_lap", False):
+            lap = r.get("lap")
+            out.append(("Lap", str(lap) if lap is not None else "—"))
+
+        # последний круг красим сам по себе: личный рекорд — фиолетовым,
+        # как в таймингах iRacing, чтобы не искать глазами в какой строке
+        last_col = WHITE
+        if isinstance(last, (int, float)) and isinstance(best, (int, float)):
+            last_col = PURPLE if last <= best else WHITE
+        out.append(("Last", lap_time(last), last_col))
+        out.append(("Best", lap_time(best), PURPLE))
+
+        if self._opt("show_delta", True):
+            if isinstance(last, (int, float)) and isinstance(best, (int, float)):
+                d = last - best
+                out.append(("Δ to best", f"{d:+.3f}", GREEN if d <= 0 else RED))
+            else:
+                out.append(("Δ to best", "—"))
+        if self._opt("show_pred", True):
+            out.append(("Predicted", lap_time(r.get("predicted"))))
+        return out
 
 
 class CycleBind:
@@ -464,14 +630,42 @@ class SummaryWidget(StatWidget):
 
 
 class SessionWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "session", "Session", (210, 110), "solo", ("session",)
+    """Что за сессия и сколько её осталось.
+
+    Время суток НА ТРАССЕ добавлено не для красоты: в эндурансе по нему
+    планируют смену на фары и понимают, когда упадёт температура покрытия.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "session", "Session", (220, 150), "solo", ("session",)
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Время суток на трассе", "show_tod", True)
+        self.opt_check(lay, "Сила заезда (SoF)", "show_sof", True)
+        self.opt_check(lay, "Пройдено кругов", "show_done", False)
 
     def rows(self):
         s = self.store.get("session")
         lr, lt = s.get("laps_remain"), s.get("laps_total")
-        return [("Event", ev(s.get("session_type"))),
-                ("Time left", fmt_time(s.get("time_remain"))),
-                ("Laps", f"{lr}{'/' + str(lt) if lt else ''}" if lr is not None else "—")]
+        out = [("Event", ev(s.get("session_type")))]
+
+        tr = s.get("time_remain")
+        # красным последние пять минут: время дозаправиться и не попасть
+        # под клетчатый флаг посреди круга
+        col = RED if isinstance(tr, (int, float)) and 0 < tr <= 300 else WHITE
+        out.append(("Time left", fmt_time(tr), col))
+
+        if lr is not None:
+            out.append(("Laps left", f"{lr}{'/' + str(lt) if lt else ''}"))
+        else:
+            out.append(("Laps left", "—"))
+        if self._opt("show_done", False) and lr is not None and lt:
+            out.append(("Done", f"{max(0, lt - lr)} of {lt}"))
+        if self._opt("show_tod", True):
+            out.append(("Track time", s.get("time_of_day") or "—"))
+        if self._opt("show_sof", True):
+            sof = s.get("sof")
+            out.append(("SoF", f"{round(sof / 1000, 1)}k" if isinstance(sof, (int, float)) else "—"))
+        return out
 
 
 class RecordDeltaWidget(StatWidget):
@@ -503,14 +697,64 @@ class ErsWidget(StatWidget):
 
 
 class WeatherWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "weather", "Weather", (200, 110), "solo", ("race",)
+    """Погода и температуры.
+
+    Раньше виджет показывал ветер, влажность и покрытие — и молчал про
+    ТЕМПЕРАТУРЫ, хотя это два самых нужных числа: от температуры трассы
+    зависит и сцепление, и то, как быстро уйдёт резина.
+
+    Тренд считается по своей истории: держим замеры и сравниваем с тем,
+    что было несколько минут назад. Остывающая трасса означает, что круги
+    начнут улучшаться, нагревающаяся — что резина поедет раньше срока.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "weather", "Weather", (220, 170), "solo", ("race", "live")
+    TREND_N = 90                                    # замеров в памяти (≈ полторы минуты)
+
+    def extra_settings(self, lay):
+        self.opt_choice(lay, "Градусы", "units",
+                        [("c", "°C"), ("f", "°F")])
+        self.opt_check(lay, "Тренд температуры", "show_trend", True)
+        self.opt_check(lay, "Влажность и ветер", "show_wind", True)
+
+    def _deg(self, c):
+        if not isinstance(c, (int, float)):
+            return "—"
+        if self._opt("units", "c") == "f":
+            return f"{round(c * 9 / 5 + 32)}°F"
+        return f"{round(c)}°C"
 
     def rows(self):
-        r = self.store.get("race")
-        wv, h = r.get("wind_vel"), r.get("humidity")
-        return [("Wind", f"{wv:.1f} m/s" if isinstance(wv, (int, float)) else "—"),
-                ("Humidity", f"{round((h or 0)*100)}%" if h is not None else "—"),
-                ("Surface", wetness(r.get("track_wetness")))]
+        r, l = self.store.get("race"), self.store.get("live")
+        tt, at = l.get("track_temp"), l.get("air_temp")
+
+        hist = getattr(self, "_hist", [])
+        if isinstance(tt, (int, float)):
+            hist = (hist + [tt])[-self.TREND_N:]
+            self._hist = hist
+
+        out = [("Track", self._deg(tt)), ("Air", self._deg(at))]
+
+        if self._opt("show_trend", True):
+            if len(hist) >= self.TREND_N // 2:
+                d = hist[-1] - hist[0]
+                if d > 0.3:
+                    out.append(("Trend", f"▲ +{d:.1f}°", AMBER))
+                elif d < -0.3:
+                    out.append(("Trend", f"▼ {d:.1f}°", BLUE))
+                else:
+                    out.append(("Trend", "steady", MUTED))
+            else:
+                out.append(("Trend", "measuring…", MUTED))
+
+        wet = r.get("track_wetness")
+        out.append(("Surface", wetness(wet), GREEN if (wet or 0) <= 1 else AMBER))
+
+        if self._opt("show_wind", True):
+            wv, h = r.get("wind_vel"), r.get("humidity")
+            out.append(("Wind", f"{wv:.1f} m/s" if isinstance(wv, (int, float)) else "—"))
+            out.append(("Humidity", f"{round(h * 100)}%" if isinstance(h, (int, float)) else "—"))
+        return out
 
 
 class PitHelperWidget(StatWidget):
