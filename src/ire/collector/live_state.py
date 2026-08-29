@@ -145,11 +145,26 @@ def session_identity(ir):
 
 
 def tire_wear_by_corner(ir):
-    """Мин. остаток протектора по каждому углу (0..1): худшая из 3 точек L/M/R."""
+    """Остаток протектора по углам (0..1), по трём зонам плюс худшая из них.
+
+    SDK отдаёт три точки на колесо — внутреннюю, среднюю и внешнюю. Раньше мы
+    сразу брали минимум и три числа превращались в одно. Но именно РАЗНИЦА
+    между зонами и говорит, что не так: съеденный внешний край — мало давления
+    или много развала, изношенная середина — перекачано. Одно число об этом
+    молчит.
+
+    Формат: {"LF": {"l":…, "m":…, "r":…, "min":…}, …}. Ключ "min" оставлен,
+    потому что на него опираются график износа по кругам и расчёт стратегии.
+    """
     out = {}
     for c, t in channels.TIRE_WEAR.items():
-        vals = [ir[ch] for ch in t if ir[ch] is not None]
-        out[c] = round(min(vals), 3) if vals else None
+        zones = {}
+        for key, ch in zip(("l", "m", "r"), t):
+            v = ir[ch]
+            zones[key] = round(v, 3) if isinstance(v, (int, float)) else None
+        vals = [v for v in zones.values() if v is not None]
+        zones["min"] = round(min(vals), 3) if vals else None
+        out[c] = zones
     return out
 
 

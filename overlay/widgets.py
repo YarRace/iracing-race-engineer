@@ -73,6 +73,19 @@ def fastval(name, fallback):
             return v
     return fallback
 
+def _worst(corner):
+    """Худшая зона угла (0..1). Понимает и старый формат — одно число на угол."""
+    if isinstance(corner, (int, float)):
+        return corner
+    if isinstance(corner, dict):
+        v = corner.get("min")
+        if v is None:
+            vals = [x for k, x in corner.items() if k != "min" and isinstance(x, (int, float))]
+            return min(vals) if vals else None
+        return v
+    return None
+
+
 
 def _logo(name):
     """QPixmap логотипа марки (или None) — с защитой от отсутствия модуля/файла."""
@@ -503,17 +516,33 @@ class WeatherWidget(StatWidget):
 class PitHelperWidget(StatWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "pithelper", "Pit helper", (210, 110), "solo", ("race", "live", "strategy")
 
+    LIMIT_KMH = 60.0                                   # пит-лимит iRacing по умолчанию
+
     def rows(self):
         r = self.store.get("race")
         if not r.get("on_pit"):
             return [("Pit", "not on pit lane")]
         spd = self.store.get("live").get("speed")
         kmh = spd * 3.6 if isinstance(spd, (int, float)) else None
-        over = kmh is not None and kmh > 62
         add = self.store.get("strategy").get("fuel_to_add")
-        return [("Speed", f"{round(kmh)} km/h" if kmh is not None else "—", RED if over else GREEN),
-                ("Limit", "SLOW DOWN! ~60" if over else "OK"),
-                ("Add", f"+{add} L" if isinstance(add, (int, float)) and add > 0 else "not needed")]
+
+        # Лимитер уже декодируется из EngineWarnings — мы просто не смотрели.
+        # Забытый лимитер стоит дороже превышения: проезд мимо бокса и штраф.
+        limiter = any(w.get("key") == "pit_limiter" for w in (r.get("warnings") or []))
+        over = kmh is not None and kmh > self.LIMIT_KMH + 2
+
+        out = [("Limiter", "ON" if limiter else "OFF", GREEN if limiter else RED)]
+        if kmh is not None:
+            excess = kmh - self.LIMIT_KMH
+            out.append(("Speed", f"{round(kmh)} km/h", RED if over else GREEN))
+            if over:
+                out.append(("Over limit", f"+{excess:.1f} km/h", RED))
+        else:
+            out.append(("Speed", "—"))
+        if not limiter and not over:
+            out.append(("!", "turn the limiter on", AMBER))
+        out.append(("Add", f"+{add} L" if isinstance(add, (int, float)) and add > 0 else "not needed"))
+        return out
 
 
 class MetricsWidget(StatWidget):
@@ -560,14 +589,28 @@ class WearWidget(OverlayWidget):
         w = self.store.get("wear") or {}
         cells = [("LF", "LF", 12, 40), ("RF", "RF", self.width() / 2 + 4, 40),
                  ("LR", "LR", 12, 98), ("RR", "RR", self.width() / 2 + 4, 98)]
-        bw = self.width() / 2 - 24
+        half = self.width() / 2 - 20
+        zw = half / 3
         for c, name, x, y in cells:
-            v = w.get(c)
-            pct = round(v * 100) if v is not None else None
-            col = "#333" if v is None else (GREEN if v > 0.5 else (AMBER if v > 0.3 else RED))
+            corner = w.get(c)
+            # старый формат — одно число на угол; новый — зоны l/m/r + min
+            if isinstance(corner, (int, float)):
+                corner = {"l": corner, "m": corner, "r": corner, "min": corner}
+            corner = corner or {}
+            worst = corner.get("min")
+            col = "#333" if worst is None else (
+                GREEN if worst > 0.5 else (AMBER if worst > 0.3 else RED))
             self.text(p, x, y, name, MUTED, 9)
-            self.text(p, x, y + 18, "—" if pct is None else f"{pct}%", col, 15, True)
-            self.bar(p, x, y + 24, bw, 7, (pct or 0) / 100.0, QColor(col))
+            self.text(p, x, y + 18, "—" if worst is None else f"{round(worst * 100)}%",
+                      col, 15, True)
+            # три зоны отдельными столбиками: видно, каким краем ест резину
+            for i, k in enumerate(("l", "m", "r")):
+                v = corner.get(k)
+                zc = "#333" if v is None else (
+                    GREEN if v > 0.5 else (AMBER if v > 0.3 else RED))
+                self.bar(p, x + i * zw, y + 24, zw - 3, 7, (v or 0), QColor(zc))
+                self.text(p, x + i * zw, y + 44, "—" if v is None else round(v * 100),
+                          MUTED, 8)
 
 
 class RelativeWidget(CycleBind, OverlayWidget):
@@ -1416,9 +1459,9 @@ class WearGraphWidget(OverlayWidget):
         lap = self.store.get("race").get("lap")
         keys = ("LF", "RF", "LR", "RR")
         if (lap is not None and lap != getattr(self, "_lastlap", None)
-                and any(isinstance(w.get(k), (int, float)) for k in keys)):
+                and any(_worst(w.get(k)) is not None for k in keys)):
             self._lastlap = lap                          # снимок износа раз в круг
-            self._hist = (getattr(self, "_hist", []) + [{k: w.get(k) for k in keys}])[-40:]
+            self._hist = (getattr(self, "_hist", []) + [{k: _worst(w.get(k)) for k in keys}])[-40:]
         hist = getattr(self, "_hist", [])
         x0, y0, ww, hh = 14, 34, self.width() - 28, self.height() - 52
         p.setPen(QPen(QColor("#2a2f38")))

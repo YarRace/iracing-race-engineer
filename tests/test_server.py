@@ -143,3 +143,50 @@ def test_russian_plurals_on_site():
     assert plural(11, "круг", "круга", "кругов") == "кругов"     # 11, а не 1
     assert plural(61, "карточка", "карточки", "карточек") == "карточка"
     assert plural(13, "эндпоинт", "эндпоинта", "эндпоинтов") == "эндпоинтов"
+
+
+# ── виджеты оверлея: износ по зонам и пит-лимитер ───────────────────────────
+
+def _widget(title):
+    import sys
+    sys.path.insert(0, ".")
+    from overlay.widgets import WIDGETS
+    return next(w for w in WIDGETS if getattr(w, "TITLE", "") == title)
+
+
+class _Store:
+    def __init__(self, **d):
+        self._d = d
+
+    def get(self, k):
+        return self._d.get(k, {})
+
+
+def test_pit_helper_warns_about_forgotten_limiter():
+    """Забытый лимитер стоит дороже превышения: проезд мимо бокса и штраф."""
+    W = _widget("Pit helper")
+    w = W.__new__(W)
+    w.store = _Store(race={"on_pit": True, "warnings": []},
+                     live={"speed": 15.0}, strategy={})
+    rows = dict((r[0], r[1]) for r in w.rows())
+    assert rows["Limiter"] == "OFF"
+    assert "limiter" in rows["!"]
+
+
+def test_pit_helper_quiet_when_limiter_on():
+    W = _widget("Pit helper")
+    w = W.__new__(W)
+    w.store = _Store(race={"on_pit": True, "warnings": [{"key": "pit_limiter"}]},
+                     live={"speed": 16.0}, strategy={})
+    rows = dict((r[0], r[1]) for r in w.rows())
+    assert rows["Limiter"] == "ON"
+    assert "!" not in rows                      # не пилим, когда всё правильно
+
+
+def test_pit_helper_shows_excess_speed():
+    W = _widget("Pit helper")
+    w = W.__new__(W)
+    w.store = _Store(race={"on_pit": True, "warnings": []},
+                     live={"speed": 26.4}, strategy={})     # 95 км/ч
+    rows = dict((r[0], r[1]) for r in w.rows())
+    assert rows["Over limit"].startswith("+35")

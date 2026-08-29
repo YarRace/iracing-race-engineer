@@ -95,15 +95,31 @@ def test_session_identity_reads_track_car_session():
     assert idn["session_type"] == "Race"        # из SessionInfo — приоритетнее EventType
 
 
-def test_tire_wear_by_corner_min_of_points():
+def test_tire_wear_by_corner_keeps_three_zones():
+    """Три зоны колеса не схлопываются в одно число.
+
+    Съеденный внешний край и стёртая середина — разные болезни (развал против
+    давления). Пока мы брали минимум, обе выглядели одинаково.
+    """
     scalars = {}
     for t in channels.TIRE_WEAR.values():
         for ch in t:
             scalars[ch] = 1.0
-    scalars[channels.TIRE_WEAR["LF"][1]] = 0.8      # средняя точка LF — худшая
-    w = tire_wear_by_corner(_FakeIR(scalars, {}))
-    assert w["LF"] == 0.8
-    assert w["RR"] == 1.0
+    l, m, r = channels.TIRE_WEAR["LF"]
+    scalars[l], scalars[m], scalars[r] = 0.94, 0.71, 0.55   # ест внешний край
+
+    got = tire_wear_by_corner(_FakeIR(scalars, {}))
+    assert got["LF"] == {"l": 0.94, "m": 0.71, "r": 0.55, "min": 0.55}
+    assert got["RR"] == {"l": 1.0, "m": 1.0, "r": 1.0, "min": 1.0}
+
+
+def test_tire_wear_survives_missing_channel():
+    """Машина без датчика в одной точке не должна ронять весь угол."""
+    scalars = {ch: 1.0 for t in channels.TIRE_WEAR.values() for ch in t}
+    scalars[channels.TIRE_WEAR["RF"][0]] = None
+    got = tire_wear_by_corner(_FakeIR(scalars, {}))
+    assert got["RF"]["l"] is None
+    assert got["RF"]["min"] == 1.0            # считаем по тем, что есть
 
 
 def test_session_info_reads_laps_and_time():
