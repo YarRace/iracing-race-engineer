@@ -129,6 +129,7 @@ class StrategyTracker:
         return None
 
     def snapshot(self):
+        window = self._burns[-self.window:]
         avg_burn = self._avg(self._burns)
         avg_lap = self._avg(self._lap_times)
         laps_to_go = self._laps_to_go(avg_lap)
@@ -139,6 +140,11 @@ class StrategyTracker:
             "tank": self.cap,
             "avg_burn": round(avg_burn, 2) if avg_burn else None,
             "last_burn": round(self._burns[-1], 2) if self._burns else None,
+            # разброс расхода по тому же окну: средний отвечает «хватит ли,
+            # если ехать как ехал», а min/max — «а если поеду быстрее».
+            # Разница между сценариями и есть цена агрессии в кругах.
+            "max_burn": round(max(window), 2) if window else None,
+            "min_burn": round(min(window), 2) if window else None,
             "avg_lap_time": round(avg_lap, 2) if avg_lap else None,
             "laps_to_go": laps_to_go,
             "laps_on_fuel": None,

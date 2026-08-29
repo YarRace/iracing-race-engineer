@@ -147,7 +147,7 @@ def test_russian_plurals_on_site():
 
 # ── виджеты оверлея: износ по зонам и пит-лимитер ───────────────────────────
 
-from overlay.widgets import PURPLE, RED          # цвета для проверок
+from overlay.widgets import GREEN, PURPLE, RED   # цвета для проверок
 
 
 def _widget(title):
@@ -301,3 +301,94 @@ def test_slip_stays_quiet_in_the_pits():
     """На малой скорости руль вывернут, но это не срыв."""
     w = _mk("Slip", _Store(live={"yaw_rate": 0.1, "steer": 0.9, "speed": 3.0}))
     assert {r[0]: r[1] for r in w.rows()}["Balance"] == "—"
+
+
+# ── вторая половина доведённых виджетов ─────────────────────────────────────
+
+def test_fuel_shows_three_burn_scenarios():
+    """Средний расход говорит «хватит ли как ехал». Гонке нужен вопрос
+    «а если поеду быстрее» — отсюда три сценария."""
+    w = _mk("Fuel & pit", _Store(strategy={
+        "fuel": 30.0, "avg_burn": 3.0, "max_burn": 3.5, "min_burn": 2.5,
+        "laps_on_fuel": 10.0}))
+    rows = {r[0]: r[1] for r in w.rows()}
+    assert rows["At average"].startswith("10.0 laps")
+    assert rows["If pushing"].startswith("8.6 laps")     # 30/3.5
+    assert rows["If saving"].startswith("12.0 laps")     # 30/2.5
+
+
+def test_fuel_turns_red_on_last_laps():
+    w = _mk("Fuel & pit", _Store(strategy={"fuel": 3.0, "laps_on_fuel": 1.0}))
+    rng = next(r for r in w.rows() if r[0] == "Range")
+    assert rng[2] == RED
+
+
+def test_wear_trend_says_whether_tyres_last_to_the_end():
+    """«Осталось 25 кругов» бесполезно без ответа: хватит ли до финиша."""
+    ok = _mk("Wear trend", _Store(strategy={
+        "tire_laps_left": 25.0, "laps_to_go": 18, "tire_min": 0.7,
+        "tire_wear_per_lap": 0.01}))
+    assert {r[0]: r[1] for r in ok.rows()}["Verdict"] == "will last"
+
+    short = _mk("Wear trend", _Store(strategy={
+        "tire_laps_left": 8.0, "laps_to_go": 18, "tire_min": 0.3,
+        "tire_wear_per_lap": 0.03}))
+    assert {r[0]: r[1] for r in short.rows()}["Verdict"] == "short by 10"
+
+
+def test_team_incidents_counts_room_to_the_limit():
+    """В командной гонке лимит общий и штраф прилетает всей машине."""
+    w = _mk("Team incidents", _Store(damage={"team_incidents": 14, "incidents": 7}),
+            limit=17)
+    rows = {r[0]: r[1] for r in w.rows()}
+    assert rows["Left"] == "3 to limit"
+    assert rows["My share"] == "50%"
+
+
+def test_balance_translates_temperature_into_handling():
+    """Разница температур ничего не подсказывает новичку — нужен перевод."""
+    front = _mk("Front/rear balance",
+                _Store(result={"symptoms": {"tire": {"front_rear_balance": 6.0}}}))
+    rows = {r[0]: r[1] for r in front.rows()}
+    assert rows["Feels like"] == "understeer"
+    assert "front" in rows["Try"]
+
+    calm = _mk("Front/rear balance",
+               _Store(result={"symptoms": {"tire": {"front_rear_balance": 1.0}}}))
+    assert {r[0]: r[1] for r in calm.rows()}["Verdict"] == "balanced"
+
+
+def test_symptoms_separates_global_problem_from_a_local_one():
+    """Одна беда во всех фазах лечится иначе, чем беда только на входе."""
+    every = _mk("Symptoms", _Store(result={"symptoms": {"balance": {
+        "entry": {"tendency": "understeer"},
+        "mid": {"tendency": "understeer"},
+        "exit": {"tendency": "understeer"}}}}))
+    assert {r[0]: r[1] for r in every.rows()}["Verdict"] == "understeer everywhere"
+
+    local = _mk("Symptoms", _Store(result={"symptoms": {"balance": {
+        "entry": {"tendency": "neutral"},
+        "mid": {"tendency": "neutral"},
+        "exit": {"tendency": "oversteer"}}}}))
+    rows = {r[0]: r[1] for r in local.rows()}
+    assert rows["Worst at"] == "exit"
+    assert "Verdict" not in rows
+
+
+def test_position_gaps_marks_a_closing_gap():
+    """Полторы секунды — атака, если было три, и оборона, если была одна."""
+    w = _mk("Position & gaps", _Store(race={"gap_ahead": 3.0, "gap_behind": 5.0}))
+    for _ in range(120):
+        w.rows()
+    w.store = _Store(race={"gap_ahead": 1.5, "gap_behind": 5.0})
+    ahead = next(r for r in w.rows() if r[0] == "Ahead")
+    assert "▲" in ahead[1] and ahead[2] == GREEN
+
+
+def test_ers_compares_deploy_with_previous_lap():
+    w = _mk("ERS / hybrid", _Store(race={"energy_pct": 0.8, "deploy_pct": 0.60, "lap": 4}))
+    w.rows()
+    w.store = _Store(race={"energy_pct": 0.5, "deploy_pct": 0.75, "lap": 5})
+    rows = {r[0]: r[1] for r in w.rows()}
+    assert rows["Last lap"] == "60%"
+    assert rows["Vs last"] == "+15%"

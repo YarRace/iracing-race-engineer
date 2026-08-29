@@ -195,36 +195,103 @@ class InputsWidget(OverlayWidget):
 
 
 class FuelWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "fuel", "Fuel & pit", (210, 156), "solo", ("strategy",)
+    """Топливо и пит-стопы.
+
+    Средний расход отвечает на вопрос «хватит ли, если ехать как ехал».
+    Но в гонке важнее второй: «а если поеду быстрее». Поэтому считаем
+    запас по ТРЁМ сценариям — средний расход, максимальный из виденных
+    и минимальный. Разброс между ними и есть цена агрессии.
+
+    Запас в кругах красим отдельно: меньше двух кругов — красный, потому
+    что на этом остатке уже нельзя проехать лишний круг под жёлтыми.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "fuel", "Fuel & pit", (230, 220), "solo", ("strategy",)
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Сценарии расхода", "show_scenarios", True)
+        self.opt_check(lay, "Долив в кругах", "show_add_laps", True)
+        self.opt_slider(lay, "Тревога при остатке (кругов)", "warn_laps", 1, 10, 2)
 
     def rows(self):
         g = self.store.get("strategy")
         pl = g.get("plan") or {}
+        fuel = g.get("fuel")
+        avg, mx, mn = g.get("avg_burn"), g.get("max_burn"), g.get("min_burn")
+        left = g.get("laps_on_fuel")
+        warn = self._opt("warn_laps", 2)
+
+        col = WHITE
+        if isinstance(left, (int, float)):
+            col = RED if left < warn else (AMBER if left < warn * 2 else GREEN)
+        out = [("Fuel", f"{fuel} L" if fuel is not None else "—"),
+               ("Range", f"~{left} laps" if left is not None else "—", col)]
+
+        if self._opt("show_scenarios", True) and isinstance(fuel, (int, float)):
+            for label, burn, c in (("At average", avg, WHITE),
+                                   ("If pushing", mx, AMBER),
+                                   ("If saving", mn, GREEN)):
+                if isinstance(burn, (int, float)) and burn > 0:
+                    out.append((label, f"{fuel / burn:.1f} laps  ({burn:.2f} L)", c))
+
         add = g.get("fuel_to_add")
-        burn = g.get("avg_burn")
-        r = [("Fuel", f"{g.get('fuel', '—')} L"),
-             ("Range", f"~{g.get('laps_on_fuel', '—')} laps")]
-        if add is not None:
-            r.append(("Add", f"+{add} L" if add > 0 else "not needed", AMBER if add and add > 0 else GREEN))
-            # тот же долив, но в кругах — литры в black box проще править, зная их цену в кругах
-            if add > 0 and burn:
-                r.append(("Adds", f"~{add / burn:.1f} laps"))
+        if isinstance(add, (int, float)):
+            out.append(("Add", f"+{add} L" if add > 0 else "not needed",
+                        AMBER if add > 0 else GREEN))
+            # тот же долив в кругах: литры в black box проще править, зная их цену
+            if add > 0 and isinstance(avg, (int, float)) and avg and self._opt("show_add_laps", True):
+                out.append(("Adds", f"~{add / avg:.1f} laps"))
         if pl.get("stops") is not None:
-            r.append(("Pit stops", "not needed" if pl["stops"] == 0 else str(pl["stops"])))
-        return r
+            out.append(("Pit stops", "not needed" if pl["stops"] == 0 else str(pl["stops"])))
+        return out
 
 
 class DeltaWidget(OverlayWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "delta", "Delta to best", (200, 90), "solo", ("race",)
+    """Дельта к лучшему кругу крупной цифрой.
+
+    Под цифрой — полоса: она заполняется от центра влево при выигрыше и
+    вправо при проигрыше. Цифру надо прочитать, полосу видно боковым
+    зрением, и в повороте это единственное, на что хватает внимания.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "delta", "Delta to best", (220, 120), "solo", ("race",)
+
+    def extra_settings(self, lay):
+        self.opt_slider(lay, "Шкала полосы (0.1с)", "scale", 5, 50, 10)
+        self.opt_check(lay, "Полоса под цифрой", "show_bar", True)
+        self.opt_choice(lay, "Знаков после запятой", "digits",
+                        [("2", "0.00"), ("3", "0.000")])
 
     def draw(self, p):
         self.title(p, "DELTA TO BEST")
         d = fastval("delta_best", self.store.get("race").get("delta_best"))
+        bar = self._opt("show_bar", True)
+        cy = self.height() * (0.52 if bar else 0.5) + 8
+
         if not isinstance(d, (int, float)):
-            self.text_center(p, "—", MUTED, 22)
+            self.text_center(p, "—", MUTED, 22, y=cy)
             return
+
         col = GREEN if d <= 0 else RED
-        self.text_center(p, ("+" if d > 0 else "") + f"{d:.2f}", col, 30, y=self.height() / 2 + 8)
+        digits = int(self._opt("digits", "2"))
+        self.text_center(p, ("+" if d > 0 else "") + f"{d:.{digits}f}", col, 30, y=cy, key="delta")
+
+        if not bar:
+            return
+        scale = max(0.1, self._opt("scale", 10) / 10.0)   # ± сек на полную половину
+        w, y, h = self.width(), self.height() - 20, 10.0
+        cx = w / 2
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#20252d"))
+        p.drawRoundedRect(QRectF(12, y, w - 24, h), h / 2, h / 2)
+        frac = max(-1.0, min(1.0, d / scale))
+        if abs(frac) > 0.01:
+            half = (w / 2 - 12) * abs(frac)
+            p.setBrush(QColor(col))
+            rect = QRectF(cx, y, half, h) if frac > 0 else QRectF(cx - half, y, half, h)
+            p.drawRoundedRect(rect, h / 2, h / 2)
+        p.setBrush(QColor("#3a4150"))                     # центральная риска
+        p.drawRect(QRectF(cx - 1, y - 3, 2, h + 6))
 
 
 class ShiftWidget(StatWidget):
@@ -401,30 +468,101 @@ class SlipWidget(StatWidget):
 
 
 class PosTrendWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "postrend", "Position trend", (190, 90), "solo", ("race",)
+    """Движение по позициям за заезд.
+
+    «+2 со старта» полезно, но не говорит, что происходит СЕЙЧАС. Поэтому
+    держим ещё и лучшую с худшей позицией и последнее изменение: подряд
+    падающая позиция в середине гонки — повод проверить резину, а не
+    гнать сильнее.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "postrend", "Position trend", (210, 150), "solo", ("race",)
+
+    def extra_settings(self, lay):
+        self.opt_choice(lay, "Считать по", "which",
+                        [("class", "в классе"), ("overall", "в общем зачёте")])
+        self.opt_check(lay, "Лучшая и худшая за заезд", "show_range", True)
 
     def rows(self):
-        pos = self.store.get("race").get("position")
+        r = self.store.get("race")
+        pos = (r.get("class_position") if self._opt("which", "class") == "class"
+               else r.get("position"))
         if pos is None:
             return [("Position", "—")]
+
         if not hasattr(self, "_start"):
-            self._start = pos
+            self._start = self._best = self._worst = pos
+        self._best = min(self._best, pos)
+        self._worst = max(self._worst, pos)
+        last = getattr(self, "_last", pos)
+        self._last = pos
+
         d = self._start - pos
-        txt, col = (f"▲ +{d}", GREEN) if d > 0 else ((f"▼ {d}", RED) if d < 0 else ("= 0", MUTED))
-        return [("Position", f"P{pos}"), ("Since start", txt, col)]
+        txt, col = ((f"▲ +{d}", GREEN) if d > 0 else
+                    (f"▼ {d}", RED) if d < 0 else ("= 0", MUTED))
+        out = [("Position", f"P{pos}"), ("Since start", txt, col)]
+
+        if pos != last:                              # только что обогнали или обошли
+            moved = last - pos
+            out.append(("Just now", f"{'gained' if moved > 0 else 'lost'} {abs(moved)}",
+                        GREEN if moved > 0 else RED))
+        if self._opt("show_range", True):
+            out.append(("Best / worst", f"P{self._best} / P{self._worst}"))
+        return out
 
 
 class PositionWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "position", "Position & gaps", (210, 130), "solo", ("race",)
+    """Позиция и разрывы.
+
+    Само число разрыва мало значит: важно, РАСТЁТ он или тает. Полторы
+    секунды до впереди идущего — это атака, если вчера было три, и оборона,
+    если вчера была одна. Считаем изменение за несколько секунд по своей
+    истории замеров и рисуем стрелку.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "position", "Position & gaps", (220, 170), "solo", ("race",)
+    TREND_N = 180                                    # ≈ 3 секунды при 60 к/с
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Стрелки сближения", "show_trend", True)
+        self.opt_check(lay, "Общая позиция", "show_overall", True)
+
+    def _arrow(self, key, gap):
+        """▲ догоняешь / ▼ отстаёшь — по изменению разрыва."""
+        hist = getattr(self, "_h", {})
+        if not isinstance(gap, (int, float)):
+            return "", MUTED
+        seq = (hist.get(key, []) + [abs(gap)])[-self.TREND_N:]
+        hist[key] = seq
+        self._h = hist
+        if len(seq) < self.TREND_N // 2:
+            return "", MUTED
+        d = seq[-1] - seq[0]
+        if d < -0.05:
+            return " ▲", GREEN                  # разрыв сокращается
+        if d > 0.05:
+            return " ▼", RED
+        return "", MUTED
 
     def rows(self):
         r = self.store.get("race")
         cp, pos = r.get("class_position"), r.get("position")
         ga, gb = r.get("gap_ahead"), r.get("gap_behind")
-        return [("In class", f"P{cp}" if cp is not None else "—", PURPLE),
-                ("Overall", f"P{pos}" if pos is not None else "—"),
-                ("Ahead", f"{ga:.1f} s" if isinstance(ga, (int, float)) else "—"),
-                ("Behind", f"{gb:.1f} s" if isinstance(gb, (int, float)) else "—")]
+        trend = self._opt("show_trend", True)
+
+        out = [("In class", f"P{cp}" if cp is not None else "—", PURPLE)]
+        if self._opt("show_overall", True):
+            out.append(("Overall", f"P{pos}" if pos is not None else "—"))
+
+        for label, gap, key in (("Ahead", ga, "a"), ("Behind", gb, "b")):
+            if not isinstance(gap, (int, float)):
+                out.append((label, "—"))
+                continue
+            arrow, col = self._arrow(key, gap) if trend else ("", WHITE)
+            # ближе секунды — зона атаки и зона риска, красим отдельно
+            base = AMBER if abs(gap) < 1.0 else WHITE
+            out.append((label, f"{abs(gap):.1f} s{arrow}", col if arrow else base))
+        return out
 
 
 class TimingWidget(StatWidget):
@@ -614,19 +752,48 @@ class OptimalWidget(CycleBind, StatWidget):
         self.cycle_assign_ui(lay)
 
 class SummaryWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "summary", "Session summary", (210, 130), "solo", ("race", "damage")
+    """Итог сессии: позиция, темп, стабильность, инциденты.
+
+    Разброс времён — честная мера стабильности, но по нему одному нельзя
+    судить: один вылет растягивает разброс, хотя остальные круги ровные.
+    Поэтому рядом показываем СРЕДНИЙ круг по чистым и сколько их было.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "summary", "Session summary", (220, 190), "solo", ("race", "damage")
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Средний круг", "show_avg", True)
+        self.opt_check(lay, "Счётчик кругов", "show_count", True)
 
     def rows(self):
         r = self.store.get("race")
         log = r.get("lap_log") or []
-        t = [x["time"] for x in log if x.get("time", 0) > 0]
-        best = min(t) if t else r.get("best_lap_time")
-        spread = (max(t) - min(t)) if t else None
+        t = sorted(x["time"] for x in log if x.get("time", 0) > 0)
+
+        best = t[0] if t else r.get("best_lap_time")
+        out = [("Position", f"P{r.get('class_position') or '—'}"),
+               ("Best", lap_time(best), PURPLE)]
+
+        if t and self._opt("show_avg", True):
+            # медиана, а не среднее: один вылет не должен утаскивать «темп»
+            med = t[len(t) // 2]
+            out.append(("Typical lap", lap_time(med)))
+            if isinstance(best, (int, float)):
+                out.append(("Off pace", f"+{med - best:.2f}s",
+                            GREEN if med - best < 0.5 else AMBER))
+        if t:
+            spread = t[-1] - t[0]
+            out.append(("Spread", f"±{spread / 2:.2f}s",
+                        GREEN if spread < 1.0 else AMBER))
+        else:
+            out.append(("Spread", "—"))
+        if self._opt("show_count", True):
+            out.append(("Clean laps", str(len(t))))
+
         inc = self.store.get("damage").get("incidents")
-        return [("Position", f"P{r.get('class_position', '—')}"),
-                ("Best", lap_time(best), PURPLE),
-                ("Spread", f"±{spread/2:.2f}s" if spread is not None else "—"),
-                ("Incidents", f"{inc if inc is not None else 0}x")]
+        inc = inc if isinstance(inc, (int, float)) else 0
+        out.append(("Incidents", f"{inc}x", RED if inc >= 4 else WHITE))
+        return out
 
 
 class SessionWidget(StatWidget):
@@ -669,31 +836,84 @@ class SessionWidget(StatWidget):
 
 
 class RecordDeltaWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "recorddelta", "Delta to record", (210, 110), "solo", ("session", "race")
+    """Личный рекорд трассы и насколько ты от него сегодня.
+
+    Рекорд — это то, что ты УЖЕ проезжал, значит цель достижима. Добавлен
+    последний круг: сравнение рекорда с лучшим за сессию говорит о форме,
+    а с последним кругом — о том, что происходит прямо сейчас.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "recorddelta", "Delta to record", (220, 150), "solo", ("session", "race")
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Последний круг", "show_last", True)
 
     def rows(self):
         rec = self.store.get("session").get("record")
-        if rec is None:
-            return [("Record", "none — drive a lap")]
-        cur = self.store.get("race").get("best_lap_time")
-        r = [("Your record", lap_time(rec), PURPLE), ("Now", lap_time(cur))]
-        if isinstance(cur, (int, float)):
-            d = cur - rec
-            r.append(("Δ", f"{d:+.2f}s", GREEN if d <= 0 else RED))
-        return r
+        race = self.store.get("race")
+        if not isinstance(rec, (int, float)):
+            return [("Record", "none yet"), ("", "drive a clean lap", MUTED)]
+
+        out = [("Your record", lap_time(rec), PURPLE)]
+        best = race.get("best_lap_time")
+        out.append(("Session best", lap_time(best)))
+        if isinstance(best, (int, float)):
+            d = best - rec
+            out.append(("Δ to record", f"{d:+.2f}s", GREEN if d <= 0 else RED))
+            if d <= 0:
+                out.append(("", "new record!", GREEN))
+
+        if self._opt("show_last", True):
+            last = race.get("last_lap_time")
+            if isinstance(last, (int, float)):
+                dl = last - rec
+                out.append(("Last lap", f"{lap_time(last)}  {dl:+.2f}",
+                            GREEN if dl <= 0 else WHITE))
+        return out
 
 
 class ErsWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "ers", "ERS / hybrid", (200, 90), "solo", ("race",)
+    """Заряд и расход гибрида.
+
+    Текущий процент отвечает «сколько есть», но не «трачу ли я больше
+    обычного». Поэтому запоминаем расход на ПРОШЛОМ круге и показываем
+    рядом — так видно, экономишь ты батарею или сливаешь её раньше срока.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "ers", "ERS / hybrid", (210, 150), "solo", ("race",)
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Расход на прошлом круге", "show_last", True)
+        self.opt_slider(lay, "Порог «мало» (%)", "low", 5, 50, 20)
 
     def rows(self):
         r = self.store.get("race")
         e, d = r.get("energy_pct"), r.get("deploy_pct")
-        if e is None:
-            return [("Hybrid", "no data")]
+        if not isinstance(e, (int, float)):
+            return [("Hybrid", "no data on this car")]
+
+        lap = r.get("lap")
+        if lap is not None and lap != getattr(self, "_lap", None):
+            self._lap = lap
+            self._prev_deploy = getattr(self, "_cur_deploy", None)
+        if isinstance(d, (int, float)):
+            self._cur_deploy = d
+
         b = round(e * 100)
-        col = GREEN if b >= 50 else (AMBER if b >= 20 else RED)
-        return [("Battery", f"{b}%", col), ("Deploy/lap", f"{round(d*100)}%" if d is not None else "—")]
+        low = self._opt("low", 20)
+        col = GREEN if b >= 50 else (AMBER if b >= low else RED)
+        out = [("Battery", f"{b}%", col)]
+        out.append(("Deploy/lap", f"{round(d * 100)}%" if isinstance(d, (int, float)) else "—"))
+
+        if self._opt("show_last", True):
+            prev = getattr(self, "_prev_deploy", None)
+            if isinstance(prev, (int, float)) and isinstance(d, (int, float)):
+                diff = (d - prev) * 100
+                out.append(("Last lap", f"{round(prev * 100)}%", MUTED))
+                out.append(("Vs last", f"{diff:+.0f}%", AMBER if diff > 3 else GREEN))
+            else:
+                out.append(("Last lap", "—", MUTED))
+        return out
 
 
 class WeatherWidget(StatWidget):
@@ -790,39 +1010,139 @@ class PitHelperWidget(StatWidget):
 
 
 class MetricsWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "metrics", "Sensors & balance", (220, 110), "solo", ("result",)
+    """Как ты работаешь педалями — по разбору стинта.
+
+    Проценты сами по себе не подсказывают, много это или мало. Поэтому
+    рядом ставим оценку словом: у трейл-брейкинга и плавности газа есть
+    диапазоны, за пределами которых машину либо не догружают, либо срывают.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "metrics", "Sensors & balance", (250, 160), "solo", ("result",)
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Оценка словом", "show_verdict", True)
+
+    @staticmethod
+    def _judge(v, lo, hi):
+        """Ниже нормы / в норме / выше нормы."""
+        if v is None:
+            return "—", MUTED
+        if v < lo:
+            return "low", AMBER
+        if v > hi:
+            return "high", AMBER
+        return "good", GREEN
 
     def rows(self):
         s = (self.store.get("result") or {}).get("symptoms") or {}
+        verdict = self._opt("show_verdict", True)
         out = []
-        if s.get("inputs"):
-            i = s["inputs"]
-            out.append(("Trail braking", f"{i.get('trail_brake_pct', 0):.0f}%"))
-            out.append(("Throttle smoothness", f"{(i.get('throttle_smoothness') or 0)*100:.0f}%"))
-        if s.get("tire") and s["tire"].get("front_rear_balance") is not None:
-            b = s["tire"]["front_rear_balance"]
-            out.append(("Tire balance", f"{'front' if b > 0 else 'rear'} +{abs(b):.1f}°"))
-        return out or [("Sensors", "after stint")]
+
+        i = s.get("inputs") or {}
+        if i:
+            tb = i.get("trail_brake_pct")
+            if isinstance(tb, (int, float)):
+                lab, col = self._judge(tb, 15, 45)
+                out.append(("Trail braking", f"{tb:.0f}%" + (f"  {lab}" if verdict else ""), col))
+            sm = i.get("throttle_smoothness")
+            if isinstance(sm, (int, float)):
+                v = sm * 100
+                lab, col = self._judge(v, 70, 101)
+                out.append(("Throttle", f"{v:.0f}%" + (f"  {lab}" if verdict else ""), col))
+
+        tire = s.get("tire") or {}
+        b = tire.get("front_rear_balance")
+        if isinstance(b, (int, float)):
+            out.append(("Tire balance",
+                        f"{'front' if b > 0 else 'rear'} +{abs(b):.1f}°",
+                        AMBER if abs(b) >= 3 else GREEN))
+        return out or [("Sensors", "after stint"), ("", "drive a few laps", MUTED)]
 
 
 class TireTempsWidget(OverlayWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "tiretemps", "Tire temps", (240, 150), "solo", ("live",)
+    """Температуры покрышек по трём зонам каждого колеса.
+
+    Квадратики с цифрами были, а вывода не было. Добавлены две вещи, ради
+    которых на этот виджет вообще смотрят:
+
+    ПЕРЕКОС ВНУТРИ КОЛЕСА — разница между краями. Горячий внутренний край
+    означает избыток развала, горячий внешний — недостаток или мало
+    давления. Само по себе колесо может быть в норме по средней температуре
+    и при этом стоять неправильно.
+
+    РАЗНИЦА ОСЕЙ — перегретый перед против перегретого зада, то есть снос
+    против заноса. То же, что показывает виджет баланса, но вживую, а не
+    после стинта.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "tiretemps", "Tire temps", (260, 200), "solo", ("live",)
+
+    def extra_settings(self, lay):
+        self.opt_choice(lay, "Градусы", "units",
+                        [("c", "°C"), ("f", "°F")])
+        self.opt_check(lay, "Перекос внутри колеса", "show_skew", True)
+        self.opt_check(lay, "Разница осей", "show_axle", True)
+        self.opt_slider(lay, "Заметный перекос (°)", "skew_thr", 3, 30, 8)
+
+    def _num(self, v):
+        if not isinstance(v, (int, float)):
+            return "—"
+        if self._opt("units", "c") == "f":
+            return round(v * 9 / 5 + 32)
+        return round(v)
+
+    @staticmethod
+    def _avg(corner):
+        vals = [corner.get(k) for k in ("tl", "tm", "tr")]
+        vals = [v for v in vals if isinstance(v, (int, float))]
+        return sum(vals) / len(vals) if vals else None
 
     def draw(self, p):
         self.title(p, "TIRE TEMPS")
         t = self.store.get("live").get("tires") or {}
-        cells = [("LF", "LF", 12, 34), ("RF", "RF", self.width() / 2 + 4, 34),
-                 ("LR", "LR", 12, 92), ("RR", "RR", self.width() / 2 + 4, 92)]
+        skew_on = self._opt("show_skew", True)
+        thr = self._opt("skew_thr", 8)
+
+        cells = [("LF", 12, 34), ("RF", self.width() / 2 + 4, 34),
+                 ("LR", 12, 100), ("RR", self.width() / 2 + 4, 100)]
         pw = (self.width() / 2 - 20) / 3
-        for c, name, x, y in cells:
-            self.text(p, x, y, name, MUTED, 9)
+
+        for c, x, y in cells:
             corner = t.get(c) or {}
+            label = c
+            if skew_on:
+                l, r = corner.get("tl"), corner.get("tr")
+                if isinstance(l, (int, float)) and isinstance(r, (int, float)):
+                    d = l - r
+                    if abs(d) >= thr:
+                        # какой край горит: внутренний у левых колёс — это tl,
+                        # у правых — tr, поэтому пишем стороной, а не «inner»
+                        label = f"{c}  {'◀' if d > 0 else '▶'}{abs(d):.0f}°"
+            self.text(p, x, y, label, MUTED, 9)
             for i, k in enumerate(("tl", "tm", "tr")):
                 v = corner.get(k)
                 p.setBrush(QColor(tcol(v)))
                 p.setPen(Qt.NoPen)
                 p.drawRoundedRect(QRectF(x + i * pw, y + 6, pw - 3, 20), 4, 4)
-                self.text(p, x + i * pw + 4, y + 20, "—" if v is None else round(v), "#0d0f12", 9, True)
+                self.text(p, x + i * pw + 4, y + 20, self._num(v), "#0d0f12", 9, True)
+
+        if not self._opt("show_axle", True):
+            return
+        fr = [self._avg(t.get(c) or {}) for c in ("LF", "RF")]
+        re = [self._avg(t.get(c) or {}) for c in ("LR", "RR")]
+        fr = [v for v in fr if v is not None]
+        re = [v for v in re if v is not None]
+        y = self.height() - 12
+        if not fr or not re:
+            self.text(p, 12, y, "axles: waiting for data", MUTED, 10)
+            return
+        d = sum(fr) / len(fr) - sum(re) / len(re)
+        if abs(d) < thr / 2:
+            self.text(p, 12, y, "axles balanced", GREEN, 10)
+        else:
+            self.text(p, 12, y,
+                      f"front hotter +{d:.0f}°" if d > 0 else f"rear hotter +{abs(d):.0f}°",
+                      AMBER, 10)
 
 
 class WearWidget(OverlayWidget):
@@ -1816,64 +2136,212 @@ class DriverStintWidget(StatWidget):
 
 
 class TimeLeftWidget(OverlayWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "e_time", "Time left", (200, 100), "endur", ("session",)
+    """Сколько осталось гонки — крупно, с полосой прогресса.
+
+    В эндурансе на часы смотрят краем глаза, и полоса читается быстрее цифр.
+    Последние пять минут красным: это окно последнего пит-стопа.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "e_time", "Time left", (240, 130), "endur", ("session",)
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Полоса прогресса", "show_bar", True)
+        self.opt_slider(lay, "Тревога за (мин)", "warn_min", 1, 30, 5)
 
     def draw(self, p):
         self.title(p, "RACE TIME LEFT")
         s = self.store.get("session")
-        self.text_center(p, fmt_time(s.get("time_remain")), WHITE, 26, y=self.height() / 2 + 10)
+        tr = s.get("time_remain")
+        warn = self._opt("warn_min", 5) * 60
+        col = RED if isinstance(tr, (int, float)) and 0 < tr <= warn else WHITE
+
+        bar = self._opt("show_bar", True)
+        self.text_center(p, fmt_time(tr), col, 26,
+                         y=self.height() / 2 + (2 if bar else 10), key="time")
+
+        if bar:
+            total = None
+            if isinstance(tr, (int, float)):
+                total = max(getattr(self, "_total", 0.0), tr)   # старт = самый большой виденный
+                self._total = total
+            y, h = self.height() - 34, 10.0
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor("#20252d"))
+            p.drawRoundedRect(QRectF(12, y, self.width() - 24, h), h / 2, h / 2)
+            if total and total > 0 and isinstance(tr, (int, float)):
+                done = max(0.0, min(1.0, 1.0 - tr / total))
+                p.setBrush(QColor(col if col == RED else GREEN))
+                p.drawRoundedRect(QRectF(12, y, (self.width() - 24) * done, h), h / 2, h / 2)
+
         lr = s.get("laps_remain")
         if lr is not None:
-            self.text(p, 12, self.height() - 10, f"laps: {lr}", MUTED, 10)
+            self.text(p, 12, self.height() - 8, f"laps left: {lr}", MUTED, 10)
 
 
 class TeamIncidentsWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "e_incidents", "Team incidents", (210, 90), "endur", ("damage",)
+    """Инциденты команды в эндурансе.
+
+    Голое число ничего не решает — решает, сколько осталось до лимита.
+    В командных гонках лимит общий, и штраф прилетает всей машине, поэтому
+    показываем остаток и долю, которую наездил ты.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "e_incidents", "Team incidents", (220, 150), "endur", ("damage",)
+
+    def extra_settings(self, lay):
+        self.opt_number(lay, "Лимит инцидентов", "limit", 0, 200, 17)
+        self.opt_check(lay, "Моя доля", "show_share", True)
 
     def rows(self):
         d = self.store.get("damage")
         ti = d.get("team_incidents")
-        col = GREEN if (ti or 0) < 4 else (AMBER if ti < 8 else RED)
-        return [("Team", f"{ti if ti is not None else 0}x", col),
-                ("Mine", f"{d.get('incidents', 0)}x")]
+        mine = d.get("incidents")
+        ti = ti if isinstance(ti, (int, float)) else 0
+        mine = mine if isinstance(mine, (int, float)) else 0
+        limit = self._opt("limit", 17)
+
+        out = [("Team", f"{ti}x", GREEN if ti < 4 else (AMBER if ti < 8 else RED)),
+               ("Mine", f"{mine}x")]
+        if limit:
+            left = limit - ti
+            out.append(("Left", f"{max(0, left)} to limit",
+                        GREEN if left > 5 else (AMBER if left > 2 else RED)))
+            if left <= 0:
+                out.append(("", "limit reached", RED))
+        if self._opt("show_share", True) and ti:
+            out.append(("My share", f"{round(mine / ti * 100)}%"))
+        return out
 
 
 # ================= SETUP =================
 class SymptomsWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_symptoms", "Symptoms", (220, 130), "setup", ("result",)
-    _M = {"understeer": ("understeer", AMBER), "oversteer": ("oversteer", RED), "neutral": ("neutral", GREEN)}
+    """Поведение машины по фазам поворота: вход, середина, выход.
+
+    Три одинаковых слова в столбик мало что дают. Добавлен ВЫВОД: если во
+    всех трёх фазах одно и то же — это общая беда сетапа и лечится
+    крыльями или пружинами; если только на входе или только на выходе —
+    точечная правка, и подсказка будет другая.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_symptoms", "Symptoms", (250, 180), "setup", ("result",)
+    _M = {"understeer": ("understeer", AMBER), "oversteer": ("oversteer", RED),
+          "neutral": ("neutral", GREEN)}
+    _HINT = {
+        "entry": {"understeer": "мягче перед, баланс тормозов назад",
+                  "oversteer": "баланс тормозов вперёд"},
+        "mid": {"understeer": "больше крыла сзади не надо, мягче перед",
+                "oversteer": "жёстче зад, больше крыла"},
+        "exit": {"understeer": "мягче зад, меньше блокировки",
+                 "oversteer": "меньше блокировки, мягче газ"},
+    }
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Подсказка по сетапу", "show_hint", True)
 
     def rows(self):
         bal = ((self.store.get("result") or {}).get("symptoms") or {}).get("balance")
         if not bal:
-            return [("Symptoms", "after stint")]
-        out = []
+            return [("Symptoms", "after stint"), ("", "drive a few laps", MUTED)]
+
+        out, seen = [], []
         for k, name in (("entry", "Entry"), ("mid", "Mid"), ("exit", "Exit")):
             t = (bal.get(k) or {}).get("tendency")
             lab, col = self._M.get(t, ("—", MUTED))
             out.append((name, lab, col))
+            if t in ("understeer", "oversteer"):
+                seen.append((k, t))
+
+        if not self._opt("show_hint", True) or not seen:
+            return out
+
+        kinds = {t for _, t in seen}
+        if len(seen) == 3 and len(kinds) == 1:
+            kind = seen[0][1]
+            out.append(("Verdict", f"{kind} everywhere", AMBER))
+            out.append(("Try", "крылья и пружины целиком", MUTED))
+        else:
+            phase, kind = seen[0]
+            out.append(("Worst at", phase, AMBER))
+            hint = self._HINT.get(phase, {}).get(kind)
+            if hint:
+                out.append(("Try", hint, MUTED))
         return out
 
 
 class BalanceWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_balance", "Front/rear balance", (220, 90), "setup", ("result",)
+    """Тепловой баланс осей — и что с ним делать в сетапе.
+
+    Разница температур сама по себе ничего не подсказывает новичку. Поэтому
+    переводим её в понятную сторону: перегретый перед означает, что машина
+    цепляется носом и её сносит; перегретый зад — что она вращается.
+    Рядом даём направление правки, а не только диагноз.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_balance", "Front/rear balance", (240, 150), "setup", ("result",)
+
+    def extra_settings(self, lay):
+        self.opt_slider(lay, "Порог заметного (°)", "thr", 1, 15, 3)
+        self.opt_check(lay, "Подсказка по сетапу", "show_hint", True)
 
     def rows(self):
         tire = ((self.store.get("result") or {}).get("symptoms") or {}).get("tire") or {}
         b = tire.get("front_rear_balance")
-        if b is None:
-            return [("Balance", "after stint")]
-        return [("Hotter", "front" if b > 0 else "rear"), ("Difference", f"{abs(b):.1f}°")]
+        if not isinstance(b, (int, float)):
+            return [("Balance", "after stint"), ("", "drive a few laps", MUTED)]
+
+        thr = self._opt("thr", 3)
+        front = b > 0
+        out = [("Hotter axle", "front" if front else "rear",
+                AMBER if abs(b) >= thr else GREEN),
+               ("Difference", f"{abs(b):.1f}°")]
+
+        if abs(b) < thr:
+            out.append(("Verdict", "balanced", GREEN))
+        else:
+            out.append(("Feels like", "understeer" if front else "oversteer",
+                        AMBER if front else RED))
+            if self._opt("show_hint", True):
+                out.append(("Try", "softer front / more rear wing" if front
+                            else "softer rear / less rear wing", MUTED))
+        return out
 
 
 class WearTrendWidget(StatWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_weartrend", "Wear trend", (210, 90), "setup", ("strategy",)
+    """Скорость износа резины и сколько её осталось.
+
+    Одного «осталось 25 кругов» мало для решения: важно, ХВАТИТ ли этого
+    до конца гонки. Поэтому сравниваем остаток с числом кругов до финиша
+    и говорим прямо — доедешь или менять.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_weartrend", "Wear trend", (220, 150), "setup", ("strategy",)
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Хватит ли до финиша", "show_verdict", True)
 
     def rows(self):
         g = self.store.get("strategy")
         wpl, left = g.get("tire_wear_per_lap"), g.get("tire_laps_left")
-        return [("Wear/lap", f"{wpl*100:.2f}%" if wpl is not None else "—"),
-                ("Tires left", f"{left:.0f} laps" if left is not None else "—")]
+        togo, worst = g.get("laps_to_go"), g.get("tire_min")
+
+        out = []
+        if isinstance(worst, (int, float)):
+            pct = round(worst * 100)
+            out.append(("Worst tire", f"{pct}%",
+                        GREEN if pct > 50 else (AMBER if pct > 30 else RED)))
+        out.append(("Wear/lap", f"{wpl * 100:.2f}%" if isinstance(wpl, (int, float)) else "—"))
+        out.append(("Tires left", f"{left:.0f} laps" if isinstance(left, (int, float)) else "—"))
+
+        if self._opt("show_verdict", True):
+            if isinstance(left, (int, float)) and isinstance(togo, (int, float)):
+                out.append(("To finish", f"{int(togo)} laps"))
+                if left >= togo:
+                    out.append(("Verdict", "will last", GREEN))
+                else:
+                    out.append(("Verdict", f"short by {togo - left:.0f}", RED))
+            elif g.get("change_tires"):
+                out.append(("Verdict", "change them", RED))
+        return out
 
 
 # порядок в панели: сгруппировано solo → endur → setup
