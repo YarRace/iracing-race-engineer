@@ -152,17 +152,17 @@ class ControlPanel(QWidget):
         self.status = QLabel("● …")
         h.addWidget(self.status)
         h.addStretch(1)
-        h.addWidget(QLabel("Раскладка", objectName="hint"))
+        h.addWidget(QLabel("Layout", objectName="hint"))
         self.prof = QComboBox()
         self.prof.setMinimumWidth(150)
         self.prof.currentTextChanged.connect(self._on_profile_selected)
         h.addWidget(self.prof)
         addb = QPushButton("＋", objectName="tiny")
-        addb.setToolTip("Сохранить текущую раскладку как новую")
+        addb.setToolTip("Save current layout as a new one")
         addb.clicked.connect(self.save_as_profile)
         h.addWidget(addb)
         delb = QPushButton("🗑", objectName="tiny")
-        delb.setToolTip("Удалить активную раскладку")
+        delb.setToolTip("Delete the active layout")
         delb.clicked.connect(self.delete_profile)
         h.addWidget(delb)
         return h
@@ -173,10 +173,10 @@ class ControlPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 8, 0)
         lay.setSpacing(6)
-        lay.addWidget(QLabel("ОВЕРЛЕИ", objectName="colhead"))
+        lay.addWidget(QLabel("OVERLAYS", objectName="colhead"))
 
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Поиск оверлея…")
+        self.search.setPlaceholderText("Search overlays…")
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self._filter_list)
         lay.addWidget(self.search)
@@ -199,7 +199,7 @@ class ControlPanel(QWidget):
         fav_head = QWidget()
         fh = QHBoxLayout(fav_head)
         fh.setContentsMargins(0, 2, 0, 2)
-        fh.addWidget(QLabel("♥ ИЗБРАННОЕ", objectName="group"))
+        fh.addWidget(QLabel("♥ FAVOURITES", objectName="group"))
         fh.addStretch(1)
         il.addWidget(fav_head)
         self._fav_head = fav_head
@@ -220,7 +220,7 @@ class ControlPanel(QWidget):
             hh.setContentsMargins(0, 6, 0, 2)
             hh.addWidget(QLabel(gtitle, objectName="group"))
             hh.addStretch(1)
-            btn = QPushButton("скрыть все", objectName="link")
+            btn = QPushButton("hide all", objectName="link")
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda _=False, g=gkey: self._toggle_group(g))
             hh.addWidget(btn)
@@ -245,7 +245,7 @@ class ControlPanel(QWidget):
 
         cb = QCheckBox()
         cb.setChecked(self.config.is_enabled(cls.KEY))
-        cb.setToolTip("Показывать поверх игры")
+        cb.setToolTip("Show over the game")
         cb.toggled.connect(lambda v, c=cls: self.toggle(c, v))
         self._boxes[cls.KEY] = cb
         self._cls_by_key[cls.KEY] = cls
@@ -261,7 +261,7 @@ class ControlPanel(QWidget):
         fav = QPushButton("♥", objectName="fav")
         fav.setCheckable(True)
         fav.setChecked(self.config.is_favourite(cls.KEY))
-        fav.setToolTip("В избранное — поднимется в начало списка")
+        fav.setToolTip("Add to favourites — moves to the top of the list")
         fav.setCursor(Qt.PointingHandCursor)
         fav.setFixedWidth(24)
         fav.toggled.connect(lambda v, k=cls.KEY: self._toggle_fav(k, v))
@@ -336,7 +336,7 @@ class ControlPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(8, 0, 8, 0)
         lay.setSpacing(6)
-        lay.addWidget(QLabel("ПРЕДПРОСМОТР", objectName="colhead"))
+        lay.addWidget(QLabel("PREVIEW", objectName="colhead"))
 
         # Предпросмотр берёт демо-поток, когда сим молчит: настраивать виджет
         # по прочеркам бессмысленно — не видно ни цветов, ни ширины колонок.
@@ -346,19 +346,19 @@ class ControlPanel(QWidget):
         lay.addWidget(self.preview, 1)
 
         bar = QHBoxLayout()
-        self.demo_cb = QCheckBox("Демо-данные, когда сим не запущен")
+        self.demo_cb = QCheckBox("Demo data when the sim is off")
         self.demo_cb.setChecked(True)
-        self.demo_cb.setToolTip("Выключи, чтобы видеть настоящие прочерки")
+        self.demo_cb.setToolTip("Turn off to see the real dashes")
         self.demo_cb.toggled.connect(lambda v: setattr(self.preview.store, "allow_demo", v))
         bar.addWidget(self.demo_cb)
         bar.addSpacing(12)
-        bar.addWidget(QLabel("Фон", objectName="hint"))
+        bar.addWidget(QLabel("Backdrop", objectName="hint"))
         self.bg = QComboBox()
         self.bg.addItems([b[0] for b in BACKDROPS])
         self.bg.currentIndexChanged.connect(self.preview.set_backdrop)
         bar.addWidget(self.bg)
         bar.addSpacing(10)
-        bar.addWidget(QLabel("Масштаб", objectName="hint"))
+        bar.addWidget(QLabel("Zoom", objectName="hint"))
         self.zoom = QSlider(Qt.Horizontal)
         self.zoom.setRange(50, 200)
         self.zoom.setValue(100)
@@ -379,7 +379,7 @@ class ControlPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(8, 0, 0, 0)
         lay.setSpacing(6)
-        lay.addWidget(QLabel("НАСТРОЙКИ", objectName="colhead"))
+        lay.addWidget(QLabel("SETTINGS", objectName="colhead"))
 
         card = QFrame(objectName="card")
         cl = QVBoxLayout(card)
@@ -393,7 +393,7 @@ class ControlPanel(QWidget):
 
         # Крупная кнопка вместо галочки: у RaceLab это главное действие
         # карточки, и оно должно читаться с одного взгляда.
-        self.open_btn = QPushButton("Открыть оверлей", objectName="open")
+        self.open_btn = QPushButton("Open overlay", objectName="open")
         self.open_btn.setCheckable(True)
         self.open_btn.setCursor(Qt.PointingHandCursor)
         self.open_btn.toggled.connect(self._toggle_selected)
@@ -401,23 +401,23 @@ class ControlPanel(QWidget):
         self.sel_on = self.open_btn                  # прежнее имя — для совместимости
 
         prow = QHBoxLayout()
-        prow.addWidget(QLabel("Пресет", objectName="hint"))
+        prow.addWidget(QLabel("Preset", objectName="hint"))
         self.wpreset = QComboBox()
         self.wpreset.setMinimumWidth(110)
         self.wpreset.activated.connect(self._load_widget_preset)
         prow.addWidget(self.wpreset, 1)
         pa = QPushButton("＋", objectName="tiny")
-        pa.setToolTip("Сохранить настройки этого виджета")
+        pa.setToolTip("Save this widget's settings")
         pa.clicked.connect(self._save_widget_preset)
         prow.addWidget(pa)
         pd = QPushButton("🗑", objectName="tiny")
-        pd.setToolTip("Удалить пресет")
+        pd.setToolTip("Delete preset")
         pd.clicked.connect(self._delete_widget_preset)
         prow.addWidget(pd)
         lay.addLayout(prow)
 
         self.sfilter = QLineEdit()
-        self.sfilter.setPlaceholderText("Фильтр настроек…")
+        self.sfilter.setPlaceholderText("Filter settings…")
         self.sfilter.setClearButtonEnabled(True)
         self.sfilter.textChanged.connect(self._filter_settings)
         lay.addWidget(self.sfilter)
@@ -425,7 +425,7 @@ class ControlPanel(QWidget):
         self.sscroll = QScrollArea()
         self.sscroll.setWidgetResizable(True)
         lay.addWidget(self.sscroll, 1)
-        lay.addWidget(QLabel("Двигать и растягивать — на самом оверлее, в режиме правки.",
+        lay.addWidget(QLabel("Move and resize on the overlay itself, in edit mode.",
                              objectName="hint"))
         return box
 
@@ -448,15 +448,15 @@ class ControlPanel(QWidget):
         h.setContentsMargins(12, 8, 12, 8)
         h.setSpacing(12)
 
-        self.edit_btn = QPushButton("✏️  Режим правки", objectName="edit")
+        self.edit_btn = QPushButton("✏️  Edit mode", objectName="edit")
         self.edit_btn.setCheckable(True)
         self.edit_btn.setChecked(self.config.edit_mode())
-        self.edit_btn.setToolTip("Двигать оверлеи мышью. Вне режима клики уходят в игру. "
-                                 "Хоткей Ctrl+Shift+L")
+        self.edit_btn.setToolTip("Drag overlays with the mouse. Otherwise clicks go "
+                                 "to the game. Hotkey Ctrl+Shift+L")
         self.edit_btn.toggled.connect(self.set_edit)
         h.addWidget(self.edit_btn)
 
-        h.addWidget(QLabel("Прозрачность", objectName="hint"))
+        h.addWidget(QLabel("Opacity", objectName="hint"))
         self.op = QSlider(Qt.Horizontal)
         self.op.setRange(30, 100)
         self.op.setValue(int(self.config.opacity() * 100))
@@ -467,7 +467,7 @@ class ControlPanel(QWidget):
         self.op_lbl.setMinimumWidth(36)
         h.addWidget(self.op_lbl)
 
-        self.hide_cb = QCheckBox("Прятать вне трассы (в меню и повторах)")
+        self.hide_cb = QCheckBox("Hide when off track (menus and replays)")
         self.hide_cb.setChecked(self.config.hide_offtrack())
         self.hide_cb.toggled.connect(self.set_hide_offtrack)
         h.addWidget(self.hide_cb)
@@ -484,15 +484,15 @@ class ControlPanel(QWidget):
             btn.setChecked(k == key)
 
         self.sel_name.setText(cls.TITLE)
-        group = {"solo": "Соло", "endur": "Endurance", "setup": "Setup"}.get(
+        group = {"solo": "Solo", "endur": "Endurance", "setup": "Setup"}.get(
             self._group_by_key.get(key, "solo"), "")
         w, hgt = cls.DEFAULT
-        self.sel_meta.setText(f"{group}  ·  {w}×{hgt} по умолчанию  ·  "
-                              f"данные: {', '.join(cls.ENDPOINTS) or '—'}")
+        self.sel_meta.setText(f"{group}  ·  {w}×{hgt} default  ·  "
+                              f"data: {', '.join(cls.ENDPOINTS) or '—'}")
         on = self.config.is_enabled(key)
         self.open_btn.blockSignals(True)
         self.open_btn.setChecked(on)
-        self.open_btn.setText("Показан поверх игры" if on else "Открыть оверлей")
+        self.open_btn.setText("Shown over the game" if on else "Open overlay")
         self.open_btn.blockSignals(False)
         self._refresh_widget_presets()
 
@@ -521,14 +521,14 @@ class ControlPanel(QWidget):
         self.wpreset.blockSignals(True)
         self.wpreset.clear()
         names = self.config.widget_presets(self._selected or "")
-        self.wpreset.addItem("— нет —" if not names else "— выбрать —")
+        self.wpreset.addItem("— none —" if not names else "— choose —")
         self.wpreset.addItems(names)
         self.wpreset.blockSignals(False)
 
     def _save_widget_preset(self):
         if not self._selected:
             return
-        name, ok = QInputDialog.getText(self, "Пресет виджета", "Название:")
+        name, ok = QInputDialog.getText(self, "Widget preset", "Name:")
         name = (name or "").strip()
         if ok and name:
             self.config.save_widget_preset(self._selected, name)
@@ -586,7 +586,7 @@ class ControlPanel(QWidget):
             if active in names:
                 self.prof.setCurrentText(active)
         else:
-            self.prof.addItem("— нет раскладок —")
+            self.prof.addItem("— no layouts —")
         self.prof.blockSignals(False)
 
     def _on_profile_selected(self, name):
@@ -595,7 +595,7 @@ class ControlPanel(QWidget):
             self._rebuild_from_config()
 
     def save_as_profile(self):
-        name, ok = QInputDialog.getText(self, "Новая раскладка", "Название:")
+        name, ok = QInputDialog.getText(self, "New layout", "Name:")
         name = (name or "").strip()
         if ok and name:
             self.config.save_profile(name)
@@ -643,7 +643,7 @@ class ControlPanel(QWidget):
         if self._selected == cls.KEY and hasattr(self, "open_btn"):
             self.open_btn.blockSignals(True)
             self.open_btn.setChecked(show)
-            self.open_btn.setText("Показан поверх игры" if show else "Открыть оверлей")
+            self.open_btn.setText("Shown over the game" if show else "Open overlay")
             self.open_btn.blockSignals(False)
         self._refresh_visibility()
 
@@ -681,9 +681,9 @@ class ControlPanel(QWidget):
 
     def repaint_all(self):
         if self.store.ok:
-            self.status.setText("<span style='color:#2ecc71'>🟢 данные идут</span>")
+            self.status.setText("<span style='color:#2ecc71'>🟢 data flowing</span>")
         else:
-            self.status.setText("<span style='color:#e74c3c'>🔴 запусти «run.py»</span>")
+            self.status.setText("<span style='color:#e74c3c'>🔴 start run.py</span>")
         self._refresh_visibility()
         for w in self.widgets.values():
             if w.isVisible():

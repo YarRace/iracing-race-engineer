@@ -1,14 +1,14 @@
-# Телеметрия кругов сохраняется на диск
+# Lap telemetry is written to disk
 
-Раньше кадры жили только в памяти и обнулялись при смене сессии. В историю
-писалось лишь время круга и три сектора — на вопрос «где я потерял время в
-седьмом повороте» отвечать было не из чего.
+Frames used to live in memory only and were wiped when the session changed. The
+history kept nothing but the lap time and three sectors — which left nothing to
+answer "where did I lose the time in turn seven".
 
-Теперь каждый круг ресемплится на сетку по дистанции и ложится отдельным
-файлом в `data/laps/`.
+Now every lap is resampled onto a distance grid and lands as its own file in
+`data/laps/`.
 
-- сетка по дистанции, а не по времени: два круга сравниваются в одной точке трассы
-- 1000 точек на круг — это около пяти метров на пятикилометровой трассе
-- круг Monza весит 27 КБ, за 24-часовую гонку набегает 22 МБ
-- неполные и невалидные круги не пишутся, чтобы не засорять базу эталонов
-- в метаданные кладутся условия: топливо, температуры трассы и воздуха
+- a distance grid, not a time grid: two laps compare at the same point on track
+- 1000 points per lap — about five metres on a five-kilometre circuit
+- a Monza lap weighs 27 KB; a 24-hour race adds up to 22 MB
+- incomplete and invalid laps are not written, so the reference set stays clean
+- conditions go into the metadata: fuel, track and air temperature

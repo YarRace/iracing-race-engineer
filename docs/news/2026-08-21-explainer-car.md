@@ -1,11 +1,13 @@
-# Разбор перестал считать, что я на Кадиллаке
+# The analysis stopped assuming I drive a Cadillac
 
-В разборе стояли значения по умолчанию «Cadillac GTP» и «Watkins Glen», а живой
-цикл машину и трассу вообще не передавал. На Porsche в Монце модель получала
-в промпте прямую ложь и советовала сетап не от той машины.
+The analysis had `Cadillac GTP` and `Watkins Glen` hard-coded as defaults, and
+the live loop never passed the car or the track at all. In a Porsche at Monza
+the model was handed a flat lie in the prompt and gave setup advice for a car
+that was not on track.
 
-Теперь снимок сессии доезжает по всей цепочке. Если машина неизвестна, честно
-пишется `unknown` — назвать чужую машину хуже, чем признать незнание.
+The session snapshot now travels the whole chain. When the car is unknown the
+prompt says `unknown` honestly — naming the wrong car is worse than admitting
+we do not know.
 
-Заодно в ветке Claude была указана несуществующая модель: разбор просто падал
-при переключении.
+While in there: the Claude branch pointed at a model that does not exist, so
+the analysis simply crashed on switching providers.

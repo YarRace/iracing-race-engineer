@@ -1,8 +1,8 @@
 """Сайт проекта: витрина, каталог виджетов и чейнджлог.
 
-Пока это страницы для себя — посмотреть со стороны, что вообще получилось,
-и заставить себя описать продукт словами. Когда дойдёт до продажи, текст
-отсюда станет основой для покупателей, а язык поменяется на английский.
+Текст сайта — на английском: конкуренты англоязычные, и проект метит
+в продажу. Русскими остаются только комментарии и докстринги — их видит
+один автор.
 
 Без шаблонизатора: три страницы не стоят новой зависимости, а Jinja2 в
 проекте не используется. Стили берутся из того же tokens.css, что и
@@ -22,8 +22,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 NEWS_DIR = ROOT / "docs" / "news"
 CATALOG = ROOT / "data" / "catalog.json"
 
-NAV = (("/", "Дашборд"), ("/about", "О проекте"),
-       ("/catalog", "Виджеты"), ("/news", "Изменения"))
+NAV = (("/", "Dashboard"), ("/about", "About"),
+       ("/catalog", "Widgets"), ("/news", "Changelog"))
 
 
 def load_catalog():
@@ -36,18 +36,14 @@ def load_catalog():
                            "by_group": {}, "by_tab": {}}}
 
 
-def plural(n, one, few, many):
-    """Русское склонение после числа: 1 виджет, 2 виджета, 5 виджетов.
+def plural(n, one, many):
+    """Форма существительного после числа: 1 widget, 42 widgets.
 
-    Без этого страница пишет «42 виджетов» и «6 вкладки» — мелочь, но она
-    сразу выдаёт, что текст собран машиной и никто его не читал.
+    Английскому хватает двух форм — но выбирать всё равно надо: страница
+    с «1 widgets» сразу выдаёт, что текст собрала машина и никто его
+    не прочитал.
     """
-    n = abs(int(n))
-    if n % 10 == 1 and n % 100 != 11:
-        return one
-    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return few
-    return many
+    return one if abs(int(n)) == 1 else many
 
 
 def e(s):
@@ -59,7 +55,7 @@ def shell(title, body, active=""):
         f'<a href="{href}" class="{"on" if href == active else ""}">{e(name)}</a>'
         for href, name in NAV)
     return f"""<!doctype html>
-<html lang="ru"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)} — Race Engineer</title>
 <link rel="stylesheet" href="/tokens.css">
@@ -113,8 +109,8 @@ def shell(title, body, active=""):
   .empty{{color:var(--muted);padding:30px 0}}
   footer{{border-top:1px solid var(--line);margin-top:60px;padding:24px 0;
     color:var(--muted);font-size:13px}}
-    /* Герой с картинкой продукта. У RaceLab и Go Fast первое, что видишь, —
-       скриншот в игре, а не текст: сразу понятно, о чём вообще речь. */
+    /* Hero shot. Both competitors lead with a screenshot rather than a
+       paragraph — you see what the thing is before you read a word. */
     .hero-big{{padding:70px 0 20px;text-align:center}}
     .hero-big h1{{font-size:clamp(34px,6vw,64px);letter-spacing:-1.5px;
       text-transform:uppercase;font-weight:800;margin-bottom:18px}}
@@ -125,8 +121,8 @@ def shell(title, body, active=""):
     .shot img{{display:block;width:100%;height:auto}}
     .shot figcaption{{padding:10px 16px;font-size:12px;color:var(--muted);
       border-top:1px solid var(--line)}}
-    /* Витрина: слева список, справа выбранный виджет. Как у RaceLab, только
-       переключение на чистом CSS — ни строчки скриптов. */
+    /* Showcase: list on the left, selected widget on the right. Switching
+       runs on pure CSS — not a line of script on the page. */
     .show{{display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start}}
     .show-list{{max-height:520px;overflow:auto;padding-right:6px}}
     .show-list label{{display:block;padding:7px 10px;border-radius:8px;
@@ -141,9 +137,16 @@ def shell(title, body, active=""):
     .show-stage figcaption{{margin-top:16px;color:var(--muted);font-size:13.5px}}
     .show-stage figcaption b{{display:block;color:var(--txt);font-size:16px;
       margin-bottom:4px}}
-    .sims{{display:flex;flex-wrap:wrap;gap:10px}}
-    .sims span{{border:1px solid var(--line);border-radius:20px;padding:5px 14px;
-      font-size:12.5px;color:var(--muted)}}
+    img.th{{width:120px;height:auto;display:block;border-radius:6px;
+      background:#0d1014;border:1px solid var(--line)}}
+    td:first-child{{width:132px}}
+    td .sub{{color:var(--muted);font-size:12.5px;margin-top:3px;max-width:34ch}}
+    .sims{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px}}
+    .sim{{border:1px solid var(--line);border-radius:var(--r-card);padding:14px 16px;
+      background:var(--panel)}}
+    .sim b{{display:block;font-size:14.5px;margin-bottom:3px}}
+    .sim span{{color:var(--muted);font-size:12.5px}}
     @media(max-width:760px){{.nums,.why{{grid-template-columns:1fr 1fr}}h1{{font-size:30px}}
       .show{{grid-template-columns:1fr}}.show-list{{max-height:200px}}}}
 </style></head><body>
@@ -152,32 +155,32 @@ def shell(title, body, active=""):
   <nav>{nav}</nav>
 </div></header>
 <div class="wrap">{body}</div>
-<footer><div class="wrap">Личный проект для iRacing. Страницы собраны из кода —
-цифры не переписываются руками.</div></footer>
+<footer><div class="wrap">A personal project for iRacing. These pages are built
+from the code — no number here is typed by hand.</div></footer>
 </body></html>"""
 
 
 # ── страницы ────────────────────────────────────────────────────────────────
 
 WHY = [
-    ("Всё в одном окне",
-     "Телеметрия, стратегия, история кругов и разбор — вместо четырёх приложений "
-     "с четырьмя подписками."),
-    ("Свой оверлей поверх игры",
-     "Виджеты настраиваются по одному: цвет, размер, шрифт каждой цифры. "
-     "Кнопки руля назначаются на любое действие."),
-    ("Данные не пропадают",
-     "Каждый круг с телеметрией ложится на диск. История живёт между сессиями, "
-     "прогресс виден по датам, а не по одной поездке."),
-    ("Без сглаживания",
-     "Показываем сырые значения на высокой частоте. Сглаживание прячет ровно то, "
-     "ради чего смотришь цифры — разброс и выбросы."),
-    ("Разбор словами",
-     "После стинта модель объясняет, что происходило с машиной, и предлагает "
-     "правки сетапа с обоснованием."),
-    ("Работает без интернета",
-     "Всё крутится локально. Ключи к чужим сервисам не нужны, данные никуда "
-     "не уходят."),
+    ("Everything in one window",
+     "Telemetry, strategy, lap history and analysis — instead of four apps "
+     "with four subscriptions."),
+    ("An overlay of your own",
+     "Every widget is tuned on its own: colour, size and font of each number. "
+     "Wheel buttons map to any action."),
+    ("Nothing gets lost",
+     "Every lap lands on disk with its telemetry. History survives between "
+     "sessions, so progress shows across dates, not one drive."),
+    ("No smoothing",
+     "Raw values at a high refresh rate. Smoothing hides exactly what you open "
+     "the numbers for — the scatter and the outliers."),
+    ("Analysis in plain words",
+     "After a stint the model explains what the car was doing and suggests "
+     "setup changes, with the reasoning attached."),
+    ("Works offline",
+     "It all runs locally. No keys to anyone else's service, and no data "
+     "leaves the machine."),
 ]
 
 
@@ -197,9 +200,6 @@ def load_shots(root=None):
         return json.loads(f.read_text(encoding="utf-8"))
     except (ValueError, OSError):
         return []
-
-
-GROUP_RU = {"solo": "Соло", "endur": "Эндуранс", "setup": "Сетап"}
 
 
 def showcase(shots):
@@ -228,24 +228,24 @@ def showcase(shots):
         rules.append(f"#s{i}:checked~.show-stage #f{i}{{display:block}}")
         rules.append(f'#s{i}:checked~.show-list label[for="s{i}"]'
                      f"{{background:var(--panel);color:var(--txt);font-weight:600}}")
-    return (f'<section><h2>Как это выглядит — {len(shots)}</h2>'
+    return (f'<section><h2>What it looks like — {len(shots)}</h2>'
             f'<style>{"".join(rules)}</style>'
             f'<div class="show">{"".join(inputs)}'
             f'<div class="show-list">{"".join(items)}</div>'
             f'<div class="show-stage">{"".join(stage)}</div></div>'
             f'<p class="lead" style="margin-top:14px;font-size:13px">'
-            f'Снимки собраны командой '
-            f'<span class="k">python tools/render_widgets.py</span> на '
-            f'демонстрационных данных: цифры и имена пилотов выдуманы.</p></section>')
+            f'Shots rendered by '
+            f'<span class="k">python tools/render_widgets.py</span> on demo '
+            f'data: the numbers and driver names are made up.</p></section>')
 
 
 def page_about(cat, shots=None):
     k = cat["counts"]
     labels = (
-        (k["widgets"], ("виджет оверлея", "виджета оверлея", "виджетов оверлея")),
-        (k["cards"], ("карточка дашборда", "карточки дашборда", "карточек дашборда")),
-        (k["tabs"], ("вкладка", "вкладки", "вкладок")),
-        (k["endpoints"], ("эндпоинт API", "эндпоинта API", "эндпоинтов API")),
+        (k["widgets"], ("overlay widget", "overlay widgets")),
+        (k["cards"], ("dashboard card", "dashboard cards")),
+        (k["tabs"], ("tab", "tabs")),
+        (k["endpoints"], ("API endpoint", "API endpoints")),
     )
     nums = "".join(
         f'<div class="num"><div class="v">{v}</div>'
@@ -256,52 +256,78 @@ def page_about(cat, shots=None):
     hero_img = ""
     if (pathlib.Path(__file__).resolve().parents[3] / "docs" / "hero.png").exists():
         hero_img = ('<figure class="shot"><img src="/hero.png" '
-                    'alt="Оверлей поверх игры">'
-                    '<figcaption>Оверлей поверх игры: таблица, дельта, карта трассы, '
-                    'расход, педали и относительные разрывы. '
-                    'Собрано из настоящих виджетов на демонстрационных данных.'
-                    '</figcaption></figure>')
-    sims = "".join(f"<span>{e(x)}</span>" for x in
-                   ("iRacing", "Windows 10 и 11", "Без интернета",
-                    "Один экран или два", "Руль и геймпад"))
-    return shell("О проекте", f"""
+                    'alt="The overlay over the game">'
+                    '<figcaption>The overlay over the game: standings, delta, track '
+                    'map, fuel, pedals and relative gaps. Built from the real '
+                    'widgets on demo data.</figcaption></figure>')
+    # Полоса совместимости в духе Go Fast: у них строка логотипов симуляторов.
+    # Чужие логотипы не берём — это чужие товарные знаки, а сайт метит
+    # в продажу. Поэтому свои плашки: заголовок и пояснение под ним.
+    sims = "".join(
+        f'<div class="sim"><b>{e(t)}</b><span>{e(d)}</span></div>'
+        for t, d in (
+            ("iRacing", "the one sim supported"),
+            ("Windows 10 · 11", "tested on both"),
+            ("Offline", "everything is computed locally"),
+            ("One screen or two", "overlay and dashboard run apart"),
+            ("Wheel and gamepad", "buttons map to actions"),
+        ))
+    return shell("About", f"""
 <section class="hero-big">
-  <h1>Гоночный инженер<br>для <span>iRacing</span></h1>
-  <p class="lead">Дашборд на втором экране, свой оверлей поверх игры и разбор
-  заездов. Собственный проект, не подписка: данные лежат у меня, работает локально.</p>
+  <h1>A race engineer<br>for <span>iRacing</span></h1>
+  <p class="lead">A dashboard on the second screen, an overlay of your own over the
+  game, and analysis once you climb out. A project, not a subscription: the data
+  stays on your machine and everything runs locally.</p>
   {hero_img}
 </section>
 <section>
-  <h2>Где работает</h2>
+  <h2>Where it runs</h2>
   <div class="sims">{sims}</div>
 </section>
 {showcase(shots or [])}
 <section>
-  <h2>Что внутри</h2>
+  <h2>What is inside</h2>
   <div class="nums">{nums}</div>
-  <p class="lead" style="margin-top:14px;font-size:14px">Виджеты по группам: {groups}.
-  Цифры собраны из кода командой <span class="k">python tools/build_catalog.py</span>.</p>
+  <p class="lead" style="margin-top:14px;font-size:14px">Widgets by group: {groups}.
+  The numbers come from the code, via <span class="k">python tools/build_catalog.py</span>.</p>
 </section>
 <section>
-  <h2>Почему так</h2>
+  <h2>Why it works this way</h2>
   <div class="why">{why}</div>
 </section>
 <section>
-  <h2>Дальше</h2>
-  <p class="lead">Ближайшее: разбор круга по поворотам с ценой ошибки в секундах,
-  сравнение кругов по дистанции, командная стратегия на эндуранс.
-  Полный план — в <span class="k">docs/roadmap-overlay-2026-08.md</span>.</p>
+  <h2>What comes next</h2>
+  <p class="lead">Up soon: a corner-by-corner lap breakdown with the cost of every
+  mistake in seconds, lap comparison by distance, and team strategy for endurance.
+  The full plan lives in <span class="k">docs/roadmap-overlay-2026-08.md</span>.</p>
 </section>""", active="/about")
 
 
-def page_catalog(cat):
-    if not cat["widgets"]:
-        body = ('<section><h1>Виджеты</h1><div class="empty">Каталог не собран. '
-                'Запусти <span class="k">python tools/build_catalog.py</span>.</div></section>')
-        return shell("Виджеты", body, active="/catalog")
+def _thumb(shot):
+    """Миниатюра виджета в таблице каталога.
 
+    Таблица из одних названий не отвечает на главный вопрос — «а как это
+    выглядит». Картинка отвечает мгновенно, а места занимает строку.
+    """
+    if not shot:
+        return ""
+    return (f'<img class="th" src="/w/{e(shot["file"])}" '
+            f'alt="{e(shot["title"])}" loading="lazy">')
+
+
+def page_catalog(cat, shots=None):
+    if not cat["widgets"]:
+        body = ('<section><h1>Widgets</h1><div class="empty">The catalogue has not '
+                'been built. Run <span class="k">python tools/build_catalog.py</span>.'
+                '</div></section>')
+        return shell("Widgets", body, active="/catalog")
+
+    shot_by_key = {x["key"]: x for x in (shots or [])}
+    # Название плюс ключ ничего не говорят о том, ЧТО виджет показывает.
+    # Правый край таблицы всё равно пустовал — там теперь строка описания.
     rows = "".join(
-        f"<tr><td>{e(w['title'])}</td>"
+        f"<tr><td>{_thumb(shot_by_key.get(w['key']))}</td>"
+        f"<td>{e(w['title'])}<div class=\"sub\">{e(w.get('desc') or '')}</div></td>"
         f'<td><span class="tag {e(w["group"])}">{e(w["group_title"])}</span></td>'
         f'<td class="k">{e(w["key"])}</td>'
         f'<td class="k">{w["width"]}×{w["height"]}</td>'
@@ -311,21 +337,21 @@ def page_catalog(cat):
         f"<tr><td>{e(c['title'])}</td><td>{e(c['tab_title'])}</td>"
         f'<td class="k">{e(c["key"])}</td></tr>' for c in cat["cards"])
     k = cat["counts"]
-    return shell("Виджеты", f"""
+    return shell("Widgets", f"""
 <section class="hero" style="padding:44px 0 20px">
-  <h1>Виджеты и карточки</h1>
-  <p class="lead">{k['widgets']} {plural(k['widgets'], 'виджет', 'виджета', 'виджетов')}
-  поверх игры и {k['cards']} {plural(k['cards'], 'карточка', 'карточки', 'карточек')}
-  на дашборде. Список читается из кода, поэтому не устаревает.</p>
+  <h1>Widgets and cards</h1>
+  <p class="lead">{k['widgets']} {plural(k['widgets'], 'widget', 'widgets')} over the
+  game and {k['cards']} {plural(k['cards'], 'card', 'cards')} on the dashboard.
+  The list is read from the code, so it cannot go stale.</p>
 </section>
 <section>
-  <h2>Оверлей — {k['widgets']}</h2>
-  <table><tr><th>Название</th><th>Группа</th><th>Ключ</th><th>Размер</th>
-  <th>Данные</th></tr>{rows}</table>
+  <h2>Overlay — {k['widgets']}</h2>
+  <table><tr><th>Name</th><th>Group</th><th>Key</th><th>Size</th>
+  <th>Data</th></tr>{rows}</table>
 </section>
 <section>
-  <h2>Дашборд — {k['cards']}</h2>
-  <table><tr><th>Карточка</th><th>Вкладка</th><th>Ключ</th></tr>{cards}</table>
+  <h2>Dashboard — {k['cards']}</h2>
+  <table><tr><th>Card</th><th>Tab</th><th>Key</th></tr>{cards}</table>
 </section>""", active="/catalog")
 
 
@@ -379,16 +405,16 @@ def _inline(s):
 
 def page_news(entries):
     if not entries:
-        body = ('<section><h1>Изменения</h1><div class="empty">Записей пока нет. '
-                'Добавь файл в <span class="k">docs/news/</span>.</div></section>')
-        return shell("Изменения", body, active="/news")
+        body = ('<section><h1>Changelog</h1><div class="empty">No entries yet. '
+                'Add a file to <span class="k">docs/news/</span>.</div></section>')
+        return shell("Changelog", body, active="/news")
     posts = "".join(
         f'<div class="post"><div class="d">{e(p["date"])}</div>'
         f'<h3>{e(p["title"])}</h3>{_md_lite(p["body"])}</div>' for p in entries)
-    return shell("Изменения", f"""
+    return shell("Changelog", f"""
 <section class="hero" style="padding:44px 0 10px">
-  <h1>Что изменилось</h1>
-  <p class="lead">Свой чейнджлог. <a href="/news/rss.xml">RSS</a></p>
+  <h1>What changed</h1>
+  <p class="lead">The project changelog. <a href="/news/rss.xml">RSS</a></p>
 </section>
 <section>{posts}</section>""", active="/news")
 
@@ -408,7 +434,7 @@ def news_rss(entries, base="http://localhost:8000"):
                   f"<description>{e(p['body'][:600])}</description></item>")
     return ('<?xml version="1.0" encoding="UTF-8"?>'
             '<rss version="2.0"><channel>'
-            "<title>Race Engineer — изменения</title>"
+            "<title>Race Engineer — changelog</title>"
             f"<link>{base}/news</link>"
-            "<description>Чейнджлог личного проекта гоночного инженера</description>"
+            "<description>Changelog of the Race Engineer project</description>"
             f"{items}</channel></rss>")

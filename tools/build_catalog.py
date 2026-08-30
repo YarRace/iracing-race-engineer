@@ -19,10 +19,11 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-GROUP_TITLES = {"solo": "Соло", "endur": "Эндуранс", "setup": "Сетап"}
+# Подписи уезжают на сайт, а он английский — см. site.py.
+GROUP_TITLES = {"solo": "Solo", "endur": "Endurance", "setup": "Setup"}
 TAB_TITLES = {
-    "solo": "Соло", "endur": "Эндуранс", "setup": "Сетап",
-    "records": "Рекорды", "strategy": "Стратегия", "analysis": "Разбор гонки",
+    "solo": "Solo", "endur": "Endurance", "setup": "Setup",
+    "records": "Records", "strategy": "Strategy", "analysis": "Race analysis",
 }
 
 
@@ -33,16 +34,17 @@ def widgets():
     out = []
     for cls in WIDGETS:
         size = getattr(cls, "DEFAULT", None) or (0, 0)
-        doc = (cls.__doc__ or "").strip().splitlines()
         out.append({
             "key": getattr(cls, "KEY", cls.__name__),
             "title": getattr(cls, "TITLE", cls.__name__),
             "group": getattr(cls, "GROUP", "solo"),
-            "group_title": GROUP_TITLES.get(getattr(cls, "GROUP", "solo"), "Соло"),
+            "group_title": GROUP_TITLES.get(getattr(cls, "GROUP", "solo"), "Solo"),
             "width": size[0], "height": size[1],
             # источники данных: по ним видно, что виджет вообще показывает
             "endpoints": list(getattr(cls, "ENDPOINTS", ()) or ()),
-            "desc": doc[0].strip() if doc else "",
+            # подпись для сайта берём из BLURB, а не из докстринга:
+            # докстринги русские и такими и останутся, сайт — английский
+            "desc": getattr(cls, "BLURB", ""),
         })
     out.sort(key=lambda w: (list(GROUP_TITLES).index(w["group"]), w["title"].lower()))
     return out

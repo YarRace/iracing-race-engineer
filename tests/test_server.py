@@ -98,9 +98,9 @@ def test_tokens_css_is_served():
 
 def test_site_pages_render():
     c = TestClient(app)
-    for path, must in (("/about", "Гоночный инженер"),
-                       ("/catalog", "Виджеты и карточки"),
-                       ("/news", "Что изменилось")):
+    for path, must in (("/about", "A race engineer"),
+                       ("/catalog", "Widgets and cards"),
+                       ("/news", "What changed")):
         r = c.get(path)
         assert r.status_code == 200, path
         assert must in r.text, path
@@ -134,15 +134,26 @@ def test_news_rss_is_valid_xml():
     assert root.find("./channel/title") is not None
 
 
-def test_russian_plurals_on_site():
-    """«42 виджетов» и «6 вкладки» сразу выдают, что текст собрала машина."""
+def test_plural_on_site():
+    """«1 widgets» сразу выдаёт, что текст собрала машина и никто не читал."""
     from ire.dashboard.site import plural
-    assert plural(1, "виджет", "виджета", "виджетов") == "виджет"
-    assert plural(42, "виджет", "виджета", "виджетов") == "виджета"
-    assert plural(6, "вкладка", "вкладки", "вкладок") == "вкладок"
-    assert plural(11, "круг", "круга", "кругов") == "кругов"     # 11, а не 1
-    assert plural(61, "карточка", "карточки", "карточек") == "карточка"
-    assert plural(13, "эндпоинт", "эндпоинта", "эндпоинтов") == "эндпоинтов"
+    assert plural(1, "widget", "widgets") == "widget"
+    assert plural(0, "widget", "widgets") == "widgets"       # ноль — множественное
+    assert plural(44, "widget", "widgets") == "widgets"
+    assert plural(-1, "tab", "tabs") == "tab"
+
+
+def test_site_has_no_cyrillic_left():
+    """Решение от 17.07.2026: сайт целиком английский, без переключателя.
+
+    Русский текст в вёрстке — не косметика: сайт метит в продажу, а оба
+    конкурента англоязычные. Тест ловит новую строку, написанную по привычке.
+    """
+    import re
+    c = TestClient(app)
+    for path in ("/about", "/catalog", "/news"):
+        found = re.findall(r"[А-Яа-яЁё][А-Яа-яЁё ,.-]{3,}", c.get(path).text)
+        assert not found, (path, found[:5])
 
 
 # ── виджеты оверлея: износ по зонам и пит-лимитер ───────────────────────────

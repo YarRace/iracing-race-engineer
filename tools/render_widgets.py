@@ -126,7 +126,7 @@ def main():
                 "group": getattr(cls, "GROUP", "solo"),
                 "size": list(cls.DEFAULT),
                 "file": path.name,
-                "doc": (cls.__doc__ or "").strip().split("\n")[0],
+                "doc": getattr(cls, "BLURB", ""),      # английская подпись
             })
         except Exception as e:                                   # noqa: BLE001
             failed.append((name, f"{type(e).__name__}: {e}"))

@@ -192,7 +192,12 @@ def test_two_writers_same_lap_never_corrupt(tmp_path):
 
     assert not errors
     got = laps.list_laps(tmp_path)
-    assert len(got) == 1                            # имя одно — файл один
-    m = laps.load_lap(got[0]["path"])               # и он ЧИТАЕТСЯ
-    assert len(m["channels"]["speed"]) == laps.POINTS
+    # Файлов может выйти два, и это НЕ порча: в имя входит время с точностью
+    # до секунды, а шесть потоков успевают перешагнуть границу секунды.
+    # Проверять надо не количество, а то, что КАЖДЫЙ файл читается целиком —
+    # именно этого не было 28.08, когда писатели смешивались в одном файле.
+    assert 1 <= len(got) <= 2
+    for lap in got:
+        m = laps.load_lap(lap["path"])
+        assert len(m["channels"]["speed"]) == laps.POINTS
     assert not list(tmp_path.rglob("*.tmp"))        # временные убраны за собой

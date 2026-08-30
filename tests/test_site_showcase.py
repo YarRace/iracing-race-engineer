@@ -77,3 +77,28 @@ def test_about_page_survives_without_shots():
     assert "<h1>" in html
     assert '<div class="show">' not in html
     assert "<figure id=" not in html
+
+
+def test_catalog_row_explains_what_the_widget_does():
+    """Название и ключ не отвечают на вопрос «что оно показывает».
+
+    Описание берётся из BLURB виджета — отдельного английского поля, а не
+    из докстринга: докстринги русские, а сайт английский.
+    """
+    cat = {"widgets": [{"key": "fuel", "title": "Fuel & pit", "group": "solo",
+                        "group_title": "Solo", "width": 230, "height": 220,
+                        "endpoints": ["strategy"],
+                        "desc": "Fuel left, burn rate and what the next stop needs."}],
+           "cards": [], "counts": {"widgets": 1, "cards": 0}}
+    html = site.page_catalog(cat, [])
+    assert "Fuel left, burn rate and what the next stop needs." in html
+    assert 'class="sub"' in html
+
+
+def test_catalog_survives_a_widget_without_a_description():
+    """Старый catalog.json без поля desc не должен ронять страницу."""
+    cat = {"widgets": [{"key": "fuel", "title": "Fuel & pit", "group": "solo",
+                        "group_title": "Solo", "width": 230, "height": 220,
+                        "endpoints": []}],
+           "cards": [], "counts": {"widgets": 1, "cards": 0}}
+    assert "Fuel &amp; pit" in site.page_catalog(cat, [])

@@ -1,13 +1,13 @@
-# История кругов наконец видна
+# Lap history is finally on screen
 
-В базе лежали 629 кругов и 211 стинтов, функции чтения были написаны и покрыты
-тестами — а эндпоинтов для них не существовало. Данные копились и никуда
-не показывались.
+The database held 629 laps and 211 stints, the read functions were written and
+covered by tests — and no endpoint existed for any of it. The data piled up and
+was shown nowhere.
 
-Появились `/api/history` и `/api/stints`, а карточка **Progress** на вкладке
-Records перестала быть заглушкой: выбор связки трасса плюс машина, все круги
-точками, ступенчатая линия личного рекорда и маркер лучшего круга.
+`/api/history` and `/api/stints` arrived, and the **Progress** card on the
+Records tab stopped being a placeholder: pick a track and car, and you get every
+lap as a dot, a stepped line for the personal best, and a marker on the best lap.
 
-- Spa на Ferrari 499P — 226 кругов, лучший 2:01.87, отыграно 2.44 секунды
-- Monza на Porsche 963 — 212 кругов, лучший 1:33.84
-- точки не сглаживаются: сглаживание прячет разброс, ради которого график и нужен
+- Spa in the Ferrari 499P — 226 laps, best 2:01.87, 2.44 seconds clawed back
+- Monza in the Porsche 963 — 212 laps, best 1:33.84
+- the dots are not smoothed: smoothing hides the very scatter the chart is for

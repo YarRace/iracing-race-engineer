@@ -23,10 +23,10 @@ from PySide6.QtWidgets import QWidget
 
 BACKDROPS = [
     # (подпись, небо сверху, небо снизу, полотно, обочина)
-    ("Закат", "#2b3a55", "#c96f3f", "#2a2d33", "#3d4a35"),
-    ("День", "#4a7fb5", "#a9c8e8", "#33363c", "#41582f"),
-    ("Ночь", "#0b1020", "#1a2440", "#202329", "#1d2a1b"),
-    ("Дождь", "#3b4450", "#6c7683", "#3a3f47", "#2f3a2c"),
+    ("Sunset", "#2b3a55", "#c96f3f", "#2a2d33", "#3d4a35"),
+    ("Day", "#4a7fb5", "#a9c8e8", "#33363c", "#41582f"),
+    ("Night", "#0b1020", "#1a2440", "#202329", "#1d2a1b"),
+    ("Rain", "#3b4450", "#6c7683", "#3a3f47", "#2f3a2c"),
 ]
 
 
@@ -138,7 +138,7 @@ class PreviewCanvas(QWidget):
             p.setFont(f)
             p.setPen(QPen(QColor("#cdd3dc")))
             p.drawText(QRectF(0, 0, W, H), Qt.AlignCenter,
-                       "Выберите оверлей слева")
+                       "Pick an overlay on the left")
             return
 
         # Рамка вокруг виджета: без неё непонятно, где его границы —
@@ -153,5 +153,5 @@ class PreviewCanvas(QWidget):
         p.setFont(f)
         p.setPen(QPen(QColor(160, 170, 185)))
         p.drawText(QRectF(8, H - 22, W - 16, 16), Qt.AlignLeft | Qt.AlignVCenter,
-                   f"{r.width()}×{r.height()} пикселей"
-                   f"  ·  фон: {BACKDROPS[self._bg][0]}")
+                   f"{r.width()}×{r.height()} pixels"
+                   f"  ·  backdrop: {BACKDROPS[self._bg][0]}")

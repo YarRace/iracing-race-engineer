@@ -123,7 +123,7 @@ def about():
 @app.get("/catalog", response_class=HTMLResponse)
 def catalog():
     """Каталог виджетов и карточек — читается из собранного data/catalog.json."""
-    return site.page_catalog(site.load_catalog())
+    return site.page_catalog(site.load_catalog(), site.load_shots())
 
 
 @app.get("/news", response_class=HTMLResponse)

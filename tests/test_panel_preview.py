@@ -205,11 +205,11 @@ def test_open_button_reflects_and_controls_state(panel):
     panel.select("weather")
     panel.toggle(panel._cls_by_key["weather"], False)
     assert not panel.open_btn.isChecked()
-    assert "Открыть" in panel.open_btn.text()
+    assert "Open" in panel.open_btn.text()
 
     panel.open_btn.setChecked(True)                    # нажали кнопку
     assert panel.config.is_enabled("weather")
-    assert "Показан" in panel.open_btn.text()
+    assert "Shown" in panel.open_btn.text()
 
 
 def test_widget_preset_moves_look_without_touching_layout(panel):
@@ -255,3 +255,38 @@ def test_favourite_rows_are_not_squashed(panel):
     for i in range(panel._fav_lay.count()):
         row = panel._fav_lay.itemAt(i).widget()
         assert row.minimumHeight() >= 26
+
+
+def test_long_value_shrinks_instead_of_leaving_the_widget(panel):
+    """Строка шире виджета уезжала за левый край и наползала на соседнюю.
+
+    В «Front/rear balance» подсказка «softer front / more rear wing» не
+    помещалась в 240 пикселей: text_right считает x = правый край минус
+    ширина строки, уходил в минус, и Qt честно рисовал текст за границей.
+    Проверяем на самом узком случае — что рисовать начинают внутри виджета.
+    """
+    from PySide6.QtGui import QPainter
+
+    from overlay.widgets import BalanceWidget
+
+    class Narrow(BalanceWidget):
+        def rows(self):
+            return [("Try", "softer front / more rear wing", "#9099a6")]
+
+    from PySide6.QtGui import QFontMetrics
+
+    w = Narrow(panel.store, panel.config)
+    w.resize(240, 150)
+    fm = QFontMetrics(w._font_for("Try", 14, True))
+    assert fm.horizontalAdvance("softer front / more rear wing") > 240 - 24, \
+        "тест потерял смысл: строка перестала быть длинной"
+
+    pix = QPixmap(240, 150)          # держим ссылку: без неё Qt рисует в мусор
+    p = QPainter(pix)
+    w.draw(p)
+    p.end()
+
+    assert w._elrects, "строка не отрисовалась"
+    for _, rect in w._elrects:
+        assert rect.left() >= 0, "текст начинается за левым краем виджета"
+        assert rect.right() <= w.width() + 1, "текст уходит за правый край"

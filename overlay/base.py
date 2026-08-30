@@ -282,10 +282,27 @@ class OverlayWidget(QWidget):
             fm = p.fontMetrics()
             self._mark(key, x, y - fm.ascent(), fm.horizontalAdvance(str(s)), fm.height())
 
-    def text_right(self, p, xr, y, s, color="#e8eaed", size=12, bold=True, key=None):
+    def text_right(self, p, xr, y, s, color="#e8eaed", size=12, bold=True, key=None,
+                   avail=None):
+        """Значение по правому краю. avail — сколько места осталось под него.
+
+        Без avail длинная подсказка вроде «softer front / more rear wing»
+        уезжает за левый край и наползает на соседнюю строку: xr - w уходит
+        в минус, и Qt честно рисует текст за пределами виджета. Поэтому,
+        когда место известно, ужимаем кегль, пока строка не влезет.
+        """
         p.setFont(self._font_for(key, size, bold))
         fm = p.fontMetrics()
         w = fm.horizontalAdvance(str(s))
+        if avail is not None:
+            while w > avail and size > 7:
+                size -= 1
+                p.setFont(self._font_for(key, size, bold))
+                fm = p.fontMetrics()
+                w = fm.horizontalAdvance(str(s))
+            if w > avail:                                   # не влезло даже мелким
+                s = fm.elidedText(str(s), Qt.ElideRight, int(avail))
+                w = fm.horizontalAdvance(str(s))
         if self._opt("text_shadow", False):
             p.setPen(QPen(QColor(0, 0, 0, 190)))
             p.drawText(int(xr - w) + 1, int(y) + 1, str(s))

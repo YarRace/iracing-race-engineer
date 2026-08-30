@@ -148,11 +148,14 @@ class StatWidget(OverlayWidget):
                 continue
             top = y
             for row in blocks[label]:
+                left = 12
                 if row[0]:
                     self.text(p, 12, y, row[0], MUTED, 10)
+                    left = 12 + p.fontMetrics().horizontalAdvance(str(row[0])) + 8
                 # значение с key=label: кликабельно + берёт свой цвет/размер/шрифт
                 self.text_right(p, self.width() - 12, y, row[1],
-                                row[2] if len(row) > 2 else WHITE, 14, True, key=label)
+                                row[2] if len(row) > 2 else WHITE, 14, True, key=label,
+                                avail=max(24, self.width() - 12 - left))
                 y += 24
             self.hit(label, 8, top - 16, self.width() - 16, y - top)   # вся строка кликабельна
 
@@ -172,6 +175,7 @@ class StatWidget(OverlayWidget):
 # ================= SOLO =================
 class InputsWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "inputs", "Inputs", (240, 110), "solo", ("live",)
+    BLURB = "Speed, gear and the pedal traces side by side."
 
     def draw(self, p):
         l = self.store.get("live")
@@ -207,11 +211,12 @@ class FuelWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "fuel", "Fuel & pit", (230, 220), "solo", ("strategy",)
+    BLURB = "Fuel left, burn rate and what the next stop needs."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Сценарии расхода", "show_scenarios", True)
-        self.opt_check(lay, "Долив в кругах", "show_add_laps", True)
-        self.opt_slider(lay, "Тревога при остатке (кругов)", "warn_laps", 1, 10, 2)
+        self.opt_check(lay, "Burn scenarios", "show_scenarios", True)
+        self.opt_check(lay, "Refuel in laps", "show_add_laps", True)
+        self.opt_slider(lay, "Warn below (laps)", "warn_laps", 1, 10, 2)
 
     def rows(self):
         g = self.store.get("strategy")
@@ -257,11 +262,12 @@ class DeltaWidget(OverlayWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "delta", "Delta to best", (220, 120), "solo", ("race",)
+    BLURB = "Delta to your best lap, in one large number."
 
     def extra_settings(self, lay):
-        self.opt_slider(lay, "Шкала полосы (0.1с)", "scale", 5, 50, 10)
-        self.opt_check(lay, "Полоса под цифрой", "show_bar", True)
-        self.opt_choice(lay, "Знаков после запятой", "digits",
+        self.opt_slider(lay, "Bar scale (0.1s)", "scale", 5, 50, 10)
+        self.opt_check(lay, "Bar under the number", "show_bar", True)
+        self.opt_choice(lay, "Decimal places", "digits",
                         [("2", "0.00"), ("3", "0.000")])
 
     def draw(self, p):
@@ -308,10 +314,11 @@ class ShiftWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "shift", "RPM & shift", (200, 130), "solo", ("race",)
+    BLURB = "Revs and the moment to pull the next gear."
 
     def extra_settings(self, lay):
-        self.opt_slider(lay, "Сдвиг точки шифта (об/мин)", "shift_offset", -500, 500, 0)
-        self.opt_check(lay, "Остаток до шифта", "show_left", True)
+        self.opt_slider(lay, "Shift point offset (rpm)", "shift_offset", -500, 500, 0)
+        self.opt_check(lay, "Rpm left to shift", "show_left", True)
 
     def rows(self):
         r = self.store.get("race")
@@ -350,11 +357,12 @@ class TopSpeedWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "topspeed", "Top speed", (210, 130), "solo", ("live", "race")
+    BLURB = "Speed now, best this lap and best this session."
 
     def extra_settings(self, lay):
-        self.opt_choice(lay, "Единицы", "units",
-                        [("kmh", "км/ч"), ("mph", "mph")])
-        self.opt_check(lay, "Максимум за круг", "show_lap_max", True)
+        self.opt_choice(lay, "Units", "units",
+                        [("kmh", "km/h"), ("mph", "mph")])
+        self.opt_check(lay, "Best of this lap", "show_lap_max", True)
 
     def _sp(self, kmh):
         if not isinstance(kmh, (int, float)):
@@ -413,6 +421,7 @@ class SlipWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "slip", "Slip", (210, 130), "solo", ("live",)
+    BLURB = "Not just that the car is sliding — which end is sliding."
     MIN_SPEED = 8.0                                  # м/с, ниже — манёвры в боксе
 
 
@@ -447,8 +456,8 @@ class SlipWidget(StatWidget):
         return ("Balance", "balanced", GREEN)
 
     def extra_settings(self, lay):
-        self.opt_slider(lay, "Порог срыва (°/с)", "thr", 10, 60, 25)
-        self.opt_check(lay, "Различать снос и занос", "detect_kind", True)
+        self.opt_slider(lay, "Slip threshold (°/s)", "thr", 10, 60, 25)
+        self.opt_check(lay, "Tell understeer from oversteer", "detect_kind", True)
 
     def rows(self):
         l = self.store.get("live")
@@ -479,11 +488,12 @@ class PosTrendWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "postrend", "Position trend", (210, 150), "solo", ("race",)
+    BLURB = "How your position moved across the race."
 
     def extra_settings(self, lay):
-        self.opt_choice(lay, "Считать по", "which",
-                        [("class", "в классе"), ("overall", "в общем зачёте")])
-        self.opt_check(lay, "Лучшая и худшая за заезд", "show_range", True)
+        self.opt_choice(lay, "Count by", "which",
+                        [("class", "in class"), ("overall", "overall")])
+        self.opt_check(lay, "Best and worst this session", "show_range", True)
 
     def rows(self):
         r = self.store.get("race")
@@ -523,11 +533,12 @@ class PositionWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "position", "Position & gaps", (220, 170), "solo", ("race",)
+    BLURB = "Position in class, gaps to the car ahead and behind."
     TREND_N = 180                                    # ≈ 3 секунды при 60 к/с
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Стрелки сближения", "show_trend", True)
-        self.opt_check(lay, "Общая позиция", "show_overall", True)
+        self.opt_check(lay, "Closing arrows", "show_trend", True)
+        self.opt_check(lay, "Overall position", "show_overall", True)
 
     def _arrow(self, key, gap):
         """▲ догоняешь / ▼ отстаёшь — по изменению разрыва."""
@@ -572,11 +583,12 @@ class TimingWidget(StatWidget):
     последним и лучшим — по ней видно, едешь ты в темпе или сыплешься."""
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "timing", "Laps", (210, 150), "solo", ("race",)
+    BLURB = "Last, best and predicted lap — and the gaps between them."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Разница с лучшим", "show_delta", True)
-        self.opt_check(lay, "Прогноз круга", "show_pred", True)
-        self.opt_check(lay, "Номер круга", "show_lap", False)
+        self.opt_check(lay, "Delta to best", "show_delta", True)
+        self.opt_check(lay, "Predicted lap", "show_pred", True)
+        self.opt_check(lay, "Lap number", "show_lap", False)
 
     def rows(self):
         r = self.store.get("race")
@@ -709,6 +721,7 @@ class CycleBind:
 class OptimalWidget(CycleBind, StatWidget):
     # ⚙ → «Показывать»: как в ирке — последний/лучший/оптимальный/прогноз/дельта
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "optimal", "Optimal lap", (210, 90), "solo", ("race",)
+    BLURB = "The lap you could have driven from your best sectors."
     MODES = [("optimal", "Optimal"), ("last", "Last"), ("best", "Best"),
              ("predicted", "Predicted"), ("delta", "Δ to best")]
     CYCLE_OPT, CYCLE_DEFAULT = "mode", "optimal"
@@ -762,10 +775,11 @@ class SummaryWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "summary", "Session summary", (220, 190), "solo", ("race", "damage")
+    BLURB = "The session in one card: position, pace, consistency, incidents."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Средний круг", "show_avg", True)
-        self.opt_check(lay, "Счётчик кругов", "show_count", True)
+        self.opt_check(lay, "Typical lap", "show_avg", True)
+        self.opt_check(lay, "Lap counter", "show_count", True)
 
     def rows(self):
         r = self.store.get("race")
@@ -806,11 +820,12 @@ class SessionWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "session", "Session", (220, 150), "solo", ("session",)
+    BLURB = "What session this is and how much of it is left."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Время суток на трассе", "show_tod", True)
-        self.opt_check(lay, "Сила заезда (SoF)", "show_sof", True)
-        self.opt_check(lay, "Пройдено кругов", "show_done", False)
+        self.opt_check(lay, "Track time of day", "show_tod", True)
+        self.opt_check(lay, "Strength of field", "show_sof", True)
+        self.opt_check(lay, "Laps completed", "show_done", False)
 
     def rows(self):
         s = self.store.get("session")
@@ -846,9 +861,10 @@ class RecordDeltaWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "recorddelta", "Delta to record", (220, 150), "solo", ("session", "race")
+    BLURB = "Your track record and how far off it you are today."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Последний круг", "show_last", True)
+        self.opt_check(lay, "Last lap", "show_last", True)
 
     def rows(self):
         rec = self.store.get("session").get("record")
@@ -883,10 +899,11 @@ class ErsWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "ers", "ERS / hybrid", (210, 150), "solo", ("race",)
+    BLURB = "Hybrid charge and how fast you are spending it."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Расход на прошлом круге", "show_last", True)
-        self.opt_slider(lay, "Порог «мало» (%)", "low", 5, 50, 20)
+        self.opt_check(lay, "Deploy on the last lap", "show_last", True)
+        self.opt_slider(lay, "Low threshold (%)", "low", 5, 50, 20)
 
     def rows(self):
         r = self.store.get("race")
@@ -931,13 +948,14 @@ class WeatherWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "weather", "Weather", (220, 170), "solo", ("race", "live")
+    BLURB = "Air and track temperature, wind, humidity, time of day."
     TREND_N = 90                                    # замеров в памяти (≈ полторы минуты)
 
     def extra_settings(self, lay):
-        self.opt_choice(lay, "Градусы", "units",
+        self.opt_choice(lay, "Degrees", "units",
                         [("c", "°C"), ("f", "°F")])
-        self.opt_check(lay, "Тренд температуры", "show_trend", True)
-        self.opt_check(lay, "Влажность и ветер", "show_wind", True)
+        self.opt_check(lay, "Temperature trend", "show_trend", True)
+        self.opt_check(lay, "Humidity and wind", "show_wind", True)
 
     def _deg(self, c):
         if not isinstance(c, (int, float)):
@@ -981,6 +999,7 @@ class WeatherWidget(StatWidget):
 
 class PitHelperWidget(StatWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "pithelper", "Pit helper", (210, 110), "solo", ("race", "live", "strategy")
+    BLURB = "Pit lane: limiter, speed and where the box is."
 
     LIMIT_KMH = 60.0                                   # пит-лимит iRacing по умолчанию
 
@@ -1020,9 +1039,10 @@ class MetricsWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "metrics", "Sensors & balance", (250, 160), "solo", ("result",)
+    BLURB = "How you work the pedals, measured over the stint."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Оценка словом", "show_verdict", True)
+        self.opt_check(lay, "Verdict in words", "show_verdict", True)
 
     @staticmethod
     def _judge(v, lo, hi):
@@ -1078,13 +1098,14 @@ class TireTempsWidget(OverlayWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "tiretemps", "Tire temps", (260, 200), "solo", ("live",)
+    BLURB = "Tyre temperature across three zones of every wheel."
 
     def extra_settings(self, lay):
-        self.opt_choice(lay, "Градусы", "units",
+        self.opt_choice(lay, "Degrees", "units",
                         [("c", "°C"), ("f", "°F")])
-        self.opt_check(lay, "Перекос внутри колеса", "show_skew", True)
-        self.opt_check(lay, "Разница осей", "show_axle", True)
-        self.opt_slider(lay, "Заметный перекос (°)", "skew_thr", 3, 30, 8)
+        self.opt_check(lay, "Skew inside the tyre", "show_skew", True)
+        self.opt_check(lay, "Axle difference", "show_axle", True)
+        self.opt_slider(lay, "Noticeable skew (°)", "skew_thr", 3, 30, 8)
 
     def _num(self, v):
         if not isinstance(v, (int, float)):
@@ -1149,6 +1170,7 @@ class TireTempsWidget(OverlayWidget):
 
 class WearWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "wear", "Tire wear", (220, 150), "solo", ("wear",)
+    BLURB = "Remaining tread, per wheel and per zone."
 
     def draw(self, p):
         self.title(p, "TIRE WEAR")
@@ -1181,6 +1203,7 @@ class WearWidget(OverlayWidget):
 
 class RelativeWidget(CycleBind, OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "relative", "Relative", (360, 220), "solo", ("relative",)
+    BLURB = "The cars physically nearest you on track, not on the timesheet."
     ROW = 26
     CYCLE_OPT, CYCLE_DEFAULT = "name_style", "full"
     CYCLE_VALUES = ["full", "f_last", "last_f", "last", "initials"]
@@ -1245,6 +1268,7 @@ class RelativeWidget(CycleBind, OverlayWidget):
 class MyCarWidget(OverlayWidget):
     """Моя машина: логотип марки + название модели (на чём еду)."""
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "mycar", "My car", (240, 74), "solo", ("standings",)
+    BLURB = "Which car you are in: badge and model name."
 
     def draw(self, p):
         self.title(p, "MY CAR")
@@ -1270,6 +1294,7 @@ class Head2HeadWidget(CycleBind, OverlayWidget):
     """Голова к голове (идея RaceLab Head 2 Head): ты vs соперник — разрыв + Δ лучшего круга.
     Соперник выбирается: впереди / сзади / лидер класса."""
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "head2head", "Head 2 head", (390, 140), "solo", ("standings",)
+    BLURB = "You against one rival — the gap and the best-lap difference."
     CYCLE_OPT, CYCLE_DEFAULT = "vs", "ahead"
     CYCLE_VALUES = ["ahead", "behind", "leader"]
 
@@ -1357,6 +1382,7 @@ class LaptimeGraphWidget(OverlayWidget):
     """График времён кругов (идея RaceLab Laptime graph): столбики по кругам, цвет по скорости
     (лучший — фиолетовый, худший — красный). Из race.lap_log (последние круги)."""
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "laptimegraph", "Laptime graph", (300, 160), "solo", ("race",)
+    BLURB = "Every lap as a bar, coloured by pace."
 
     def draw(self, p):
         self.title(p, "LAPTIME GRAPH")
@@ -1395,6 +1421,7 @@ class DeltaTraceWidget(OverlayWidget):
     """Скользящий график дельты к лучшему кругу (идея RaceLab Delta trace): линия ползёт вправо,
     зелёный (ниже линии) — отыгрываешь, красный (выше) — теряешь. История копится по кадрам."""
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "deltatrace", "Delta trace", (300, 120), "solo", ("race",)
+    BLURB = "A rolling trace of your delta to the best lap."
 
     def draw(self, p):
         self.title(p, "DELTA TRACE")
@@ -1450,6 +1477,7 @@ class LaptimeSpreadWidget(OverlayWidget):
     """Разброс времён кругов (идея RaceLab Laptime spread): распределение по оси времени —
     насколько стабилен. Штрихи = круги, зелёная полоса = медиана±σ (уже = стабильнее)."""
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "laptimespread", "Laptime spread", (300, 132), "solo", ("race",)
+    BLURB = "Where your laps cluster, and which ones are outliers."
 
     def draw(self, p):
         self.title(p, "LAPTIME SPREAD")
@@ -1500,6 +1528,7 @@ class HStandingsWidget(CycleBind, OverlayWidget):
     """Горизонтальная таблица заезда (идея RaceLab H. standings): карточки пилотов в РЯД —
     позиция + номер + имя + отрыв. Окно: от P1 или вокруг меня. С логотипами марок."""
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "hstandings", "H. standings", (640, 70), "solo", ("standings",)
+    BLURB = "The field as a horizontal strip of driver cards."
     CYCLE_OPT, CYCLE_DEFAULT = "anchor", "top"
     CYCLE_VALUES = ["top", "me"]
 
@@ -1563,6 +1592,7 @@ class HStandingsWidget(CycleBind, OverlayWidget):
 
 class StandingsWidget(CycleBind, OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP = "standings", "Standings", (620, 300), "solo"
+    BLURB = "The full field, sorted the way race control sorts it."
     ENDPOINTS = ("standings", "session", "race", "live")
     ROW = 24
     CYCLE_OPT, CYCLE_DEFAULT = "rows_style", "me"
@@ -1829,6 +1859,7 @@ class StandingsWidget(CycleBind, OverlayWidget):
 
 class FlagsWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "flags", "Flags", (240, 70), "solo", ("race",)
+    BLURB = "Flags as they are shown, plus the ones already waved."
     COLORS = {"green": GREEN, "yellow": AMBER, "yellow_waving": AMBER, "caution": AMBER, "blue": BLUE,
               "white": "#e8e8ee", "checkered": "#cfcfcf", "red": RED, "black": "#555",
               "repair": "#e67e22", "disqualify": RED}
@@ -1851,6 +1882,7 @@ class FlagsWidget(OverlayWidget):
 
 class GForceWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "gforce", "G-force", (150, 150), "solo", ("live",)
+    BLURB = "Lateral and longitudinal load as a moving dot."
 
     def draw(self, p):
         l = self.store.get("live")
@@ -1873,6 +1905,7 @@ class GForceWidget(OverlayWidget):
 
 class RadarWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "radar", "Radar", (150, 150), "solo", ("relative", "race")
+    BLURB = "Cars around you drawn from above, at close range."
 
     def draw(self, p):
         cars = (self.store.get("relative") or {}).get("cars") or []
@@ -1905,6 +1938,7 @@ class RadarWidget(OverlayWidget):
 
 class TrackMapWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "trackmap", "Track map", (240, 200), "solo", ("trackmap", "relative")
+    BLURB = "The circuit drawn from your own laps, with the field on it."
 
     def draw(self, p):
         tm = self.store.get("trackmap") or {}
@@ -1993,6 +2027,7 @@ class TrackMapWidget(OverlayWidget):
 
 class DeltaBarWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "deltabar", "Delta bar", (260, 92), "solo", ("race",)
+    BLURB = "Delta to best as a bar you can read without focusing."
     SCALE = 1.0                                          # ±1 c = полный бар
 
     def draw(self, p):
@@ -2017,6 +2052,7 @@ class DeltaBarWidget(OverlayWidget):
 
 class WearGraphWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "weargraph", "Wear graph", (240, 160), "solo", ("wear", "race")
+    BLURB = "Tyre wear over the stint, as a line per wheel."
     COLORS = {"LF": "#3ea6ff", "RF": "#f1c40f", "LR": "#22d3ee", "RR": "#e67e22"}
 
     def draw(self, p):
@@ -2060,6 +2096,7 @@ class WearGraphWidget(OverlayWidget):
 
 class SpotterWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "spotter", "Spotter", (210, 110), "solo", ("race",)
+    BLURB = "Spotter calls in text: car left, car right, three wide."
 
     def draw(self, p):
         lr = self.store.get("race").get("car_left_right") or 0
@@ -2085,6 +2122,7 @@ class SpotterWidget(OverlayWidget):
 
 class WeatherRadarWidget(OverlayWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "weatherradar", "Weather radar", (250, 130), "solo", ("race", "live")
+    BLURB = "Rain approaching the circuit, and how soon."
 
     def draw(self, p):
         self.title(p, "WEATHER")
@@ -2114,6 +2152,7 @@ class WeatherRadarWidget(OverlayWidget):
 # ================= ENDURANCE =================
 class DriverStintWidget(StatWidget):
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "e_driver", "Driver & stint", (240, 138), "endur", ("standings", "race")
+    BLURB = "Who is in the car and how long this stint has run."
 
     def rows(self):
         st = self.store.get("standings") or []
@@ -2145,10 +2184,11 @@ class TimeLeftWidget(OverlayWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "e_time", "Time left", (240, 130), "endur", ("session",)
+    BLURB = "Time left in the race, big, with a progress bar."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Полоса прогресса", "show_bar", True)
-        self.opt_slider(lay, "Тревога за (мин)", "warn_min", 1, 30, 5)
+        self.opt_check(lay, "Progress bar", "show_bar", True)
+        self.opt_slider(lay, "Warn before (min)", "warn_min", 1, 30, 5)
 
     def draw(self, p):
         self.title(p, "RACE TIME LEFT")
@@ -2189,10 +2229,11 @@ class TeamIncidentsWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "e_incidents", "Team incidents", (220, 150), "endur", ("damage",)
+    BLURB = "Incident count for the whole team, not just you."
 
     def extra_settings(self, lay):
-        self.opt_number(lay, "Лимит инцидентов", "limit", 0, 200, 17)
-        self.opt_check(lay, "Моя доля", "show_share", True)
+        self.opt_number(lay, "Incident limit", "limit", 0, 200, 17)
+        self.opt_check(lay, "My share", "show_share", True)
 
     def rows(self):
         d = self.store.get("damage")
@@ -2226,19 +2267,20 @@ class SymptomsWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_symptoms", "Symptoms", (250, 180), "setup", ("result",)
+    BLURB = "What the car does on entry, mid-corner and exit."
     _M = {"understeer": ("understeer", AMBER), "oversteer": ("oversteer", RED),
           "neutral": ("neutral", GREEN)}
     _HINT = {
-        "entry": {"understeer": "мягче перед, баланс тормозов назад",
-                  "oversteer": "баланс тормозов вперёд"},
-        "mid": {"understeer": "больше крыла сзади не надо, мягче перед",
-                "oversteer": "жёстче зад, больше крыла"},
-        "exit": {"understeer": "мягче зад, меньше блокировки",
-                 "oversteer": "меньше блокировки, мягче газ"},
+        "entry": {"understeer": "softer front, brake bias rearward",
+                  "oversteer": "brake bias forward"},
+        "mid": {"understeer": "softer front, no more rear wing",
+                "oversteer": "stiffer rear, more wing"},
+        "exit": {"understeer": "softer rear, less diff lock",
+                 "oversteer": "less diff lock, gentler throttle"},
     }
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Подсказка по сетапу", "show_hint", True)
+        self.opt_check(lay, "Setup hint", "show_hint", True)
 
     def rows(self):
         bal = ((self.store.get("result") or {}).get("symptoms") or {}).get("balance")
@@ -2260,7 +2302,7 @@ class SymptomsWidget(StatWidget):
         if len(seen) == 3 and len(kinds) == 1:
             kind = seen[0][1]
             out.append(("Verdict", f"{kind} everywhere", AMBER))
-            out.append(("Try", "крылья и пружины целиком", MUTED))
+            out.append(("Try", "wings and springs overall", MUTED))
         else:
             phase, kind = seen[0]
             out.append(("Worst at", phase, AMBER))
@@ -2280,10 +2322,11 @@ class BalanceWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_balance", "Front/rear balance", (240, 150), "setup", ("result",)
+    BLURB = "Heat balance front to rear — and the setup change it asks for."
 
     def extra_settings(self, lay):
-        self.opt_slider(lay, "Порог заметного (°)", "thr", 1, 15, 3)
-        self.opt_check(lay, "Подсказка по сетапу", "show_hint", True)
+        self.opt_slider(lay, "Noticeable from (°)", "thr", 1, 15, 3)
+        self.opt_check(lay, "Setup hint", "show_hint", True)
 
     def rows(self):
         tire = ((self.store.get("result") or {}).get("symptoms") or {}).get("tire") or {}
@@ -2317,9 +2360,10 @@ class WearTrendWidget(StatWidget):
     """
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "s_weartrend", "Wear trend", (220, 150), "setup", ("strategy",)
+    BLURB = "How fast the tyres are going away, and how much is left."
 
     def extra_settings(self, lay):
-        self.opt_check(lay, "Хватит ли до финиша", "show_verdict", True)
+        self.opt_check(lay, "Will they last to the finish", "show_verdict", True)
 
     def rows(self):
         g = self.store.get("strategy")
@@ -2351,6 +2395,7 @@ class RaceBarWidget(OverlayWidget):
     """Компактный мини-HUD одной полосой (идея из RaceLab): передача + шифт-лайты +
     скорость/обороты + позиция + нижняя строка (темп./топливо/круг). Свой дизайн."""
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "racebar", "Race bar", (474, 150), "solo", ("live", "race", "strategy")
+    BLURB = "A one-line HUD: gear, shift lights, delta and fuel."
 
     def draw(self, p):
         live, race, strat = self.store.get("live"), self.store.get("race"), self.store.get("strategy")
@@ -2423,12 +2468,13 @@ class LapLogWidget(OverlayWidget):
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("laplog", "Laptime log", (330, 220),
                                              "solo", ("race",))
+    BLURB = "A table of laps: number, time, delta, track temperature."
     ROW = 24
 
     def extra_settings(self, lay):
-        self.opt_slider(lay, "Кругов в таблице", "rows", 3, 20, 7)
-        self.opt_check(lay, "Колонка температуры", "show_temp", True)
-        self.opt_check(lay, "Разница с лучшим", "show_delta", True)
+        self.opt_slider(lay, "Laps in the table", "rows", 3, 20, 7)
+        self.opt_check(lay, "Temperature column", "show_temp", True)
+        self.opt_check(lay, "Delta to best", "show_delta", True)
 
     def draw(self, p):
         self.title(p, "LAPTIME LOG")
@@ -2491,11 +2537,12 @@ class BlindSpotWidget(OverlayWidget):
 
     KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("blindspot", "Blind spot", (620, 120),
                                              "solo", ("race",))
+    BLURB = ("Two wide bars at the screen edges when a car sits alongside.")
 
     def extra_settings(self, lay):
-        self.opt_slider(lay, "Яркость свечения (%)", "glow", 20, 100, 85)
-        self.opt_check(lay, "Подписи LEFT/RIGHT", "show_labels", True)
-        self.opt_check(lay, "Красным при трёх в ряд", "warn_wide", True)
+        self.opt_slider(lay, "Glow brightness (%)", "glow", 20, 100, 85)
+        self.opt_check(lay, "LEFT/RIGHT labels", "show_labels", True)
+        self.opt_check(lay, "Red when three wide", "warn_wide", True)
 
     def draw(self, p):
         lr = self.store.get("race").get("car_left_right") or 0

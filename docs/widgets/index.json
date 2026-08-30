@@ -8,7 +8,7 @@
       110
     ],
     "file": "inputs.png",
-    "doc": ""
+    "doc": "Speed, gear and the pedal traces side by side."
   },
   {
     "key": "position",
@@ -19,7 +19,7 @@
       170
     ],
     "file": "position.png",
-    "doc": "Позиция и разрывы."
+    "doc": "Position in class, gaps to the car ahead and behind."
   },
   {
     "key": "relative",
@@ -30,7 +30,7 @@
       220
     ],
     "file": "relative.png",
-    "doc": ""
+    "doc": "The cars physically nearest you on track, not on the timesheet."
   },
   {
     "key": "standings",
@@ -41,7 +41,7 @@
       300
     ],
     "file": "standings.png",
-    "doc": ""
+    "doc": "The full field, sorted the way race control sorts it."
   },
   {
     "key": "mycar",
@@ -52,7 +52,7 @@
       74
     ],
     "file": "mycar.png",
-    "doc": "Моя машина: логотип марки + название модели (на чём еду)."
+    "doc": "Which car you are in: badge and model name."
   },
   {
     "key": "head2head",
@@ -63,7 +63,7 @@
       140
     ],
     "file": "head2head.png",
-    "doc": "Голова к голове (идея RaceLab Head 2 Head): ты vs соперник — разрыв + Δ лучшего круга."
+    "doc": "You against one rival — the gap and the best-lap difference."
   },
   {
     "key": "laptimegraph",
@@ -74,7 +74,7 @@
       160
     ],
     "file": "laptimegraph.png",
-    "doc": "График времён кругов (идея RaceLab Laptime graph): столбики по кругам, цвет по скорости"
+    "doc": "Every lap as a bar, coloured by pace."
   },
   {
     "key": "deltatrace",
@@ -85,7 +85,7 @@
       120
     ],
     "file": "deltatrace.png",
-    "doc": "Скользящий график дельты к лучшему кругу (идея RaceLab Delta trace): линия ползёт вправо,"
+    "doc": "A rolling trace of your delta to the best lap."
   },
   {
     "key": "laptimespread",
@@ -96,7 +96,7 @@
       132
     ],
     "file": "laptimespread.png",
-    "doc": "Разброс времён кругов (идея RaceLab Laptime spread): распределение по оси времени —"
+    "doc": "Where your laps cluster, and which ones are outliers."
   },
   {
     "key": "hstandings",
@@ -107,7 +107,7 @@
       70
     ],
     "file": "hstandings.png",
-    "doc": "Горизонтальная таблица заезда (идея RaceLab H. standings): карточки пилотов в РЯД —"
+    "doc": "The field as a horizontal strip of driver cards."
   },
   {
     "key": "laplog",
@@ -118,7 +118,7 @@
       220
     ],
     "file": "laplog.png",
-    "doc": "Лог кругов таблицей: круг, время, разница, температура."
+    "doc": "A table of laps: number, time, delta, track temperature."
   },
   {
     "key": "blindspot",
@@ -129,7 +129,7 @@
       120
     ],
     "file": "blindspot.png",
-    "doc": "Слепая зона: две широкие панели по краям экрана."
+    "doc": "Two wide bars at the screen edges when a car sits alongside."
   },
   {
     "key": "fuel",
@@ -140,7 +140,7 @@
       220
     ],
     "file": "fuel.png",
-    "doc": "Топливо и пит-стопы."
+    "doc": "Fuel left, burn rate and what the next stop needs."
   },
   {
     "key": "timing",
@@ -151,7 +151,7 @@
       150
     ],
     "file": "timing.png",
-    "doc": "Времена круга. Голые три времени мало говорят: важна РАЗНИЦА между"
+    "doc": "Last, best and predicted lap — and the gaps between them."
   },
   {
     "key": "racebar",
@@ -162,7 +162,7 @@
       150
     ],
     "file": "racebar.png",
-    "doc": "Компактный мини-HUD одной полосой (идея из RaceLab): передача + шифт-лайты +"
+    "doc": "A one-line HUD: gear, shift lights, delta and fuel."
   },
   {
     "key": "delta",
@@ -173,7 +173,7 @@
       120
     ],
     "file": "delta.png",
-    "doc": "Дельта к лучшему кругу крупной цифрой."
+    "doc": "Delta to your best lap, in one large number."
   },
   {
     "key": "shift",
@@ -184,7 +184,7 @@
       130
     ],
     "file": "shift.png",
-    "doc": "Обороты и момент переключения."
+    "doc": "Revs and the moment to pull the next gear."
   },
   {
     "key": "gforce",
@@ -195,7 +195,7 @@
       150
     ],
     "file": "gforce.png",
-    "doc": ""
+    "doc": "Lateral and longitudinal load as a moving dot."
   },
   {
     "key": "topspeed",
@@ -206,7 +206,7 @@
       130
     ],
     "file": "topspeed.png",
-    "doc": "Скорость: сейчас, максимум за круг и максимум за сессию."
+    "doc": "Speed now, best this lap and best this session."
   },
   {
     "key": "slip",
@@ -217,7 +217,7 @@
       130
     ],
     "file": "slip.png",
-    "doc": "Срыв: не просто «скользит», а В КАКУЮ СТОРОНУ."
+    "doc": "Not just that the car is sliding — which end is sliding."
   },
   {
     "key": "postrend",
@@ -228,7 +228,7 @@
       150
     ],
     "file": "postrend.png",
-    "doc": "Движение по позициям за заезд."
+    "doc": "How your position moved across the race."
   },
   {
     "key": "summary",
@@ -239,7 +239,7 @@
       190
     ],
     "file": "summary.png",
-    "doc": "Итог сессии: позиция, темп, стабильность, инциденты."
+    "doc": "The session in one card: position, pace, consistency, incidents."
   },
   {
     "key": "tiretemps",
@@ -250,7 +250,7 @@
       200
     ],
     "file": "tiretemps.png",
-    "doc": "Температуры покрышек по трём зонам каждого колеса."
+    "doc": "Tyre temperature across three zones of every wheel."
   },
   {
     "key": "wear",
@@ -261,7 +261,7 @@
       150
     ],
     "file": "wear.png",
-    "doc": ""
+    "doc": "Remaining tread, per wheel and per zone."
   },
   {
     "key": "session",
@@ -272,7 +272,7 @@
       150
     ],
     "file": "session.png",
-    "doc": "Что за сессия и сколько её осталось."
+    "doc": "What session this is and how much of it is left."
   },
   {
     "key": "recorddelta",
@@ -283,7 +283,7 @@
       150
     ],
     "file": "recorddelta.png",
-    "doc": "Личный рекорд трассы и насколько ты от него сегодня."
+    "doc": "Your track record and how far off it you are today."
   },
   {
     "key": "ers",
@@ -294,7 +294,7 @@
       150
     ],
     "file": "ers.png",
-    "doc": "Заряд и расход гибрида."
+    "doc": "Hybrid charge and how fast you are spending it."
   },
   {
     "key": "weather",
@@ -305,7 +305,7 @@
       170
     ],
     "file": "weather.png",
-    "doc": "Погода и температуры."
+    "doc": "Air and track temperature, wind, humidity, time of day."
   },
   {
     "key": "flags",
@@ -316,7 +316,7 @@
       70
     ],
     "file": "flags.png",
-    "doc": ""
+    "doc": "Flags as they are shown, plus the ones already waved."
   },
   {
     "key": "radar",
@@ -327,7 +327,7 @@
       150
     ],
     "file": "radar.png",
-    "doc": ""
+    "doc": "Cars around you drawn from above, at close range."
   },
   {
     "key": "trackmap",
@@ -338,7 +338,7 @@
       200
     ],
     "file": "trackmap.png",
-    "doc": ""
+    "doc": "The circuit drawn from your own laps, with the field on it."
   },
   {
     "key": "optimal",
@@ -349,7 +349,7 @@
       90
     ],
     "file": "optimal.png",
-    "doc": ""
+    "doc": "The lap you could have driven from your best sectors."
   },
   {
     "key": "pithelper",
@@ -360,7 +360,7 @@
       110
     ],
     "file": "pithelper.png",
-    "doc": ""
+    "doc": "Pit lane: limiter, speed and where the box is."
   },
   {
     "key": "metrics",
@@ -371,7 +371,7 @@
       160
     ],
     "file": "metrics.png",
-    "doc": "Как ты работаешь педалями — по разбору стинта."
+    "doc": "How you work the pedals, measured over the stint."
   },
   {
     "key": "deltabar",
@@ -382,7 +382,7 @@
       92
     ],
     "file": "deltabar.png",
-    "doc": ""
+    "doc": "Delta to best as a bar you can read without focusing."
   },
   {
     "key": "weargraph",
@@ -393,7 +393,7 @@
       160
     ],
     "file": "weargraph.png",
-    "doc": ""
+    "doc": "Tyre wear over the stint, as a line per wheel."
   },
   {
     "key": "spotter",
@@ -404,7 +404,7 @@
       110
     ],
     "file": "spotter.png",
-    "doc": ""
+    "doc": "Spotter calls in text: car left, car right, three wide."
   },
   {
     "key": "weatherradar",
@@ -415,7 +415,7 @@
       130
     ],
     "file": "weatherradar.png",
-    "doc": ""
+    "doc": "Rain approaching the circuit, and how soon."
   },
   {
     "key": "e_driver",
@@ -426,7 +426,7 @@
       138
     ],
     "file": "e_driver.png",
-    "doc": ""
+    "doc": "Who is in the car and how long this stint has run."
   },
   {
     "key": "e_time",
@@ -437,7 +437,7 @@
       130
     ],
     "file": "e_time.png",
-    "doc": "Сколько осталось гонки — крупно, с полосой прогресса."
+    "doc": "Time left in the race, big, with a progress bar."
   },
   {
     "key": "e_incidents",
@@ -448,7 +448,7 @@
       150
     ],
     "file": "e_incidents.png",
-    "doc": "Инциденты команды в эндурансе."
+    "doc": "Incident count for the whole team, not just you."
   },
   {
     "key": "s_symptoms",
@@ -459,7 +459,7 @@
       180
     ],
     "file": "s_symptoms.png",
-    "doc": "Поведение машины по фазам поворота: вход, середина, выход."
+    "doc": "What the car does on entry, mid-corner and exit."
   },
   {
     "key": "s_balance",
@@ -470,7 +470,7 @@
       150
     ],
     "file": "s_balance.png",
-    "doc": "Тепловой баланс осей — и что с ним делать в сетапе."
+    "doc": "Heat balance front to rear — and the setup change it asks for."
   },
   {
     "key": "s_weartrend",
@@ -481,6 +481,6 @@
       150
     ],
     "file": "s_weartrend.png",
-    "doc": "Скорость износа резины и сколько её осталось."
+    "doc": "How fast the tyres are going away, and how much is left."
   }
 ]
