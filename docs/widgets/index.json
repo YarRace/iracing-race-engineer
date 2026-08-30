@@ -110,6 +110,28 @@
     "doc": "Горизонтальная таблица заезда (идея RaceLab H. standings): карточки пилотов в РЯД —"
   },
   {
+    "key": "laplog",
+    "title": "Laptime log",
+    "group": "solo",
+    "size": [
+      330,
+      220
+    ],
+    "file": "laplog.png",
+    "doc": "Лог кругов таблицей: круг, время, разница, температура."
+  },
+  {
+    "key": "blindspot",
+    "title": "Blind spot",
+    "group": "solo",
+    "size": [
+      620,
+      120
+    ],
+    "file": "blindspot.png",
+    "doc": "Слепая зона: две широкие панели по краям экрана."
+  },
+  {
     "key": "fuel",
     "title": "Fuel & pit",
     "group": "solo",

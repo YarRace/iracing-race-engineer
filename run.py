@@ -217,7 +217,13 @@ def main():
                     if last_logged_lap is not None and race["last_lap_time"] and race["last_lap_time"] > 0:
                         lap_time = round(race["last_lap_time"], 2)
                         sectors = sector_timer.lap_sectors()
-                        lap_log.append({"lap": last_logged_lap, "time": lap_time, "sectors": sectors})
+                        # температура трассы кладётся вместе с кругом: она
+                        # объясняет, почему круг медленнее соседнего, а задним
+                        # числом её уже не восстановить
+                        lap_log.append({"lap": last_logged_lap, "time": lap_time,
+                                        "sectors": sectors,
+                                        "track_temp": f.get("track_temp"),
+                                        "fuel": f.get("fuel")})
                         if ident.get("track"):               # сохраняем круг в историю (Фаза 1)
                             try:
                                 history.save_lap(hist, ident, last_logged_lap, lap_time, sectors)

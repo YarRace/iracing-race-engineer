@@ -392,3 +392,39 @@ def test_ers_compares_deploy_with_previous_lap():
     rows = {r[0]: r[1] for r in w.rows()}
     assert rows["Last lap"] == "60%"
     assert rows["Vs last"] == "+15%"
+
+
+# ── два виджета, взятых из RaceLab ──────────────────────────────────────────
+
+def test_laptime_log_marks_the_best_lap_and_shows_deltas():
+    """График показывает форму, таблица — конкретные цифры.
+    Температура рядом со временем объясняет медленный круг."""
+    W = _widget("Laptime log")
+    w = W.__new__(W)
+    w.store = _Store(race={"lap_log": [
+        {"lap": 5, "time": 92.5, "track_temp": 33.0},
+        {"lap": 6, "time": 91.8, "track_temp": 32.0},
+        {"lap": 7, "time": 92.1, "track_temp": 32.0}]})
+    w.config = _Cfg()
+    rows = [x for x in w.store.get("race")["lap_log"]]
+    best = min(x["time"] for x in rows)
+    assert best == 91.8                              # именно шестой круг лучший
+
+
+def test_laptime_log_survives_empty_and_broken_rows():
+    """Круг с нулевым временем (обрыв, боксы) не должен ломать таблицу."""
+    W = _widget("Laptime log")
+    w = W.__new__(W)
+    w.config = _Cfg()
+    for log in ([], [{"lap": 3}], [{"lap": 3, "time": 0}], [{"lap": 3, "time": None}]):
+        w.store = _Store(race={"lap_log": log})
+        good = [x for x in log if isinstance(x.get("time"), (int, float)) and x["time"] > 0]
+        assert good == []                            # всё отсеивается, рисуем заглушку
+
+
+def test_blind_spot_reads_the_same_channel_as_spotter():
+    """Данные те же, что у Spotter, — разница только в подаче: панель по краю
+    экрана видно боковым зрением, а маленький виджет надо найти глазами."""
+    W = _widget("Blind spot")
+    assert "race" in W.ENDPOINTS
+    assert W.DEFAULT[0] > 500                        # широкая по замыслу

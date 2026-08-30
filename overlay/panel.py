@@ -22,7 +22,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel,
                                QFrame, QScrollArea, QPushButton, QSlider, QComboBox,
-                               QInputDialog, QLineEdit, QSplitter)
+                               QInputDialog, QLineEdit, QSizePolicy, QSplitter)
 
 from overlay.hotkey import GlobalHotkey
 from overlay.preview import BACKDROPS, PreviewCanvas
@@ -54,12 +54,29 @@ QPushButton#row { background:transparent; border:none; text-align:left; padding:
 QPushButton#row:hover { background:#181c22; }
 QPushButton#row:checked { background:#1d2b3d; color:#8ec7ff; font-weight:700; }
 QPushButton#tiny { padding:4px 8px; font-size:12px; }
+QPushButton#fav { background:transparent; border:none; padding:2px 4px; font-size:13px; color:#3a4150; }
+QPushButton#fav:hover { color:#e74c3c; }
+QPushButton#fav:checked { color:#e74c3c; }
+QPushButton#open { background:#1d4ed8; border:none; border-radius:8px; padding:9px 12px;
+  font-weight:700; color:#eaf1ff; }
+QPushButton#open:hover { background:#2563eb; }
+QPushButton#open:checked { background:#17512f; }
 QFrame#card { background:#14181e; border:1px solid #20262e; border-radius:12px; }
 QFrame#sep { color:#1b2027; max-height:1px; }
 QSlider::groove:horizontal { height:6px; background:#232a33; border-radius:3px; }
 QSlider::sub-page:horizontal { background:#3ea6ff; border-radius:3px; }
 QSlider::handle:horizontal { width:14px; background:#e8eaed; border-radius:7px; margin:-5px 0; }
 """
+
+
+def _btn_text(title):
+    """Название для кнопки.
+
+    Qt считает «&» в тексте кнопки началом горячей клавиши и съедает его,
+    подчёркивая следующую букву: «Fuel & pit» превращалось в «Fuel _pit».
+    Удваиваем — так символ рисуется как есть.
+    """
+    return title.replace("&", "&&")
 
 
 class _PreviewStore:
@@ -100,6 +117,7 @@ class ControlPanel(QWidget):
         self.widgets = {}                     # key -> живой оверлей поверх игры
         self._boxes = {}                      # key -> QCheckBox «включён»
         self._rows = {}                       # key -> QPushButton строки списка
+        self._favs = {}                       # key -> кнопка-сердечко
         self._group_by_key = {}
         self._cls_by_key = {}
         self._selected = None                 # какой виджет показан в центре
@@ -121,6 +139,7 @@ class ControlPanel(QWidget):
 
         self._hotkey = GlobalHotkey(self._hotkey_toggle_edit)
         self._refresh_profiles()
+        self._rebuild_favourites()
         first = widget_classes[0] if widget_classes else None
         if first is not None:
             self.select(first.KEY)
@@ -175,6 +194,22 @@ class ControlPanel(QWidget):
             by_group.setdefault(g, by_group["solo"]).append(cls)
             self._group_by_key[cls.KEY] = g
 
+        # Избранное отдельной группой сверху: сорок четыре строки — это
+        # прокрутка на каждый чих, а нужных обычно десяток.
+        fav_head = QWidget()
+        fh = QHBoxLayout(fav_head)
+        fh.setContentsMargins(0, 2, 0, 2)
+        fh.addWidget(QLabel("♥ ИЗБРАННОЕ", objectName="group"))
+        fh.addStretch(1)
+        il.addWidget(fav_head)
+        self._fav_head = fav_head
+        self._fav_box = QWidget()
+        self._fav_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        self._fav_lay = QVBoxLayout(self._fav_box)
+        self._fav_lay.setContentsMargins(0, 0, 0, 0)
+        self._fav_lay.setSpacing(2)
+        il.addWidget(self._fav_box)
+
         self._group_heads = {}
         for gkey, gtitle in GROUPS:
             classes = by_group.get(gkey) or []
@@ -216,15 +251,71 @@ class ControlPanel(QWidget):
         self._cls_by_key[cls.KEY] = cls
         rh.addWidget(cb)
 
-        btn = QPushButton(cls.TITLE, objectName="row")
+        btn = QPushButton(_btn_text(cls.TITLE), objectName="row")
         btn.setCheckable(True)
         btn.setCursor(Qt.PointingHandCursor)
         btn.clicked.connect(lambda _=False, k=cls.KEY: self.select(k))
         self._rows[cls.KEY] = btn
         rh.addWidget(btn, 1)
 
+        fav = QPushButton("♥", objectName="fav")
+        fav.setCheckable(True)
+        fav.setChecked(self.config.is_favourite(cls.KEY))
+        fav.setToolTip("В избранное — поднимется в начало списка")
+        fav.setCursor(Qt.PointingHandCursor)
+        fav.setFixedWidth(24)
+        fav.toggled.connect(lambda v, k=cls.KEY: self._toggle_fav(k, v))
+        self._favs[cls.KEY] = fav
+        rh.addWidget(fav)
+
         r.setProperty("wkey", cls.KEY)
         return r
+
+    def _toggle_fav(self, key, on):
+        """Сердечко: виджет уезжает в группу «Избранное» и обратно."""
+        self.config.set_favourite(key, on)
+        self._rebuild_favourites()
+
+    def _rebuild_favourites(self):
+        """Дубли строк для избранного.
+
+        Именно КОПИИ, а не перенос: строка в своей группе должна остаться,
+        иначе виджет пропадает из привычного места и его ищут заново.
+        """
+        while self._fav_lay.count():
+            it = self._fav_lay.takeAt(0)
+            w = it.widget()
+            if w is not None:
+                w.deleteLater()
+        keys = [k for k in self.config.favourites() if k in self._cls_by_key]
+        for key in keys:
+            cls = self._cls_by_key[key]
+            row = QWidget()
+            # Высоту задаём явно: вложенный контейнер сжимался родительской
+            # раскладкой до 11 пикселей, и от строки оставалась одна галочка
+            # без названия — выглядело как пустая группа.
+            row.setMinimumHeight(26)
+            rh = QHBoxLayout(row)
+            rh.setContentsMargins(0, 0, 0, 0)
+            rh.setSpacing(2)
+            cb = QCheckBox()
+            cb.setChecked(self.config.is_enabled(key))
+            cb.toggled.connect(lambda v, c=cls: self.toggle(c, v))
+            # держим обе галочки в согласии: их две на один виджет
+            self._boxes[key].toggled.connect(
+                lambda v, box=cb: (box.blockSignals(True), box.setChecked(v),
+                                   box.blockSignals(False)))
+            rh.addWidget(cb)
+            b = QPushButton(_btn_text(cls.TITLE), objectName="row")
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, k=key: self.select(k))
+            rh.addWidget(b, 1)
+            self._fav_lay.addWidget(row)
+        # Контейнер не пересчитывает себя сам после добавления детей —
+        # оставался 25 пикселей и обрезал все строки, кроме первой.
+        self._fav_box.setMinimumHeight(len(keys) * 28 if keys else 0)
+        self._fav_head.setVisible(bool(keys))
+        self._fav_box.setVisible(bool(keys))
 
     def _filter_list(self, text):
         """Поиск по названию. Пустые группы прячем целиком, чтобы не мозолили."""
@@ -232,7 +323,7 @@ class ControlPanel(QWidget):
         shown = {g: 0 for g, _ in GROUPS}
         for key, btn in self._rows.items():
             row = btn.parentWidget()
-            ok = not q or q in btn.text().lower()
+            ok = not q or q in btn.text().replace("&&", "&").lower()
             row.setVisible(ok)
             if ok:
                 shown[self._group_by_key.get(key, "solo")] += 1
@@ -300,9 +391,30 @@ class ControlPanel(QWidget):
         cl.addWidget(self.sel_meta)
         lay.addWidget(card)
 
-        self.sel_on = QCheckBox("Показывать поверх игры")
-        self.sel_on.toggled.connect(self._toggle_selected)
-        lay.addWidget(self.sel_on)
+        # Крупная кнопка вместо галочки: у RaceLab это главное действие
+        # карточки, и оно должно читаться с одного взгляда.
+        self.open_btn = QPushButton("Открыть оверлей", objectName="open")
+        self.open_btn.setCheckable(True)
+        self.open_btn.setCursor(Qt.PointingHandCursor)
+        self.open_btn.toggled.connect(self._toggle_selected)
+        lay.addWidget(self.open_btn)
+        self.sel_on = self.open_btn                  # прежнее имя — для совместимости
+
+        prow = QHBoxLayout()
+        prow.addWidget(QLabel("Пресет", objectName="hint"))
+        self.wpreset = QComboBox()
+        self.wpreset.setMinimumWidth(110)
+        self.wpreset.activated.connect(self._load_widget_preset)
+        prow.addWidget(self.wpreset, 1)
+        pa = QPushButton("＋", objectName="tiny")
+        pa.setToolTip("Сохранить настройки этого виджета")
+        pa.clicked.connect(self._save_widget_preset)
+        prow.addWidget(pa)
+        pd = QPushButton("🗑", objectName="tiny")
+        pd.setToolTip("Удалить пресет")
+        pd.clicked.connect(self._delete_widget_preset)
+        prow.addWidget(pd)
+        lay.addLayout(prow)
 
         self.sfilter = QLineEdit()
         self.sfilter.setPlaceholderText("Фильтр настроек…")
@@ -377,9 +489,12 @@ class ControlPanel(QWidget):
         w, hgt = cls.DEFAULT
         self.sel_meta.setText(f"{group}  ·  {w}×{hgt} по умолчанию  ·  "
                               f"данные: {', '.join(cls.ENDPOINTS) or '—'}")
-        self.sel_on.blockSignals(True)
-        self.sel_on.setChecked(self.config.is_enabled(key))
-        self.sel_on.blockSignals(False)
+        on = self.config.is_enabled(key)
+        self.open_btn.blockSignals(True)
+        self.open_btn.setChecked(on)
+        self.open_btn.setText("Показан поверх игры" if on else "Открыть оверлей")
+        self.open_btn.blockSignals(False)
+        self._refresh_widget_presets()
 
         self.preview.show_widget(cls)
         self._load_settings(cls)
@@ -397,6 +512,41 @@ class ControlPanel(QWidget):
         dlg.destroyed.connect(lambda: None)
         self.sscroll.setWidget(dlg)
         self.sfilter.clear()
+
+    # ---------- пресеты одного виджета ----------
+    def _refresh_widget_presets(self):
+        """Профиль хранит ВСЮ раскладку. Перенести вид одного виджета между
+        раскладками профилем нельзя — он утащит позиции и включённость всех
+        остальных. Отсюда отдельные пресеты на виджет."""
+        self.wpreset.blockSignals(True)
+        self.wpreset.clear()
+        names = self.config.widget_presets(self._selected or "")
+        self.wpreset.addItem("— нет —" if not names else "— выбрать —")
+        self.wpreset.addItems(names)
+        self.wpreset.blockSignals(False)
+
+    def _save_widget_preset(self):
+        if not self._selected:
+            return
+        name, ok = QInputDialog.getText(self, "Пресет виджета", "Название:")
+        name = (name or "").strip()
+        if ok and name:
+            self.config.save_widget_preset(self._selected, name)
+            self._refresh_widget_presets()
+            self.wpreset.setCurrentText(name)
+
+    def _load_widget_preset(self, index):
+        name = self.wpreset.itemText(index)
+        if index <= 0 or not self._selected:
+            return
+        if self.config.load_widget_preset(self._selected, name):
+            self.select(self._selected)               # пересобрать предпросмотр и настройки
+
+    def _delete_widget_preset(self):
+        name = self.wpreset.currentText()
+        if self._selected and self.wpreset.currentIndex() > 0:
+            self.config.delete_widget_preset(self._selected, name)
+            self._refresh_widget_presets()
 
     def _toggle_selected(self, on):
         cls = self._cls_by_key.get(self._selected)
@@ -490,10 +640,11 @@ class ControlPanel(QWidget):
         self.config.set_enabled(cls.KEY, show)
         if show and cls.KEY not in self.widgets:
             self.widgets[cls.KEY] = cls(self.store, self.config)
-        if self._selected == cls.KEY and hasattr(self, "sel_on"):
-            self.sel_on.blockSignals(True)
-            self.sel_on.setChecked(show)
-            self.sel_on.blockSignals(False)
+        if self._selected == cls.KEY and hasattr(self, "open_btn"):
+            self.open_btn.blockSignals(True)
+            self.open_btn.setChecked(show)
+            self.open_btn.setText("Показан поверх игры" if show else "Открыть оверлей")
+            self.open_btn.blockSignals(False)
         self._refresh_visibility()
 
     def set_hide_offtrack(self, val):

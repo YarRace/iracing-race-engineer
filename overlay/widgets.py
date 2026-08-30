@@ -2409,9 +2409,135 @@ class RaceBarWidget(OverlayWidget):
         T(0.66 * W, yb, 0.30 * W, hb, lap_time(ll), "#cdd3dc", 0.10 * H, Qt.AlignLeft)
 
 
+class LapLogWidget(OverlayWidget):
+    """Лог кругов таблицей: круг, время, разница, температура.
+
+    График времён кругов (Laptime graph) показывает форму, но не даёт
+    прочитать конкретные цифры. Таблица отвечает на другой вопрос: «что
+    было на восьмом круге и почему он медленнее седьмого».
+
+    Температура трассы стоит рядом с временем не для полноты. Круг на
+    горячей трассе медленнее на несколько десятых при том же пилотаже, и
+    без этой колонки такой круг выглядит как ошибка, которой не было.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("laplog", "Laptime log", (330, 220),
+                                             "solo", ("race",))
+    ROW = 24
+
+    def extra_settings(self, lay):
+        self.opt_slider(lay, "Кругов в таблице", "rows", 3, 20, 7)
+        self.opt_check(lay, "Колонка температуры", "show_temp", True)
+        self.opt_check(lay, "Разница с лучшим", "show_delta", True)
+
+    def draw(self, p):
+        self.title(p, "LAPTIME LOG")
+        log = (self.store.get("race").get("lap_log") or [])
+        rows = [x for x in log if isinstance(x.get("time"), (int, float)) and x["time"] > 0]
+        if not rows:
+            self.text(p, 12, self.height() / 2, "drive a lap", MUTED, 11)
+            return
+
+        n = int(self._opt("rows", 7))
+        show_temp = self._opt("show_temp", True)
+        show_delta = self._opt("show_delta", True)
+        best = min(x["time"] for x in rows)
+        rows = sorted(rows, key=lambda x: x.get("lap") or 0, reverse=True)[:n]
+
+        W = self.width()
+        x_lap, x_time = 12, 58
+        x_delta = W - (108 if show_temp else 20)
+        x_temp = W - 56
+
+        y = 34
+        self.text(p, x_lap, y, "LAP", MUTED, 9)
+        self.text(p, x_time, y, "TIME", MUTED, 9)
+        if show_delta:
+            self.text(p, x_delta, y, "Δ", MUTED, 9)
+        if show_temp:
+            self.text(p, x_temp, y, "TRACK", MUTED, 9)
+
+        y += 8
+        for r in rows:
+            y += self.ROW
+            if y > self.height() - 6:
+                break
+            t = r["time"]
+            is_best = abs(t - best) < 1e-6
+            self.text(p, x_lap, y, str(r.get("lap") or "—"), MUTED, 11)
+            self.text(p, x_time, y, lap_time(t), PURPLE if is_best else WHITE, 12, True)
+            if show_delta:
+                d = t - best
+                self.text(p, x_delta, y, "——" if is_best else f"{d:+.2f}",
+                          MUTED if is_best else (GREEN if d < 0 else RED), 11)
+            if show_temp:
+                tt = r.get("track_temp")
+                self.text(p, x_temp, y,
+                          f"{round(tt)}°" if isinstance(tt, (int, float)) else "—",
+                          MUTED, 11)
+
+
+class BlindSpotWidget(OverlayWidget):
+    """Слепая зона: две широкие панели по краям экрана.
+
+    У нас уже есть Radar (точки вокруг машины) и Spotter (треугольники).
+    Разница не в данных — они те же, car_left_right, — а в подаче.
+    Радар и споттер надо НАЙТИ ГЛАЗАМИ, а в повороте на это нет времени.
+    Этот виджет растягивается на всю ширину экрана и работает боковым
+    зрением: загорелось справа — не поворачивай туда.
+
+    Поэтому здесь нет мелкого текста и нет цифр. Только большое пятно.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("blindspot", "Blind spot", (620, 120),
+                                             "solo", ("race",))
+
+    def extra_settings(self, lay):
+        self.opt_slider(lay, "Яркость свечения (%)", "glow", 20, 100, 85)
+        self.opt_check(lay, "Подписи LEFT/RIGHT", "show_labels", True)
+        self.opt_check(lay, "Красным при трёх в ряд", "warn_wide", True)
+
+    def draw(self, p):
+        lr = self.store.get("race").get("car_left_right") or 0
+        left, right = lr in (2, 4, 5), lr in (3, 4, 6)
+        wide = lr in (5, 6)
+        glow = self._opt("glow", 85) / 100.0
+        labels = self._opt("show_labels", True)
+        hot = RED if (wide and self._opt("warn_wide", True)) else AMBER
+
+        W, H = self.width(), self.height()
+        pad = 10
+        bw = max(60.0, W * 0.22)                     # панель = пятая часть ширины
+        for is_left, on in ((True, left), (False, right)):
+            x = pad if is_left else W - bw - pad
+            rect = QRectF(x, pad, bw, H - pad * 2)
+            p.setPen(Qt.NoPen)
+            if on:
+                # мягкое свечение: три вложенных прямоугольника с растущей
+                # прозрачностью — дешевле настоящего размытия и не тормозит
+                c = QColor(hot)
+                for k in (2.2, 1.4, 1.0):
+                    g = QColor(c)
+                    g.setAlphaF(min(1.0, glow * (0.22 if k > 2 else 0.4 if k > 1.2 else 1.0)))
+                    p.setBrush(g)
+                    p.drawRoundedRect(rect.adjusted(-6 * k, -6 * k, 6 * k, 6 * k), 14, 14)
+            else:
+                p.setBrush(QColor(22, 26, 32, 150))
+                p.drawRoundedRect(rect, 14, 14)
+                p.setBrush(Qt.NoBrush)
+                p.setPen(QPen(QColor("#2a2f38"), 2))
+                p.drawRoundedRect(rect, 14, 14)
+
+            if labels:
+                self.text(p, rect.x() + 12, rect.y() + 20,
+                          "LEFT" if is_left else "RIGHT",
+                          "#0d0f12" if on else MUTED, 10, True)
+
+
 WIDGETS = [
     InputsWidget, PositionWidget, RelativeWidget, StandingsWidget, MyCarWidget, Head2HeadWidget,
     LaptimeGraphWidget, DeltaTraceWidget, LaptimeSpreadWidget, HStandingsWidget,
+    LapLogWidget, BlindSpotWidget,
     FuelWidget, TimingWidget, RaceBarWidget,
     DeltaWidget, ShiftWidget, GForceWidget, TopSpeedWidget, SlipWidget, PosTrendWidget,
     SummaryWidget, TireTempsWidget, WearWidget, SessionWidget, RecordDeltaWidget, ErsWidget,

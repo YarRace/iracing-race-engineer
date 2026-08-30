@@ -134,3 +134,45 @@ class Config:
     def clear_widget_opts(self, key: str):
         self.data.get("opts", {}).pop(key, None)
         self.save()
+
+    # ---- избранное: сорок четыре строки в списке — это много ----
+    def is_favourite(self, key: str) -> bool:
+        return key in (self.data.get("favourites") or [])
+
+    def set_favourite(self, key: str, val: bool):
+        fav = list(self.data.get("favourites") or [])
+        if val and key not in fav:
+            fav.append(key)
+        elif not val and key in fav:
+            fav.remove(key)
+        self.data["favourites"] = fav
+        self.save()
+
+    def favourites(self):
+        return list(self.data.get("favourites") or [])
+
+    # ---- пресеты ОДНОГО виджета ----
+    # Профиль запоминает всю раскладку целиком. Но подобрать вид одного
+    # виджета и переносить его между раскладками профилем нельзя: он утащит
+    # с собой позиции и включённость всех остальных.
+    def widget_presets(self, key: str):
+        return list((self.data.get("wpresets", {}).get(key) or {}).keys())
+
+    def save_widget_preset(self, key: str, name: str):
+        import copy as _copy
+        opts = _copy.deepcopy(self.data.get("opts", {}).get(key, {}))
+        self.data.setdefault("wpresets", {}).setdefault(key, {})[name] = opts
+        self.save()
+
+    def load_widget_preset(self, key: str, name: str) -> bool:
+        import copy as _copy
+        p = (self.data.get("wpresets", {}).get(key) or {}).get(name)
+        if p is None:
+            return False
+        self.data.setdefault("opts", {})[key] = _copy.deepcopy(p)
+        self.save()
+        return True
+
+    def delete_widget_preset(self, key: str, name: str):
+        (self.data.get("wpresets", {}).get(key) or {}).pop(name, None)
+        self.save()

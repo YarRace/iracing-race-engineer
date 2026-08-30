@@ -42,7 +42,9 @@ def panel(app, tmp_path):
 
 
 def _visible_rows(panel):
-    return [b.text() for b in panel._rows.values() if not b.parentWidget().isHidden()]
+    # && снимаем: в тексте кнопки Qt требует удвоения амперсанда
+    return [b.text().replace("&&", "&") for b in panel._rows.values()
+            if not b.parentWidget().isHidden()]
 
 
 def test_every_widget_can_be_previewed(panel):
@@ -174,3 +176,82 @@ def test_preview_store_falls_back_to_demo_but_live_wins():
 
     s = _PreviewStore(Live(), DemoFeed())
     assert s.get("live")["speed"] == 42.0              # живое всегда важнее демо
+
+
+def test_favourites_lift_widgets_to_the_top(panel):
+    """Сорок четыре строки — прокрутка на каждый чих, нужных обычно десяток."""
+    assert panel._fav_head.isHidden()                  # пока пусто — группы не видно
+
+    panel._favs["fuel"].setChecked(True)
+    panel._favs["standings"].setChecked(True)
+    assert panel.config.favourites() == ["fuel", "standings"]
+    assert not panel._fav_head.isHidden()
+    assert panel._fav_lay.count() == 2
+
+    panel._favs["fuel"].setChecked(False)
+    assert panel.config.favourites() == ["standings"]
+    assert panel._fav_lay.count() == 1
+
+
+def test_favourite_row_is_a_copy_not_a_move(panel):
+    """Строка обязана остаться и в своей группе: иначе виджет пропадает
+    из привычного места и его ищут заново."""
+    panel._favs["fuel"].setChecked(True)
+    assert "fuel" in panel._rows                       # исходная строка на месте
+    assert not panel._rows["fuel"].parentWidget().isHidden()
+
+
+def test_open_button_reflects_and_controls_state(panel):
+    panel.select("weather")
+    panel.toggle(panel._cls_by_key["weather"], False)
+    assert not panel.open_btn.isChecked()
+    assert "Открыть" in panel.open_btn.text()
+
+    panel.open_btn.setChecked(True)                    # нажали кнопку
+    assert panel.config.is_enabled("weather")
+    assert "Показан" in panel.open_btn.text()
+
+
+def test_widget_preset_moves_look_without_touching_layout(panel):
+    """Профиль тащит всю раскладку. Пресет виджета — только его настройки."""
+    cfg = panel.config
+    panel.select("fuel")
+    cfg.set_widget_opt("fuel", "warn_laps", 6)
+    cfg.set_enabled("standings", True)                 # посторонняя часть раскладки
+
+    cfg.save_widget_preset("fuel", "endurance")
+    cfg.set_widget_opt("fuel", "warn_laps", 2)
+    cfg.set_enabled("standings", False)
+
+    assert cfg.load_widget_preset("fuel", "endurance")
+    assert cfg.widget_opt("fuel", "warn_laps") == 6
+    assert cfg.is_enabled("standings") is False        # раскладку пресет не трогал
+
+
+def test_widget_preset_list_is_per_widget(panel):
+    cfg = panel.config
+    cfg.save_widget_preset("fuel", "a")
+    cfg.save_widget_preset("weather", "b")
+    assert cfg.widget_presets("fuel") == ["a"]
+    assert cfg.widget_presets("weather") == ["b"]
+
+
+def test_ampersand_survives_in_button_labels(panel):
+    """Qt считает «&» началом горячей клавиши и съедает его: «Fuel & pit»
+    превращалось в «Fuel _pit» с подчёркнутой буквой."""
+    assert panel._rows["fuel"].text() == "Fuel && pit"
+    assert panel._rows["position"].text() == "Position && gaps"
+    panel.search.setText("fuel &")                     # поиск всё равно находит
+    assert "Fuel & pit" in _visible_rows(panel)
+    panel.search.setText("")
+
+
+def test_favourite_rows_are_not_squashed(panel):
+    """Вложенный контейнер сжимался родительской раскладкой до 11 пикселей,
+    и от строки оставалась одна галочка без названия."""
+    for k in ("fuel", "standings", "laplog"):
+        panel._favs[k].setChecked(True)
+    assert panel._fav_box.minimumHeight() >= 3 * 26
+    for i in range(panel._fav_lay.count()):
+        row = panel._fav_lay.itemAt(i).widget()
+        assert row.minimumHeight() >= 26
