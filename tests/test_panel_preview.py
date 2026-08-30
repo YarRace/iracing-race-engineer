@@ -290,3 +290,42 @@ def test_long_value_shrinks_instead_of_leaving_the_widget(panel):
     for _, rect in w._elrects:
         assert rect.left() >= 0, "текст начинается за левым краем виджета"
         assert rect.right() <= w.width() + 1, "текст уходит за правый край"
+
+
+def test_reset_button_returns_the_widget_to_factory(panel):
+    """Накликанное оформление откатить было нечем — только руками в JSON."""
+    panel.select("fuel")
+    panel.config.set_widget_opt("fuel", "bg", 0.15)
+    panel.config.set_geometry("fuel", 900, 40, 640, 480)
+
+    assert panel.reset_selected(confirm=False) is True
+    assert panel.config.widget_opt("fuel", "bg") is None
+    assert panel.config.geometry("fuel") is None
+    # предпросмотр пересобран и снова показывает тот же виджет
+    assert panel.preview._widget is not None
+    assert panel.preview._cls.KEY == "fuel"
+
+
+def test_reset_does_not_touch_the_neighbours(panel):
+    panel.config.set_widget_opt("delta", "bg", 0.9)
+    panel.select("fuel")
+    panel.config.set_widget_opt("fuel", "bg", 0.15)
+    panel.reset_selected(confirm=False)
+    assert panel.config.widget_opt("delta", "bg") == 0.9
+
+
+def test_layout_travels_to_another_config_through_a_file(panel, tmp_path):
+    """То, ради чего экспорт и делался: перенос настроенной раскладки."""
+    from overlay.config import Config
+
+    panel.config.set_enabled("fuel", True)
+    panel.config.set_geometry("fuel", 12, 34, 230, 220)
+    panel.config.set_favourite("standings", True)
+    out = tmp_path / "trip.json"
+    panel.config.export_layout(str(out))
+
+    other = Config(str(tmp_path / "other.json"))
+    other.import_layout(str(out))
+    assert other.is_enabled("fuel")
+    assert other.geometry("fuel") == (12, 34, 230, 220)
+    assert other.is_favourite("standings")

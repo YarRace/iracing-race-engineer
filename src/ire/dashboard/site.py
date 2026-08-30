@@ -22,8 +22,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 NEWS_DIR = ROOT / "docs" / "news"
 CATALOG = ROOT / "data" / "catalog.json"
 
-NAV = (("/", "Dashboard"), ("/about", "About"),
-       ("/catalog", "Widgets"), ("/news", "Changelog"))
+NAV = (("/", "Dashboard"), ("/about", "About"), ("/catalog", "Widgets"),
+       ("/download", "Get it"), ("/news", "Changelog"))
 
 
 def load_catalog():
@@ -147,6 +147,35 @@ def shell(title, body, active=""):
       background:var(--panel)}}
     .sim b{{display:block;font-size:14.5px;margin-bottom:3px}}
     .sim span{{color:var(--muted);font-size:12.5px}}
+    /* Settings-window gallery: numbered tabs, one shot at a time. */
+    .panels input{{position:absolute;opacity:0;pointer-events:none}}
+    .panel-tabs{{display:flex;gap:8px;margin-bottom:12px}}
+    .panel-tabs label{{width:30px;height:30px;display:flex;align-items:center;
+      justify-content:center;border:1px solid var(--line);border-radius:8px;
+      color:var(--muted);font-size:13px;cursor:pointer;
+      font-variant-numeric:tabular-nums}}
+    .panel-tabs label:hover{{color:var(--txt);border-color:var(--muted)}}
+    .panel-stage figure{{display:none}}
+    .panel-stage img{{display:block;width:100%;height:auto;border-radius:12px;
+      border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.4)}}
+    .panel-stage figcaption{{color:var(--muted);font-size:14px;margin-top:14px;
+      max-width:680px}}
+    /* Get-it page: numbered steps with the command under each one. */
+    ol.steps{{list-style:none;counter-reset:s;display:grid;gap:14px}}
+    ol.steps li{{counter-increment:s;background:var(--panel);
+      border:1px solid var(--line);border-radius:var(--r-card);
+      padding:16px 20px 16px 58px;position:relative}}
+    ol.steps li::before{{content:counter(s);position:absolute;left:18px;top:16px;
+      width:24px;height:24px;border-radius:50%;background:var(--accent);
+      color:#08111c;font-weight:800;font-size:13px;display:flex;
+      align-items:center;justify-content:center}}
+    ol.steps b{{display:block;margin-bottom:6px}}
+    ol.steps p{{color:var(--muted);font-size:14px;margin-top:6px}}
+    pre.cmd{{background:#0b0e12;border:1px solid var(--line);border-radius:8px;
+      padding:11px 14px;overflow-x:auto;font-family:ui-monospace,Consolas,monospace;
+      font-size:12.5px;color:#cdd3dc;line-height:1.7}}
+    .note{{border-left:2px solid var(--warn,#e0a800);padding:2px 0 2px 16px;
+      color:var(--muted);font-size:14px;max-width:680px}}
     @media(max-width:760px){{.nums,.why{{grid-template-columns:1fr 1fr}}h1{{font-size:30px}}
       .show{{grid-template-columns:1fr}}.show-list{{max-height:200px}}}}
 </style></head><body>
@@ -202,6 +231,54 @@ def load_shots(root=None):
         return []
 
 
+def load_panel_shots(root=None):
+    """Опись снимков панели настроек из docs/panel/index.json.
+
+    Снимки делает tools/render_panel.py. Как и у витрины: нет файлов —
+    раздел просто не рисуется, сайт остаётся рабочим.
+    """
+    base = pathlib.Path(root) if root else (
+        pathlib.Path(__file__).resolve().parents[3] / "docs" / "panel")
+    f = base / "index.json"
+    if not f.exists():
+        return []
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return []
+
+
+def panel_gallery(shots):
+    """Раздел «как это настраивается»: снимки окна настроек.
+
+    Витрина показывает, ЧТО видно в игре. На вопрос «а настраивать это как»
+    она не отвечает, а у обоих конкурентов именно окно настроек занимает
+    половину страницы: покупают не виджеты, а лёгкость подгонки под себя.
+
+    Переключение — те же радиокнопки и соседний селектор, что и в витрине,
+    и с той же ловушкой: инпуты обязаны быть ПРЯМЫМИ детьми `.panels`.
+    """
+    if not shots:
+        return ""
+    inputs, tabs, stage, rules = [], [], [], []
+    for i, s in enumerate(shots):
+        sel = " checked" if i == 0 else ""
+        inputs.append(f'<input type="radio" name="panel" id="p{i}"{sel}>')
+        tabs.append(f'<label for="p{i}">{i + 1}</label>')
+        stage.append(
+            f'<figure id="pf{i}"><img src="/panel/{e(s["file"])}" '
+            f'alt="The settings window" loading="lazy">'
+            f'<figcaption>{e(s.get("caption") or "")}</figcaption></figure>')
+        rules.append(f"#p{i}:checked~.panel-stage #pf{i}{{display:block}}")
+        rules.append(f'#p{i}:checked~.panel-tabs label[for="p{i}"]'
+                     f"{{background:var(--accent);color:#08111c;border-color:var(--accent)}}")
+    return (f"<section><h2>How you set it up</h2>"
+            f'<style>{"".join(rules)}</style>'
+            f'<div class="panels">{"".join(inputs)}'
+            f'<div class="panel-tabs">{"".join(tabs)}</div>'
+            f'<div class="panel-stage">{"".join(stage)}</div></div></section>')
+
+
 def showcase(shots):
     """Витрина всех виджетов: список слева, выбранный справа.
 
@@ -239,7 +316,7 @@ def showcase(shots):
             f'data: the numbers and driver names are made up.</p></section>')
 
 
-def page_about(cat, shots=None):
+def page_about(cat, shots=None, panels=None):
     k = cat["counts"]
     labels = (
         (k["widgets"], ("overlay widget", "overlay widgets")),
@@ -285,6 +362,7 @@ def page_about(cat, shots=None):
   <div class="sims">{sims}</div>
 </section>
 {showcase(shots or [])}
+{panel_gallery(panels or [])}
 <section>
   <h2>What is inside</h2>
   <div class="nums">{nums}</div>
@@ -301,6 +379,81 @@ def page_about(cat, shots=None):
   mistake in seconds, lap comparison by distance, and team strategy for endurance.
   The full plan lives in <span class="k">docs/roadmap-overlay-2026-08.md</span>.</p>
 </section>""", active="/about")
+
+
+REPO = "https://github.com/YarRace/iracing-race-engineer"
+
+# Шаги установки. Список, а не кусок текста: человек ставит по одному
+# и должен видеть, где он сейчас. Команды — ровно те, что работают на
+# Windows; ничего «примерно такого» здесь быть не должно.
+STEPS = [
+    ("Get the code",
+     f"git clone {REPO}\ncd iracing-race-engineer",
+     "Windows 10 or 11, on the machine where iRacing runs. The telemetry "
+     "SDK is a Windows memory-mapped file — there is no way around that."),
+    ("Set up Python",
+     "python -m venv .venv\n.venv\\Scripts\\activate\n"
+     "pip install -r requirements.txt",
+     "Python 3.12. The virtual environment keeps these packages out of "
+     "your system Python."),
+    ("Start the engineer",
+     "python run.py",
+     "This is the part that reads the sim and serves the dashboard on "
+     "http://localhost:8000. Leave it running."),
+    ("Start the overlay",
+     "python overlay_app.py",
+     "The settings window opens. Tick the overlays you want, place them "
+     "with Ctrl+Shift+L, and go drive."),
+]
+
+NEEDS = [
+    ("iRacing", "running on the same PC"),
+    ("Windows 10 · 11", "the SDK is Windows-only"),
+    ("Python 3.12", "with pip"),
+    ("A second screen", "optional — the dashboard is nicer there"),
+]
+
+
+def page_download(cat, panels=None):
+    """Как это взять и запустить.
+
+    Готового установщика нет, и писать «Download» кнопкой поверх пустоты
+    нечестно. Поэтому страница говорит прямо: это исходники, ставится
+    четырьмя командами, вот они.
+    """
+    k = cat.get("counts", {})
+    needs = "".join(f'<div class="sim"><b>{e(t)}</b><span>{e(d)}</span></div>'
+                    for t, d in NEEDS)
+    steps = "".join(
+        f"<li><b>{e(title)}</b><pre class=\"cmd\">{e(cmd)}</pre>"
+        f"<p>{e(note)}</p></li>" for title, cmd, note in STEPS)
+    return shell("Get it", f"""
+<section class="hero" style="padding:44px 0 10px">
+  <h1>Get it running</h1>
+  <p class="lead">Four commands and you are on track with
+  {k.get('widgets', 0)} {plural(k.get('widgets', 0), 'overlay', 'overlays')}
+  and a dashboard. It runs entirely on your own machine.</p>
+</section>
+<section>
+  <h2>What you need</h2>
+  <div class="sims">{needs}</div>
+</section>
+<section>
+  <h2>Four steps</h2>
+  <ol class="steps">{steps}</ol>
+  <p class="note" style="margin-top:20px">There is no packaged installer yet —
+  this is the source, and you start it with Python. A one-click build is on the
+  list, but shipping a half-working installer is worse than four honest
+  commands.</p>
+</section>
+{panel_gallery(panels or [])}
+<section>
+  <h2>If something does not start</h2>
+  <p class="lead">The overlays read their data from the engineer. If
+  <span class="k">run.py</span> is not running, the panel shows a red dot and
+  every widget sits empty — that is the first thing to check. The source and
+  the issue tracker live on <a href="{REPO}">GitHub</a>.</p>
+</section>""", active="/download")
 
 
 def _thumb(shot):

@@ -1,0 +1,17 @@
+[
+ {
+  "file": "panel.png",
+  "key": "fuel",
+  "caption": "Pick an overlay on the left, watch it change in the middle, tune it on the right. No need to alt-tab into the game to see the result."
+ },
+ {
+  "file": "panel-map.png",
+  "key": "trackmap",
+  "caption": "The preview is the real widget on the real data — not a picture of one."
+ },
+ {
+  "file": "panel-log.png",
+  "key": "laplog",
+  "caption": "Every widget carries its own settings, its own presets and a reset back to factory."
+ }
+]

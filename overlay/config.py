@@ -135,6 +135,18 @@ class Config:
         self.data.get("opts", {}).pop(key, None)
         self.save()
 
+    def reset_widget(self, key: str):
+        """Вернуть виджет к заводскому виду: оформление И размер с позицией.
+
+        Одного `clear_widget_opts` мало. Растянутый виджет остаётся растянутым,
+        и «сброс» выглядит наполовину сделанным: цвета вернулись, а рамка нет.
+        Позиция стирается вместе с размером — иначе виджет останется висеть
+        там, куда его утащили, но уже другого размера.
+        """
+        self.data.get("opts", {}).pop(key, None)
+        self.data.get("geo", {}).pop(key, None)
+        self.save()
+
     # ---- избранное: сорок четыре строки в списке — это много ----
     def is_favourite(self, key: str) -> bool:
         return key in (self.data.get("favourites") or [])
@@ -176,3 +188,63 @@ class Config:
     def delete_widget_preset(self, key: str, name: str):
         (self.data.get("wpresets", {}).get(key) or {}).pop(name, None)
         self.save()
+
+    # ---- раскладка одним файлом ----
+    # Профили живут внутри overlay_config.json и никуда из него не уезжают.
+    # Перенести настроенную раскладку на другой компьютер можно было только
+    # копированием всего файла — вместе с чужими профилями и избранным.
+    # Отсюда отдельный обмен: один файл = одна раскладка.
+    EXPORT_FORMAT = "race-engineer-layout"
+    EXPORT_VERSION = 1
+
+    def export_layout(self, path: str, name: str = "") -> str:
+        """Сохранить текущую (или названную) раскладку отдельным файлом."""
+        snap = (self.data.get("profiles", {}).get(name) if name else None) or self._snapshot()
+        bundle = {
+            "format": self.EXPORT_FORMAT,
+            "version": self.EXPORT_VERSION,
+            "name": name or self.active_profile() or "layout",
+            "layout": copy.deepcopy(snap),
+            # избранное и пресеты виджетов — часть настроенного вида, без них
+            # на новой машине пришлось бы накликивать всё заново
+            "favourites": list(self.data.get("favourites") or []),
+            "wpresets": copy.deepcopy(self.data.get("wpresets", {})),
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(bundle, f, indent=1, ensure_ascii=False)
+        return bundle["name"]
+
+    def import_layout(self, path: str, name: str = "") -> str:
+        """Прочитать файл раскладки, сохранить её профилем и применить.
+
+        Проверяем поле format: подсунуть сюда любой JSON легко, а молча
+        принять чужой файл — значит потерять свою раскладку без объяснений.
+        Незнакомые ключи виджетов не мешают: раскладка читается по ключу,
+        а лишние записи никто не спрашивает.
+        """
+        with open(path, encoding="utf-8") as f:
+            bundle = json.load(f)
+        if not isinstance(bundle, dict) or bundle.get("format") != self.EXPORT_FORMAT:
+            raise ValueError("not a Race Engineer layout file")
+        layout = bundle.get("layout")
+        if not isinstance(layout, dict):
+            raise ValueError("layout file has no layout")
+
+        for k in _PROFILE_KEYS:
+            if k in layout:
+                self.data[k] = copy.deepcopy(layout[k])
+        if isinstance(bundle.get("favourites"), list):
+            self.data["favourites"] = list(bundle["favourites"])
+        if isinstance(bundle.get("wpresets"), dict):
+            # свои пресеты не выбрасываем: сливаем, чужие поверх одноимённых
+            merged = copy.deepcopy(self.data.get("wpresets", {}))
+            for wkey, presets in bundle["wpresets"].items():
+                if isinstance(presets, dict):
+                    merged.setdefault(wkey, {}).update(copy.deepcopy(presets))
+            self.data["wpresets"] = merged
+
+        final = (name or bundle.get("name") or "imported").strip() or "imported"
+        self.data.setdefault("profiles", {})[final] = self._snapshot()
+        self.data["active"] = final
+        self.save()
+        return final

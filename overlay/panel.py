@@ -157,7 +157,7 @@ class ControlPanel(QWidget):
         self.prof.setMinimumWidth(150)
         self.prof.currentTextChanged.connect(self._on_profile_selected)
         h.addWidget(self.prof)
-        addb = QPushButton("＋", objectName="tiny")
+        addb = QPushButton("+", objectName="tiny")
         addb.setToolTip("Save current layout as a new one")
         addb.clicked.connect(self.save_as_profile)
         h.addWidget(addb)
@@ -165,6 +165,16 @@ class ControlPanel(QWidget):
         delb.setToolTip("Delete the active layout")
         delb.clicked.connect(self.delete_profile)
         h.addWidget(delb)
+        # Обмен раскладками одним файлом: перенос на второй компьютер и
+        # обратная дорога, если правки завели не туда.
+        expb = QPushButton("Export", objectName="tiny")
+        expb.setToolTip("Export this layout to a file")
+        expb.clicked.connect(self.export_layout)
+        h.addWidget(expb)
+        impb = QPushButton("Import", objectName="tiny")
+        impb.setToolTip("Import a layout from a file")
+        impb.clicked.connect(self.import_layout)
+        h.addWidget(impb)
         return h
 
     # ──────────────────────── левая колонка: список ─────────────────────────
@@ -406,7 +416,7 @@ class ControlPanel(QWidget):
         self.wpreset.setMinimumWidth(110)
         self.wpreset.activated.connect(self._load_widget_preset)
         prow.addWidget(self.wpreset, 1)
-        pa = QPushButton("＋", objectName="tiny")
+        pa = QPushButton("+", objectName="tiny")
         pa.setToolTip("Save this widget's settings")
         pa.clicked.connect(self._save_widget_preset)
         prow.addWidget(pa)
@@ -415,6 +425,14 @@ class ControlPanel(QWidget):
         pd.clicked.connect(self._delete_widget_preset)
         prow.addWidget(pd)
         lay.addLayout(prow)
+
+        # Накликанное оформление откатить было нечем: только руками в
+        # overlay_config.json, а туда лезть страшно и незачем.
+        self.reset_btn = QPushButton("Reset to defaults", objectName="tiny")
+        self.reset_btn.setToolTip("Colours, sizes, fonts, hidden rows, position "
+                                  "and size — back to factory")
+        self.reset_btn.clicked.connect(self.reset_selected)
+        lay.addWidget(self.reset_btn)
 
         self.sfilter = QLineEdit()
         self.sfilter.setPlaceholderText("Filter settings…")
@@ -547,6 +565,76 @@ class ControlPanel(QWidget):
         if self._selected and self.wpreset.currentIndex() > 0:
             self.config.delete_widget_preset(self._selected, name)
             self._refresh_widget_presets()
+
+    def reset_selected(self, confirm=True):
+        """Сбросить выбранный виджет к заводскому виду.
+
+        Спрашиваем: накликанное оформление — это полчаса работы, и вернуть
+        его после случайного нажатия неоткуда. `confirm=False` — для тестов
+        и для вызова из кода.
+        """
+        key = self._selected
+        if not key:
+            return False
+        if confirm:
+            from PySide6.QtWidgets import QMessageBox
+            cls = self._cls_by_key.get(key)
+            title = cls.TITLE if cls is not None else key
+            answer = QMessageBox.question(
+                self, "Reset to defaults",
+                f"Reset “{title}” — colours, sizes, fonts, hidden rows, "
+                f"position and size?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer != QMessageBox.Yes:
+                return False
+
+        self.config.reset_widget(key)
+        live = self.widgets.get(key)
+        if live is not None:                 # боевой виджет уже на экране
+            cls = self._cls_by_key[key]
+            live.resize(*cls.DEFAULT)
+            live.update()
+        self.select(key)                     # предпросмотр и настройки — заново
+        return True
+
+    # ───────────────────── обмен раскладками файлом ─────────────────────────
+    def export_layout(self):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        suggested = (self.config.active_profile() or "layout") + ".json"
+        path, _ = QFileDialog.getSaveFileName(self, "Export layout", suggested,
+                                              "Layout files (*.json)")
+        if not path:
+            return None
+        try:
+            name = self.config.export_layout(path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Export failed", str(exc))
+            return None
+        QMessageBox.information(self, "Layout exported",
+                                f"“{name}” saved to\n{path}")
+        return path
+
+    def import_layout(self):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        path, _ = QFileDialog.getOpenFileName(self, "Import layout", "",
+                                              "Layout files (*.json)")
+        if not path:
+            return None
+        try:
+            name = self.config.import_layout(path)
+        except (OSError, ValueError) as exc:
+            # Отдельное сообщение, а не молчание: подсунуть сюда чужой JSON
+            # легко, и тогда непонятно, почему ничего не изменилось.
+            QMessageBox.warning(self, "Import failed", str(exc))
+            return None
+        self._rebuild_from_config()
+        self._rebuild_favourites()
+        for key, fav in self._favs.items():
+            fav.blockSignals(True)
+            fav.setChecked(self.config.is_favourite(key))
+            fav.blockSignals(False)
+        self._refresh_profiles(select=name)
+        return name
 
     def _toggle_selected(self, on):
         cls = self._cls_by_key.get(self._selected)

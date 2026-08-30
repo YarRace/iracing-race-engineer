@@ -102,3 +102,66 @@ def test_catalog_survives_a_widget_without_a_description():
                         "endpoints": []}],
            "cards": [], "counts": {"widgets": 1, "cards": 0}}
     assert "Fuel &amp; pit" in site.page_catalog(cat, [])
+
+
+# ── галерея панели настроек ─────────────────────────────────────────────────
+
+PANELS = [
+    {"file": "panel.png", "key": "fuel", "caption": "Pick an overlay."},
+    {"file": "panel-map.png", "key": "trackmap", "caption": "The real widget."},
+]
+
+
+def test_panel_inputs_are_siblings_of_the_stage():
+    """Та же ловушка, что и в витрине: «~» связывает только элементы
+    с ОБЩИМ родителем. Инпуты внутри вкладок — и галерея мертва."""
+    html = site.panel_gallery(PANELS)
+    block = html[html.index('<div class="panels">'):]
+    assert block.index('<input type="radio"') < block.index('<div class="panel-tabs">')
+
+
+def test_panel_gallery_wires_every_shot():
+    html = site.panel_gallery(PANELS)
+    for i, s in enumerate(PANELS):
+        assert f'id="p{i}"' in html
+        assert f'<figure id="pf{i}">' in html
+        assert f"#p{i}:checked~.panel-stage #pf{i}{{display:block}}" in html
+        assert f'/panel/{s["file"]}' in html
+    assert 'id="p0" checked' in html.replace('id="p0"checked', 'id="p0" checked')
+
+
+def test_panel_gallery_is_silent_without_shots():
+    """Снимки панели собирать необязательно — сайт должен остаться рабочим."""
+    assert site.panel_gallery([]) == ""
+    assert '<div class="panels">' not in site.page_about(site.load_catalog(), [], [])
+
+
+def test_panel_captions_are_escaped():
+    html = site.panel_gallery([{"file": "x.png", "caption": "a <b> & c"}])
+    assert "<b>" not in html.replace("<b>", "", 0) or "&lt;b&gt;" in html
+    assert "&amp; c" in html
+
+
+# ── страница «как это взять» ────────────────────────────────────────────────
+
+def test_download_page_lists_the_real_commands():
+    """Инструкция, которая не работает, хуже отсутствующей."""
+    html = site.page_download(site.load_catalog(), [])
+    for cmd in ("git clone", "python -m venv .venv", "pip install -r requirements.txt",
+                "python run.py", "python overlay_app.py"):
+        assert cmd in html, cmd
+    assert r".venv\Scripts\activate" in html
+
+
+def test_download_page_does_not_promise_an_installer():
+    """Кнопки «Download» поверх пустоты быть не должно: установщика нет."""
+    html = site.page_download(site.load_catalog(), [])
+    assert "no packaged installer yet" in html
+    assert ".exe" not in html and ".msi" not in html
+
+
+def test_download_page_survives_an_unbuilt_catalog():
+    empty = {"widgets": [], "cards": [], "counts": {}}
+    html = site.page_download(empty, [])
+    assert "<h1>Get it running" in html
+    assert "0 overlays" in html

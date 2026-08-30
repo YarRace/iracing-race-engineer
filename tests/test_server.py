@@ -439,3 +439,27 @@ def test_blind_spot_reads_the_same_channel_as_spotter():
     W = _widget("Blind spot")
     assert "race" in W.ENDPOINTS
     assert W.DEFAULT[0] > 500                        # широкая по замыслу
+
+
+def test_download_page_is_served_and_linked():
+    """Сайт рассказывал про продукт, но не давал его взять."""
+    c = TestClient(app)
+    r = c.get("/download")
+    assert r.status_code == 200
+    assert "Get it running" in r.text
+    assert '<a href="/download"' in c.get("/about").text     # есть в навигации
+
+
+def test_panel_shot_route_serves_png_and_refuses_traversal():
+    c = TestClient(app)
+    import pathlib
+    shots = sorted((pathlib.Path(__file__).resolve().parents[1]
+                    / "docs" / "panel").glob("*.png"))
+    if shots:
+        ok = c.get(f"/panel/{shots[0].name}")
+        assert ok.status_code == 200 and ok.headers["content-type"] == "image/png"
+    # hero.png лежит на уровень выше каталога снимков — именно то, куда
+    # попыталась бы уйти обратная косая. Экранированный вариант доходит
+    # до роута (обычный «..» схлопывает ещё сервер), и basename его режет.
+    assert c.get("/panel/%2e%2e%2f%2e%2e%2fhero.png").status_code == 404
+    assert c.get("/panel/notes.txt").status_code == 404

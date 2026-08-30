@@ -114,10 +114,31 @@ def widget_shot(name: str):
     return FileResponse(path, media_type="image/png")
 
 
+@app.get("/panel/{name}")
+def panel_shot(name: str):
+    """Снимок панели настроек (tools/render_panel.py).
+
+    Та же защита, что и у /w/: basename плюс проверка расширения, иначе
+    «/panel/../../secret» уводит за пределы каталога снимков.
+    """
+    safe = os.path.basename(name)
+    path = os.path.abspath(os.path.join(DOCS, "panel", safe))
+    if not (safe.endswith(".png") and os.path.exists(path)):
+        return Response(status_code=404)
+    return FileResponse(path, media_type="image/png")
+
+
 @app.get("/about", response_class=HTMLResponse)
 def about():
     """Витрина проекта: что внутри и почему сделано именно так."""
-    return site.page_about(site.load_catalog(), site.load_shots())
+    return site.page_about(site.load_catalog(), site.load_shots(),
+                           site.load_panel_shots())
+
+
+@app.get("/download", response_class=HTMLResponse)
+def download():
+    """Как это взять и запустить. Сайт рассказывал про продукт, но не давал его."""
+    return site.page_download(site.load_catalog(), site.load_panel_shots())
 
 
 @app.get("/catalog", response_class=HTMLResponse)

@@ -1,3 +1,5 @@
+import pytest
+
 from overlay.config import Config
 
 
@@ -51,3 +53,92 @@ def test_load_ignores_broken_file(tmp_path):
     c = Config(str(path))                          # не падает на битом файле
     assert c.is_enabled("x") is False
     assert c.edit_mode() is False
+
+
+# ── сброс виджета к заводским ───────────────────────────────────────────────
+
+def test_reset_widget_clears_look_and_geometry(tmp_path):
+    """Одного сброса оформления мало: растянутый виджет остаётся растянутым,
+    и «сброс» выглядит наполовину сделанным."""
+    c = Config(str(tmp_path / "cfg.json"))
+    c.set_widget_opt("fuel", "bg", 0.2)
+    c.set_geometry("fuel", 100, 200, 500, 400)
+    c.set_widget_opt("delta", "bg", 0.9)          # соседа не трогаем
+
+    c.reset_widget("fuel")
+    assert c.widget_opt("fuel", "bg") is None
+    assert c.geometry("fuel") is None
+    assert c.widget_opt("delta", "bg") == 0.9
+
+
+def test_reset_widget_survives_an_untouched_widget(tmp_path):
+    c = Config(str(tmp_path / "cfg.json"))
+    c.reset_widget("never-configured")            # не падает и не создаёт мусор
+    assert c.widget_opt("never-configured", "bg") is None
+
+
+# ── обмен раскладками одним файлом ──────────────────────────────────────────
+
+def test_layout_round_trip_through_a_file(tmp_path):
+    """Перенос на второй компьютер: выгрузили — загрузили — то же самое."""
+    src = Config(str(tmp_path / "a.json"))
+    src.set_enabled("fuel", True)
+    src.set_geometry("fuel", 10, 20, 230, 220)
+    src.set_widget_opt("fuel", "bg", 0.5)
+    src.set_opacity(0.7)
+    src.set_favourite("fuel", True)
+    src.save_widget_preset("fuel", "race")
+
+    out = tmp_path / "my-layout.json"
+    assert src.export_layout(str(out))
+    assert out.exists()
+
+    dst = Config(str(tmp_path / "b.json"))
+    name = dst.import_layout(str(out))
+    assert dst.is_enabled("fuel")
+    assert dst.geometry("fuel") == (10, 20, 230, 220)
+    assert dst.widget_opt("fuel", "bg") == 0.5
+    assert abs(dst.opacity() - 0.7) < 1e-9
+    assert dst.is_favourite("fuel")
+    assert "race" in dst.widget_presets("fuel")
+    assert name in dst.profiles() and dst.active_profile() == name
+
+
+def test_import_refuses_a_foreign_file(tmp_path):
+    """Молча принять чужой JSON — значит потерять свою раскладку без слов."""
+    bad = tmp_path / "notes.json"
+    bad.write_text('{"hello": "world"}', encoding="utf-8")
+    c = Config(str(tmp_path / "cfg.json"))
+    c.set_enabled("fuel", True)
+    with pytest.raises(ValueError):
+        c.import_layout(str(bad))
+    assert c.is_enabled("fuel"), "раскладку не должно было тронуть"
+
+
+def test_import_keeps_my_own_widget_presets(tmp_path):
+    """Пресеты сливаются, а не заменяются: свои наработки не выбрасываем."""
+    src = Config(str(tmp_path / "a.json"))
+    src.set_widget_opt("fuel", "bg", 0.5)
+    src.save_widget_preset("fuel", "from-file")
+    out = tmp_path / "l.json"
+    src.export_layout(str(out))
+
+    dst = Config(str(tmp_path / "b.json"))
+    dst.set_widget_opt("delta", "bg", 0.1)
+    dst.save_widget_preset("delta", "mine")
+    dst.import_layout(str(out))
+    assert "mine" in dst.widget_presets("delta")
+    assert "from-file" in dst.widget_presets("fuel")
+
+
+def test_exported_file_is_readable_by_a_human(tmp_path):
+    """Файл переносят руками — он должен открываться в блокноте и читаться."""
+    import json as _json
+    c = Config(str(tmp_path / "cfg.json"))
+    c.set_enabled("fuel", True)
+    out = tmp_path / "l.json"
+    c.export_layout(str(out))
+    text = out.read_text(encoding="utf-8")
+    assert "\n" in text, "одна строка на весь файл — не для чтения"
+    d = _json.loads(text)
+    assert d["format"] == Config.EXPORT_FORMAT and d["version"] == 1
