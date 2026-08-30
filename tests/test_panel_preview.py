@@ -329,3 +329,21 @@ def test_layout_travels_to_another_config_through_a_file(panel, tmp_path):
     assert other.is_enabled("fuel")
     assert other.geometry("fuel") == (12, 34, 230, 220)
     assert other.is_favourite("standings")
+
+
+def test_reset_shrinks_the_live_overlay_too(panel):
+    """Сброс должен доехать до окна поверх игры, а не только до конфига.
+
+    Иначе виджет остаётся растянутым до перезапуска, и кнопка выглядит
+    сломанной: цвета вернулись, рамка — нет.
+    """
+    cls = panel._cls_by_key["fuel"]
+    panel.select("fuel")
+    panel.toggle(cls, True)
+    live = panel.widgets["fuel"]
+    panel.config.set_geometry("fuel", 50, 50, 700, 500)
+    live.resize(700, 500)
+
+    panel.reset_selected(confirm=False)
+    assert live.size().toTuple() == tuple(cls.DEFAULT)
+    assert panel.config.geometry("fuel") is None, "геометрия записалась обратно"
