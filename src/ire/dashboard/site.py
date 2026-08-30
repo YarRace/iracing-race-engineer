@@ -113,7 +113,39 @@ def shell(title, body, active=""):
   .empty{{color:var(--muted);padding:30px 0}}
   footer{{border-top:1px solid var(--line);margin-top:60px;padding:24px 0;
     color:var(--muted);font-size:13px}}
-  @media(max-width:760px){{.nums,.why{{grid-template-columns:1fr 1fr}}h1{{font-size:30px}}}}
+    /* Герой с картинкой продукта. У RaceLab и Go Fast первое, что видишь, —
+       скриншот в игре, а не текст: сразу понятно, о чём вообще речь. */
+    .hero-big{{padding:70px 0 20px;text-align:center}}
+    .hero-big h1{{font-size:clamp(34px,6vw,64px);letter-spacing:-1.5px;
+      text-transform:uppercase;font-weight:800;margin-bottom:18px}}
+    .hero-big .lead{{margin:0 auto;font-size:18px}}
+    .shot{{margin:38px 0 0;border-radius:16px;overflow:hidden;
+      border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.45);
+      background:var(--panel)}}
+    .shot img{{display:block;width:100%;height:auto}}
+    .shot figcaption{{padding:10px 16px;font-size:12px;color:var(--muted);
+      border-top:1px solid var(--line)}}
+    /* Витрина: слева список, справа выбранный виджет. Как у RaceLab, только
+       переключение на чистом CSS — ни строчки скриптов. */
+    .show{{display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start}}
+    .show-list{{max-height:520px;overflow:auto;padding-right:6px}}
+    .show-list label{{display:block;padding:7px 10px;border-radius:8px;
+      color:var(--muted);font-size:13.5px;cursor:pointer}}
+    .show-list label:hover{{background:var(--panel);color:var(--txt)}}
+    .show input{{position:absolute;opacity:0;pointer-events:none}}
+    .show-stage{{background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--r-card);min-height:320px;display:flex;
+      align-items:center;justify-content:center;padding:26px}}
+    .show-stage figure{{display:none;text-align:center;max-width:100%}}
+    .show-stage img{{max-width:100%;height:auto}}
+    .show-stage figcaption{{margin-top:16px;color:var(--muted);font-size:13.5px}}
+    .show-stage figcaption b{{display:block;color:var(--txt);font-size:16px;
+      margin-bottom:4px}}
+    .sims{{display:flex;flex-wrap:wrap;gap:10px}}
+    .sims span{{border:1px solid var(--line);border-radius:20px;padding:5px 14px;
+      font-size:12.5px;color:var(--muted)}}
+    @media(max-width:760px){{.nums,.why{{grid-template-columns:1fr 1fr}}h1{{font-size:30px}}
+      .show{{grid-template-columns:1fr}}.show-list{{max-height:200px}}}}
 </style></head><body>
 <header><div class="wrap">
   <span class="logo">RACE <b>ENGINEER</b></span>
@@ -149,7 +181,65 @@ WHY = [
 ]
 
 
-def page_about(cat):
+def load_shots(root=None):
+    """Опись снимков виджетов из docs/widgets/index.json.
+
+    Снимки делает tools/render_widgets.py на демо-данных. Если их нет —
+    витрина просто не рисуется, а сайт остаётся рабочим: собирать картинки
+    ради страницы «о проекте» никто не обязан.
+    """
+    base = pathlib.Path(root) if root else (
+        pathlib.Path(__file__).resolve().parents[3] / "docs" / "widgets")
+    f = base / "index.json"
+    if not f.exists():
+        return []
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return []
+
+
+GROUP_RU = {"solo": "Соло", "endur": "Эндуранс", "setup": "Сетап"}
+
+
+def showcase(shots):
+    """Витрина всех виджетов: список слева, выбранный справа.
+
+    Переключение сделано на радиокнопках и соседних селекторах CSS — без
+    скриптов. Страница статическая, и тащить ради галереи джаваскрипт,
+    который надо потом поддерживать, незачем.
+    """
+    if not shots:
+        return ""
+    # Радиокнопки лежат ПРЯМЫМИ детьми .show, а не внутри списка. Соседний
+    # селектор «~» работает только между элементами с общим родителем: пока
+    # инпуты были внутри .show-list, правило #sN:checked~.show-stage ни разу
+    # не срабатывало и сцена оставалась пустой.
+    inputs, items, stage, rules = [], [], [], []
+    for i, w in enumerate(shots):
+        sel = ' checked' if i == 0 else ''
+        inputs.append(f'<input type="radio" name="shot" id="s{i}"{sel}>')
+        items.append(f'<label for="s{i}">{e(w["title"])}</label>')
+        doc = w.get("doc") or ""
+        stage.append(
+            f'<figure id="f{i}"><img src="/w/{e(w["file"])}" '
+            f'alt="{e(w["title"])}" loading="lazy">'
+            f'<figcaption><b>{e(w["title"])}</b>{e(doc)}</figcaption></figure>')
+        rules.append(f"#s{i}:checked~.show-stage #f{i}{{display:block}}")
+        rules.append(f'#s{i}:checked~.show-list label[for="s{i}"]'
+                     f"{{background:var(--panel);color:var(--txt);font-weight:600}}")
+    return (f'<section><h2>Как это выглядит — {len(shots)}</h2>'
+            f'<style>{"".join(rules)}</style>'
+            f'<div class="show">{"".join(inputs)}'
+            f'<div class="show-list">{"".join(items)}</div>'
+            f'<div class="show-stage">{"".join(stage)}</div></div>'
+            f'<p class="lead" style="margin-top:14px;font-size:13px">'
+            f'Снимки собраны командой '
+            f'<span class="k">python tools/render_widgets.py</span> на '
+            f'демонстрационных данных: цифры и имена пилотов выдуманы.</p></section>')
+
+
+def page_about(cat, shots=None):
     k = cat["counts"]
     labels = (
         (k["widgets"], ("виджет оверлея", "виджета оверлея", "виджетов оверлея")),
@@ -163,12 +253,29 @@ def page_about(cat):
         for v, forms in labels)
     why = "".join(f"<div><h3>{e(t)}</h3><p>{e(d)}</p></div>" for t, d in WHY)
     groups = " · ".join(f"{e(g)} — {n}" for g, n in (k["by_group"] or {}).items())
+    hero_img = ""
+    if (pathlib.Path(__file__).resolve().parents[3] / "docs" / "hero.png").exists():
+        hero_img = ('<figure class="shot"><img src="/hero.png" '
+                    'alt="Оверлей поверх игры">'
+                    '<figcaption>Оверлей поверх игры: таблица, дельта, карта трассы, '
+                    'расход, педали и относительные разрывы. '
+                    'Собрано из настоящих виджетов на демонстрационных данных.'
+                    '</figcaption></figure>')
+    sims = "".join(f"<span>{e(x)}</span>" for x in
+                   ("iRacing", "Windows 10 и 11", "Без интернета",
+                    "Один экран или два", "Руль и геймпад"))
     return shell("О проекте", f"""
-<section class="hero">
+<section class="hero-big">
   <h1>Гоночный инженер<br>для <span>iRacing</span></h1>
   <p class="lead">Дашборд на втором экране, свой оверлей поверх игры и разбор
   заездов. Собственный проект, не подписка: данные лежат у меня, работает локально.</p>
+  {hero_img}
 </section>
+<section>
+  <h2>Где работает</h2>
+  <div class="sims">{sims}</div>
+</section>
+{showcase(shots or [])}
 <section>
   <h2>Что внутри</h2>
   <div class="nums">{nums}</div>

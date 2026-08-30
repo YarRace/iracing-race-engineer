@@ -144,8 +144,21 @@ class DemoFeed:
             return rows
 
         if ep == "relative":
-            return {"ahead": [{"name": DRIVERS[ME - 1][0], "gap": -1.1}],
-                    "behind": [{"name": DRIVERS[ME + 1][0], "gap": 0.9}]}
+            # Формат — как у боевого сборщика: список cars с разрывом от нас.
+            # Первый вариант отдавал ahead/behind, и виджет честно писал
+            # «no data»: я угадал структуру вместо того, чтобы прочитать её.
+            cars = []
+            for i, (name, ir) in enumerate(DRIVERS):
+                cars.append({
+                    "name": name, "number": 10 + i, "is_player": i == ME,
+                    "gap": round((i - ME) * 1.15 + 0.2 * math.sin(el / 7 + i), 2),
+                    # разводим по кругу заметно: при 3% все шесть машин слипались
+                    # в одну точку на карте трассы
+                    "lap_pct": (u + (ME - i) * 0.11) % 1.0,
+                    "class_color": 0xF1C40F, "manufacturer": "ferrari",
+                    "irating": ir, "on_pit": False,
+                })
+            return {"cars": cars}
 
         if ep == "strategy":
             return {
@@ -193,6 +206,7 @@ class DemoFeed:
                 r = 34 + 12 * math.sin(3 * a) + 5 * math.cos(5 * a)
                 pts.append({"x": 50 + r * math.cos(a), "y": 50 + r * math.sin(a) * 0.72,
                             "pct": i / 160})
-            return {"points": pts, "official": False, "source": "demo"}
+            return {"points": pts, "official": False, "source": "demo",
+                    "track": "Demo Circuit", "config": ""}
 
         return {}

@@ -88,10 +88,36 @@ def wheel_image(name: str):
         return Response(status_code=404)
     return FileResponse(path, media_type="image/png")
 
+DOCS = os.path.join(os.path.dirname(__file__), "..", "..", "..", "docs")
+
+
+@app.get("/hero.png")
+def hero():
+    """Главная картинка сайта — оверлей поверх игры (tools/render_hero.py)."""
+    path = os.path.abspath(os.path.join(DOCS, "hero.png"))
+    if not os.path.exists(path):
+        return Response(status_code=404)
+    return FileResponse(path, media_type="image/png")
+
+
+@app.get("/w/{name}")
+def widget_shot(name: str):
+    """Снимок виджета для витрины (tools/render_widgets.py).
+
+    basename и проверка расширения — чтобы «/w/../../secret» не увёл
+    за пределы каталога снимков.
+    """
+    safe = os.path.basename(name)
+    path = os.path.abspath(os.path.join(DOCS, "widgets", safe))
+    if not (safe.endswith(".png") and os.path.exists(path)):
+        return Response(status_code=404)
+    return FileResponse(path, media_type="image/png")
+
+
 @app.get("/about", response_class=HTMLResponse)
 def about():
     """Витрина проекта: что внутри и почему сделано именно так."""
-    return site.page_about(site.load_catalog())
+    return site.page_about(site.load_catalog(), site.load_shots())
 
 
 @app.get("/catalog", response_class=HTMLResponse)
