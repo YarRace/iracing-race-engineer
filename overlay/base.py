@@ -32,25 +32,37 @@ class OverlayWidget(QWidget):
     ENDPOINTS = ()          # какие /api/* нужны этому виджету (для точечного опроса)
     REORDERABLE = False     # можно ли менять порядок элементов (списковые виджеты)
 
-    def __init__(self, store, config):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-                         | Qt.Tool | Qt.WindowDoesNotAcceptFocus)
+    def __init__(self, store, config, parent=None):
+        # С родителем это ПРЕДПРОСМОТР внутри окна настроек: обычный дочерний
+        # виджет без флагов «поверх игры», без сквозного клика и без чтения
+        # позиции из конфига — иначе он улетел бы в координаты рабочего стола
+        # и перехватывал мышь у панели.
+        if parent is None:
+            super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+                             | Qt.Tool | Qt.WindowDoesNotAcceptFocus)
+        else:
+            super().__init__(parent)
         self.store = store
         self.config = config
+        self.preview = parent is not None
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMinimumSize(120, 60)
-        geo = config.geometry(self.KEY)
-        if geo:
-            self.setGeometry(*geo)
-        else:
+        if self.preview:
             self.resize(*self.DEFAULT)
-            self.move(80, 80)
+        else:
+            geo = config.geometry(self.KEY)
+            if geo:
+                self.setGeometry(*geo)
+            else:
+                self.resize(*self.DEFAULT)
+                self.move(80, 80)
         self._drag = None
         self._resize = None
         self._elrects = []          # [(key, QRectF)] — кликабельные зоны элементов (за кадр)
         self._sel_key = None        # выбранный элемент (подсветка)
-        self.apply_input_mode()
-        self.apply_opacity()
+        if not self.preview:
+            self.apply_input_mode()
+            self.apply_opacity()
 
     def apply_opacity(self):
         """Глобальная прозрачность всех оверлеев (как в Kapps)."""
@@ -66,6 +78,8 @@ class OverlayWidget(QWidget):
     def showEvent(self, e):
         # exstyle надёжно ставим ПОСЛЕ создания окна (иначе Qt может перетереть на show)
         super().showEvent(e)
+        if getattr(self, "preview", False):
+            return                          # дочерний виджет — своего окна нет
         self._native_clickthrough(not self.config.edit_mode())
         self.apply_opacity()
 
@@ -406,5 +420,7 @@ class OverlayWidget(QWidget):
 
     def mouseReleaseEvent(self, e):
         self._drag = self._resize = None
+        if getattr(self, "preview", False):
+            return                          # предпросмотр не двигают и не запоминают
         g = self.geometry()
         self.config.set_geometry(self.KEY, g.x(), g.y(), g.width(), g.height())

@@ -1,41 +1,59 @@
-"""Панель управления оверлеями — в стиле Kapps.
+"""Панель управления оверлеями — три колонки, как в RaceLab.
 
-Тёмное окно: сверху статус связи, крупная кнопка «Режим правки» (двигать/настраивать
-оверлеи; сквозной клик выключается) + глобальный ползунок прозрачности всех оверлеев;
-ниже — сгруппированный список оверлеев (🟢 Соло / 🔵 Endurance / 🟣 Setup) с тумблерами.
-Режим правки переключается и глобальным хоткеем Ctrl+Shift+L (работает поверх игры).
-Всё состояние (что включено, позиции, прозрачность) сохраняется в Config.
+Раньше панель была одной колонкой со списком и отдельной страницей настроек:
+чтобы увидеть результат правки, приходилось лезть в игру. Теперь окно
+разделено так же, как у RaceLab, потому что схема рабочая:
+
+    ┌──────────┬────────────────────┬──────────────┐
+    │ список   │  ЖИВОЙ ПРЕДПРОСМОТР │  настройки   │
+    │ оверлеев │  выбранного виджета │  выбранного  │
+    └──────────┴────────────────────┴──────────────┘
+
+Крутишь ползунок справа — видишь результат в центре сразу, не выходя из окна.
+Предпросмотр берёт те же данные из того же хранилища, что и боевой оверлей,
+поэтому он не «примерно похож», а буквально тот же виджет (см. preview.py).
+
+Сохранено из прежней панели: профили раскладок, глобальная прозрачность,
+режим правки с хоткеем Ctrl+Shift+L, скрытие вне трассы, точечный опрос
+только нужных эндпоинтов.
 """
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel,
                                QFrame, QScrollArea, QPushButton, QSlider, QComboBox,
-                               QInputDialog, QStackedWidget)
+                               QInputDialog, QLineEdit, QSplitter)
 
 from overlay.hotkey import GlobalHotkey
+from overlay.preview import BACKDROPS, PreviewCanvas
 
 GROUPS = [("solo", "🟢 SOLO"), ("endur", "🔵 ENDURANCE"), ("setup", "🟣 SETUP")]
 
 QSS = """
 QWidget { background:#0f1216; color:#e8eaed; font-family:'Segoe UI'; font-size:13px; }
-QScrollArea { border:none; background:#0f1216; }
+QScrollArea, QSplitter { border:none; background:#0f1216; }
+QSplitter::handle { background:#1b2027; width:1px; }
 QLabel#title { font-size:15px; font-weight:800; }
 QLabel#group { color:#9099a6; font-weight:800; letter-spacing:1px; font-size:11px; }
+QLabel#colhead { color:#7d8797; font-weight:800; letter-spacing:1.2px; font-size:10px; }
 QLabel#hint { color:#69727f; font-size:11px; }
+QLabel#wname { font-size:15px; font-weight:800; }
+QLabel#wmeta { color:#69727f; font-size:11px; }
 QCheckBox { padding:4px 2px; spacing:8px; }
 QCheckBox::indicator { width:16px; height:16px; border-radius:4px; border:1px solid #2a2f38; background:#181c22; }
 QCheckBox::indicator:checked { background:#2ecc71; border-color:#2ecc71; }
+QLineEdit { background:#181c22; border:1px solid #2a2f38; border-radius:8px; padding:6px 9px; }
+QLineEdit:focus { border-color:#3ea6ff; }
 QPushButton { background:#181c22; border:1px solid #2a2f38; border-radius:8px; padding:7px 10px; }
 QPushButton:hover { background:#232a33; }
 QPushButton#edit { font-weight:700; }
 QPushButton#edit:checked { background:#17512f; border-color:#2ecc71; color:#eafff2; }
 QPushButton#link { background:transparent; border:none; color:#69727f; padding:2px 4px; font-size:12px; }
 QPushButton#link:hover { color:#cdd3dc; }
-QPushButton#gear { background:transparent; border:none; color:#69727f; padding:2px 6px; font-size:15px; }
-QPushButton#gear:hover { color:#3ea6ff; }
-QPushButton#back { background:#181c22; border:1px solid #2a2f38; border-radius:8px; padding:6px 12px; font-weight:700; color:#3ea6ff; }
-QPushButton#back:hover { background:#232a33; }
+QPushButton#row { background:transparent; border:none; text-align:left; padding:5px 8px; border-radius:7px; }
+QPushButton#row:hover { background:#181c22; }
+QPushButton#row:checked { background:#1d2b3d; color:#8ec7ff; font-weight:700; }
+QPushButton#tiny { padding:4px 8px; font-size:12px; }
 QFrame#card { background:#14181e; border:1px solid #20262e; border-radius:12px; }
 QFrame#sep { color:#1b2027; max-height:1px; }
 QSlider::groove:horizontal { height:6px; background:#232a33; border-radius:3px; }
@@ -48,87 +66,81 @@ class ControlPanel(QWidget):
     def __init__(self, store, config, widget_classes):
         super().__init__()
         self.setWindowTitle("Race Engineer — Overlays")
-        self.resize(390, 640)
+        self.resize(1180, 720)
         self.setStyleSheet(QSS)
         self.store = store
         self.config = config
-        self.widgets = {}                     # key -> экземпляр виджета
-        self._boxes = {}                      # key -> QCheckBox
-        self._group_by_key = {}               # key -> "solo"/"endur"/"setup"
-        self._cls_by_key = {}                 # key -> класс виджета (для пересборки профиля)
+        self.widgets = {}                     # key -> живой оверлей поверх игры
+        self._boxes = {}                      # key -> QCheckBox «включён»
+        self._rows = {}                       # key -> QPushButton строки списка
+        self._group_by_key = {}
+        self._cls_by_key = {}
+        self._selected = None                 # какой виджет показан в центре
 
-        outer = QVBoxLayout(self)                         # весь контент — в стеке страниц
-        outer.setContentsMargins(0, 0, 0, 0)
-        self._stack = QStackedWidget()
-        outer.addWidget(self._stack)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 8)
+        root.setSpacing(8)
+        root.addLayout(self._build_header())
 
-        main = QWidget()                                  # страница 0: список оверлеев
-        self._stack.addWidget(main)
-        root = QVBoxLayout(main)
-        root.setContentsMargins(12, 12, 12, 12)
-        root.setSpacing(10)
+        split = QSplitter(Qt.Horizontal)
+        split.addWidget(self._build_list(widget_classes))
+        split.addWidget(self._build_preview())
+        split.addWidget(self._build_settings())
+        split.setSizes([250, 610, 320])
+        split.setStretchFactor(1, 1)
+        root.addWidget(split, 1)
 
-        head = QHBoxLayout()
-        head.addWidget(QLabel("🏁 Race Engineer", objectName="title"))
-        head.addStretch(1)
+        root.addWidget(self._build_footer())
+
+        self._hotkey = GlobalHotkey(self._hotkey_toggle_edit)
+        self._refresh_profiles()
+        first = widget_classes[0] if widget_classes else None
+        if first is not None:
+            self.select(first.KEY)
+
+    # ───────────────────────────── шапка ────────────────────────────────────
+    def _build_header(self):
+        h = QHBoxLayout()
+        h.addWidget(QLabel("🏁 Race Engineer", objectName="title"))
+        h.addSpacing(12)
         self.status = QLabel("● …")
-        head.addWidget(self.status)
-        root.addLayout(head)
-
-        # ---- профили раскладок (пресеты, как в Kapps) ----
-        prow = QHBoxLayout()
-        prow.addWidget(QLabel("Profile"))
+        h.addWidget(self.status)
+        h.addStretch(1)
+        h.addWidget(QLabel("Раскладка", objectName="hint"))
         self.prof = QComboBox()
+        self.prof.setMinimumWidth(150)
         self.prof.currentTextChanged.connect(self._on_profile_selected)
-        prow.addWidget(self.prof, 1)
-        addb = QPushButton("＋")
-        addb.setToolTip("Save current layout as a new profile")
-        addb.setFixedWidth(34)
+        h.addWidget(self.prof)
+        addb = QPushButton("＋", objectName="tiny")
+        addb.setToolTip("Сохранить текущую раскладку как новую")
         addb.clicked.connect(self.save_as_profile)
-        prow.addWidget(addb)
-        delb = QPushButton("🗑")
-        delb.setToolTip("Delete active profile")
-        delb.setFixedWidth(34)
+        h.addWidget(addb)
+        delb = QPushButton("🗑", objectName="tiny")
+        delb.setToolTip("Удалить активную раскладку")
         delb.clicked.connect(self.delete_profile)
-        prow.addWidget(delb)
-        root.addLayout(prow)
+        h.addWidget(delb)
+        return h
 
-        # ---- карточка глобальных настроек (режим правки + прозрачность) ----
-        card = QFrame(objectName="card")
-        cl = QVBoxLayout(card)
-        cl.setContentsMargins(12, 12, 12, 12)
-        cl.setSpacing(10)
-        self.edit_btn = QPushButton("✏️  Edit mode  ·  move / customize", objectName="edit")
-        self.edit_btn.setCheckable(True)
-        self.edit_btn.setChecked(config.edit_mode())
-        self.edit_btn.toggled.connect(self.set_edit)
-        cl.addWidget(self.edit_btn)
-        cl.addWidget(QLabel("Off = overlays are click-through (clicks go to the game). Hotkey: Ctrl+Shift+L",
-                            objectName="hint"))
-        orow = QHBoxLayout()
-        orow.addWidget(QLabel("Opacity"))
-        self.op = QSlider(Qt.Horizontal)
-        self.op.setRange(30, 100)
-        self.op.setValue(int(config.opacity() * 100))
-        self.op.valueChanged.connect(self.set_opacity)
-        orow.addWidget(self.op, 1)
-        self.op_lbl = QLabel(f"{self.op.value()}%")
-        self.op_lbl.setMinimumWidth(36)
-        orow.addWidget(self.op_lbl)
-        cl.addLayout(orow)
-        self.hide_cb = QCheckBox("Hide overlays when off track (in menus / replay)")
-        self.hide_cb.setChecked(config.hide_offtrack())
-        self.hide_cb.toggled.connect(self.set_hide_offtrack)
-        cl.addWidget(self.hide_cb)
-        root.addWidget(card)
+    # ──────────────────────── левая колонка: список ─────────────────────────
+    def _build_list(self, widget_classes):
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 8, 0)
+        lay.setSpacing(6)
+        lay.addWidget(QLabel("ОВЕРЛЕИ", objectName="colhead"))
 
-        # ---- список оверлеев по группам (прокрутка) ----
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Поиск оверлея…")
+        self.search.setClearButtonEnabled(True)
+        self.search.textChanged.connect(self._filter_list)
+        lay.addWidget(self.search)
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         inner = QWidget()
-        lay = QVBoxLayout(inner)
-        lay.setContentsMargins(0, 0, 6, 0)
-        lay.setSpacing(2)
+        il = QVBoxLayout(inner)
+        il.setContentsMargins(0, 0, 6, 0)
+        il.setSpacing(2)
 
         by_group = {g: [] for g, _ in GROUPS}
         for cls in widget_classes:
@@ -136,100 +148,239 @@ class ControlPanel(QWidget):
             by_group.setdefault(g, by_group["solo"]).append(cls)
             self._group_by_key[cls.KEY] = g
 
+        self._group_heads = {}
         for gkey, gtitle in GROUPS:
             classes = by_group.get(gkey) or []
             if not classes:
                 continue
-            head2 = QHBoxLayout()
-            head2.addWidget(QLabel(gtitle, objectName="group"))
-            head2.addStretch(1)
-            btn = QPushButton("hide all", objectName="link")
+            head = QWidget()
+            hh = QHBoxLayout(head)
+            hh.setContentsMargins(0, 6, 0, 2)
+            hh.addWidget(QLabel(gtitle, objectName="group"))
+            hh.addStretch(1)
+            btn = QPushButton("скрыть все", objectName="link")
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda _=False, g=gkey: self._toggle_group(g))
-            head2.addWidget(btn)
-            wrap = QWidget()
-            wrap.setLayout(head2)
-            lay.addWidget(wrap)
+            hh.addWidget(btn)
+            il.addWidget(head)
+            self._group_heads[gkey] = head
+
             for cls in classes:
-                r = QWidget()
-                rh = QHBoxLayout(r)
-                rh.setContentsMargins(0, 0, 0, 0)
-                rh.setSpacing(4)
-                cb = QCheckBox(cls.TITLE)
-                cb.setChecked(config.is_enabled(cls.KEY))
-                cb.toggled.connect(lambda v, c=cls: self.toggle(c, v))
-                self._boxes[cls.KEY] = cb
-                self._cls_by_key[cls.KEY] = cls
-                rh.addWidget(cb, 1)
-                gear = QPushButton("⚙", objectName="gear")
-                gear.setToolTip("Configure in app")
-                gear.setCursor(Qt.PointingHandCursor)
-                gear.setFixedWidth(30)
-                gear.clicked.connect(lambda _=False, c=cls: self._open_settings_page(c))
-                rh.addWidget(gear)
-                lay.addWidget(r)
-                if config.is_enabled(cls.KEY):
+                il.addWidget(self._build_row(cls))
+                if config_enabled := self.config.is_enabled(cls.KEY):
                     self.toggle(cls, True)
-            sep = QFrame(objectName="sep")
-            sep.setFrameShape(QFrame.HLine)
-            lay.addWidget(sep)
-        lay.addStretch(1)
+        il.addStretch(1)
         scroll.setWidget(inner)
-        root.addWidget(scroll, 1)
+        lay.addWidget(scroll, 1)
+        return box
 
-        self._build_settings_page()                       # страница 1: настройки виджета (в приложении)
+    def _build_row(self, cls):
+        """Строка списка: галочка «включён» + кнопка выбора для предпросмотра."""
+        r = QWidget()
+        rh = QHBoxLayout(r)
+        rh.setContentsMargins(0, 0, 0, 0)
+        rh.setSpacing(2)
 
-        # глобальный хоткей Ctrl+Shift+L → режим правки (работает поверх игры)
-        self._hotkey = GlobalHotkey(self._hotkey_toggle_edit)
-        self._refresh_profiles()
+        cb = QCheckBox()
+        cb.setChecked(self.config.is_enabled(cls.KEY))
+        cb.setToolTip("Показывать поверх игры")
+        cb.toggled.connect(lambda v, c=cls: self.toggle(c, v))
+        self._boxes[cls.KEY] = cb
+        self._cls_by_key[cls.KEY] = cls
+        rh.addWidget(cb)
 
-    # ---------- настройки виджета ВНУТРИ приложения (как в Kapps) ----------
-    def _build_settings_page(self):
-        sp = QWidget()
-        spl = QVBoxLayout(sp)
-        spl.setContentsMargins(12, 12, 12, 12)
-        spl.setSpacing(8)
-        top = QHBoxLayout()
-        back = QPushButton("←  Back", objectName="back")
-        back.setCursor(Qt.PointingHandCursor)
-        back.clicked.connect(lambda: self._stack.setCurrentIndex(0))
-        top.addWidget(back)
-        top.addStretch(1)
-        self._sp_title = QLabel("", objectName="title")
-        top.addWidget(self._sp_title)
-        spl.addLayout(top)
-        self._sp_scroll = QScrollArea()
-        self._sp_scroll.setWidgetResizable(True)
-        spl.addWidget(self._sp_scroll, 1)
-        spl.addWidget(QLabel("Move / resize on the overlay itself (edit mode).",
+        btn = QPushButton(cls.TITLE, objectName="row")
+        btn.setCheckable(True)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(lambda _=False, k=cls.KEY: self.select(k))
+        self._rows[cls.KEY] = btn
+        rh.addWidget(btn, 1)
+
+        r.setProperty("wkey", cls.KEY)
+        return r
+
+    def _filter_list(self, text):
+        """Поиск по названию. Пустые группы прячем целиком, чтобы не мозолили."""
+        q = (text or "").strip().lower()
+        shown = {g: 0 for g, _ in GROUPS}
+        for key, btn in self._rows.items():
+            row = btn.parentWidget()
+            ok = not q or q in btn.text().lower()
+            row.setVisible(ok)
+            if ok:
+                shown[self._group_by_key.get(key, "solo")] += 1
+        for gkey, head in self._group_heads.items():
+            head.setVisible(shown.get(gkey, 0) > 0)
+
+    # ─────────────────────── центр: живой предпросмотр ──────────────────────
+    def _build_preview(self):
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(8, 0, 8, 0)
+        lay.setSpacing(6)
+        lay.addWidget(QLabel("ПРЕДПРОСМОТР", objectName="colhead"))
+
+        self.preview = PreviewCanvas(self.store, self.config)
+        lay.addWidget(self.preview, 1)
+
+        bar = QHBoxLayout()
+        bar.addWidget(QLabel("Фон", objectName="hint"))
+        self.bg = QComboBox()
+        self.bg.addItems([b[0] for b in BACKDROPS])
+        self.bg.currentIndexChanged.connect(self.preview.set_backdrop)
+        bar.addWidget(self.bg)
+        bar.addSpacing(10)
+        bar.addWidget(QLabel("Масштаб", objectName="hint"))
+        self.zoom = QSlider(Qt.Horizontal)
+        self.zoom.setRange(50, 200)
+        self.zoom.setValue(100)
+        self.zoom.setFixedWidth(140)
+        self.zoom.valueChanged.connect(lambda v: self.preview.set_zoom(v / 100.0))
+        bar.addWidget(self.zoom)
+        self.zoom_lbl = QLabel("100%", objectName="hint")
+        self.zoom_lbl.setMinimumWidth(38)
+        self.zoom.valueChanged.connect(lambda v: self.zoom_lbl.setText(f"{v}%"))
+        bar.addWidget(self.zoom_lbl)
+        bar.addStretch(1)
+        lay.addLayout(bar)
+        return box
+
+    # ───────────────────── правая колонка: настройки ────────────────────────
+    def _build_settings(self):
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(8, 0, 0, 0)
+        lay.setSpacing(6)
+        lay.addWidget(QLabel("НАСТРОЙКИ", objectName="colhead"))
+
+        card = QFrame(objectName="card")
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(12, 10, 12, 10)
+        cl.setSpacing(2)
+        self.sel_name = QLabel("—", objectName="wname")
+        cl.addWidget(self.sel_name)
+        self.sel_meta = QLabel("", objectName="wmeta")
+        cl.addWidget(self.sel_meta)
+        lay.addWidget(card)
+
+        self.sel_on = QCheckBox("Показывать поверх игры")
+        self.sel_on.toggled.connect(self._toggle_selected)
+        lay.addWidget(self.sel_on)
+
+        self.sfilter = QLineEdit()
+        self.sfilter.setPlaceholderText("Фильтр настроек…")
+        self.sfilter.setClearButtonEnabled(True)
+        self.sfilter.textChanged.connect(self._filter_settings)
+        lay.addWidget(self.sfilter)
+
+        self.sscroll = QScrollArea()
+        self.sscroll.setWidgetResizable(True)
+        lay.addWidget(self.sscroll, 1)
+        lay.addWidget(QLabel("Двигать и растягивать — на самом оверлее, в режиме правки.",
                              objectName="hint"))
-        self._stack.addWidget(sp)
+        return box
 
-    def _open_settings_page(self, cls):
-        key = cls.KEY
-        if key not in self.widgets:                       # включаем — нужен живой экземпляр для настройки
-            self._boxes[key].setChecked(True)
-        w = self.widgets.get(key)
+    def _filter_settings(self, text):
+        """Прячем строки настроек, где нет искомого. Ищем по подписям QLabel."""
+        w = self.sscroll.widget()
         if w is None:
             return
-        from overlay.settings_dialog import WidgetSettingsDialog
-        self._sp_scroll.setWidget(WidgetSettingsDialog(w, embed=True))   # заменяет прежние
-        self._sp_title.setText(cls.TITLE)
-        self._stack.setCurrentIndex(1)
-        self._refresh_visibility()
+        q = (text or "").strip().lower()
+        for row in w.findChildren(QWidget):
+            if row.property("srow") is None:
+                continue
+            labels = " ".join(lbl.text() for lbl in row.findChildren(QLabel))
+            row.setVisible(not q or q in labels.lower())
 
-    # ---------- режим правки / прозрачность ----------
+    # ──────────────────────────── подвал ────────────────────────────────────
+    def _build_footer(self):
+        card = QFrame(objectName="card")
+        h = QHBoxLayout(card)
+        h.setContentsMargins(12, 8, 12, 8)
+        h.setSpacing(12)
+
+        self.edit_btn = QPushButton("✏️  Режим правки", objectName="edit")
+        self.edit_btn.setCheckable(True)
+        self.edit_btn.setChecked(self.config.edit_mode())
+        self.edit_btn.setToolTip("Двигать оверлеи мышью. Вне режима клики уходят в игру. "
+                                 "Хоткей Ctrl+Shift+L")
+        self.edit_btn.toggled.connect(self.set_edit)
+        h.addWidget(self.edit_btn)
+
+        h.addWidget(QLabel("Прозрачность", objectName="hint"))
+        self.op = QSlider(Qt.Horizontal)
+        self.op.setRange(30, 100)
+        self.op.setValue(int(self.config.opacity() * 100))
+        self.op.setFixedWidth(160)
+        self.op.valueChanged.connect(self.set_opacity)
+        h.addWidget(self.op)
+        self.op_lbl = QLabel(f"{self.op.value()}%", objectName="hint")
+        self.op_lbl.setMinimumWidth(36)
+        h.addWidget(self.op_lbl)
+
+        self.hide_cb = QCheckBox("Прятать вне трассы (в меню и повторах)")
+        self.hide_cb.setChecked(self.config.hide_offtrack())
+        self.hide_cb.toggled.connect(self.set_hide_offtrack)
+        h.addWidget(self.hide_cb)
+        h.addStretch(1)
+        return card
+
+    # ──────────────────────────── выбор виджета ─────────────────────────────
+    def select(self, key):
+        cls = self._cls_by_key.get(key)
+        if cls is None:
+            return
+        self._selected = key
+        for k, btn in self._rows.items():
+            btn.setChecked(k == key)
+
+        self.sel_name.setText(cls.TITLE)
+        group = {"solo": "Соло", "endur": "Endurance", "setup": "Setup"}.get(
+            self._group_by_key.get(key, "solo"), "")
+        w, hgt = cls.DEFAULT
+        self.sel_meta.setText(f"{group}  ·  {w}×{hgt} по умолчанию  ·  "
+                              f"данные: {', '.join(cls.ENDPOINTS) or '—'}")
+        self.sel_on.blockSignals(True)
+        self.sel_on.setChecked(self.config.is_enabled(key))
+        self.sel_on.blockSignals(False)
+
+        self.preview.show_widget(cls)
+        self._load_settings(cls)
+
+    def _load_settings(self, cls):
+        """Настройки строим на ПРЕДПРОСМОТРЕ: он всегда существует, а боевой
+        виджет может быть выключен — раньше ради настройки его приходилось
+        принудительно включать, и он выскакивал поверх игры."""
+        from overlay.settings_dialog import WidgetSettingsDialog
+        target = self.preview._widget
+        if target is None:
+            self.sscroll.takeWidget()
+            return
+        dlg = WidgetSettingsDialog(target, embed=True)
+        dlg.destroyed.connect(lambda: None)
+        self.sscroll.setWidget(dlg)
+        self.sfilter.clear()
+
+    def _toggle_selected(self, on):
+        cls = self._cls_by_key.get(self._selected)
+        if cls is None:
+            return
+        box = self._boxes.get(cls.KEY)
+        if box is not None and box.isChecked() != on:
+            box.setChecked(on)                    # через галочку — чтобы не раздваивать логику
+
+    # ───────────────────── режим правки / прозрачность ──────────────────────
     def set_edit(self, val):
         self.config.set_edit_mode(val)
         if self.edit_btn.isChecked() != val:
             self.edit_btn.setChecked(val)
-        self._refresh_visibility()                        # в правке показываем даже вне трассы
+        self._refresh_visibility()
         for w in self.widgets.values():
             w.apply_input_mode()
-            w.update()                                    # показать/скрыть ⚙ и уголок сразу
+            w.update()
 
     def _hotkey_toggle_edit(self):
-        self.edit_btn.toggle()                            # → set_edit через toggled
+        self.edit_btn.toggle()
 
     def set_opacity(self, v):
         self.op_lbl.setText(f"{v}%")
@@ -237,7 +388,7 @@ class ControlPanel(QWidget):
         for w in self.widgets.values():
             w.apply_opacity()
 
-    # ---------- профили раскладок ----------
+    # ───────────────────────── профили раскладок ────────────────────────────
     def _refresh_profiles(self, select=None):
         self.prof.blockSignals(True)
         self.prof.clear()
@@ -248,7 +399,7 @@ class ControlPanel(QWidget):
             if active in names:
                 self.prof.setCurrentText(active)
         else:
-            self.prof.addItem("— no profile —")
+            self.prof.addItem("— нет раскладок —")
         self.prof.blockSignals(False)
 
     def _on_profile_selected(self, name):
@@ -257,10 +408,10 @@ class ControlPanel(QWidget):
             self._rebuild_from_config()
 
     def save_as_profile(self):
-        name, ok = QInputDialog.getText(self, "New profile", "Layout name:")
+        name, ok = QInputDialog.getText(self, "Новая раскладка", "Название:")
         name = (name or "").strip()
         if ok and name:
-            self.config.save_profile(name)              # снимок текущей раскладки
+            self.config.save_profile(name)
             self._refresh_profiles(select=name)
 
     def delete_profile(self):
@@ -270,30 +421,29 @@ class ControlPanel(QWidget):
             self._refresh_profiles()
 
     def _rebuild_from_config(self):
-        """Пересобрать оверлеи под загруженный профиль (позиции/настройки/прозрачность)."""
-        if hasattr(self, "_stack"):                       # уходим со страницы настроек — виджеты пересоздаём
-            self._stack.setCurrentIndex(0)
-            self._sp_scroll.takeWidget()
+        """Пересобрать оверлеи под загруженную раскладку."""
         for w in list(self.widgets.values()):
             w.close()
             w.deleteLater()
         self.widgets.clear()
-        for key, cb in self._boxes.items():             # синхронизировать галочки
+        for key, cb in self._boxes.items():
             cb.blockSignals(True)
             cb.setChecked(self.config.is_enabled(key))
             cb.blockSignals(False)
-        for key, cls in self._cls_by_key.items():       # создать включённые заново (свежая геометрия)
+        for key, cls in self._cls_by_key.items():
             if self.config.is_enabled(key):
                 self.widgets[key] = cls(self.store, self.config)
-        self._refresh_visibility()                       # показать по правилам (правка/вне трассы)
-        self.op.blockSignals(True)                      # синхронизировать ползунок прозрачности
+        self._refresh_visibility()
+        self.op.blockSignals(True)
         self.op.setValue(int(self.config.opacity() * 100))
         self.op.blockSignals(False)
         self.op_lbl.setText(f"{self.op.value()}%")
+        if self._selected:
+            self.select(self._selected)           # предпросмотр и настройки — под новую раскладку
         self._update_active()
 
+    # ───────────────────────────── тумблеры ─────────────────────────────────
     def _toggle_group(self, gkey):
-        """Скрыть/показать все виджеты группы разом (по кнопке)."""
         target = [k for k in self._boxes if self._group_by_key.get(k) == gkey]
         any_on = any(self._boxes[k].isChecked() for k in target)
         for k in target:
@@ -303,6 +453,10 @@ class ControlPanel(QWidget):
         self.config.set_enabled(cls.KEY, show)
         if show and cls.KEY not in self.widgets:
             self.widgets[cls.KEY] = cls(self.store, self.config)
+        if self._selected == cls.KEY and hasattr(self, "sel_on"):
+            self.sel_on.blockSignals(True)
+            self.sel_on.setChecked(show)
+            self.sel_on.blockSignals(False)
         self._refresh_visibility()
 
     def set_hide_offtrack(self, val):
@@ -310,8 +464,7 @@ class ControlPanel(QWidget):
         self._refresh_visibility()
 
     def _refresh_visibility(self):
-        """Видимость оверлея = включён И (режим правки ИЛИ не прячем вне трассы ИЛИ на трассе).
-        Даёт Kapps-логику «скрывать в меню/реплее», не ломая ручные тумблеры."""
+        """Видимость = включён И (правка ИЛИ не прячем вне трассы ИЛИ на трассе)."""
         hide = self.config.hide_offtrack()
         on = bool((self.store.get("live") or {}).get("on_track"))
         edit = self.config.edit_mode()
@@ -320,7 +473,7 @@ class ControlPanel(QWidget):
             should = self.config.is_enabled(key) and (edit or not hide or on)
             if w.isVisible() != should:
                 w.setVisible(should)
-                if should:                                # после показа — native exstyle + прозрачность
+                if should:
                     w.apply_input_mode()
                     w.apply_opacity()
                 changed = True
@@ -328,19 +481,22 @@ class ControlPanel(QWidget):
             self._update_active()
 
     def _update_active(self):
-        """Опрашивать только те эндпоинты, что нужны видимым виджетам."""
+        """Опрашиваем только те эндпоинты, что нужны видимым виджетам и предпросмотру."""
         active = set()
         for w in self.widgets.values():
             if w.isVisible():
                 active.update(w.ENDPOINTS)
+        cls = self._cls_by_key.get(self._selected)
+        if cls is not None:
+            active.update(cls.ENDPOINTS)          # иначе предпросмотр стоял бы пустым
         self.store.set_active(active)
 
     def repaint_all(self):
         if self.store.ok:
-            self.status.setText("<span style='color:#2ecc71'>🟢 data flowing</span>")
+            self.status.setText("<span style='color:#2ecc71'>🟢 данные идут</span>")
         else:
-            self.status.setText("<span style='color:#e74c3c'>🔴 start «Race Engineer (Race)»</span>")
-        self._refresh_visibility()                        # авто-скрытие вне трассы (если включено)
+            self.status.setText("<span style='color:#e74c3c'>🔴 запусти «run.py»</span>")
+        self._refresh_visibility()
         for w in self.widgets.values():
             if w.isVisible():
                 w.update()

@@ -191,7 +191,7 @@ def save_lap(root, identity, lap_num, lap_t, frames, valid=None):
     return path
 
 
-def _replace_with_retry(tmp, path, tries=6, pause=0.05):
+def _replace_with_retry(tmp, path, tries=10, pause=0.05):
     """Подменить файл, переждав соседа.
 
     Windows отказывает в доступе, если тот же файл прямо сейчас подменяет
@@ -199,6 +199,11 @@ def _replace_with_retry(tmp, path, tries=6, pause=0.05):
     Ждём и пробуем снова; если сосед всё-таки успел раньше, круг уже лежит
     на диске (данные те же — то же имя означает ту же машину, ту же секунду
     и тот же номер круга), и настаивать не на чем.
+
+    Пауза растёт: фиксированные 6×0.05 с давали суммарные 0.3 секунды, и на
+    загруженной машине этого не хватало — при шести одновременных писателях
+    часть кругов терялась. Теперь суммарно около трёх секунд, и ожидание
+    само растягивается ровно настолько, насколько занят диск.
     """
     for attempt in range(tries):
         try:
@@ -210,7 +215,7 @@ def _replace_with_retry(tmp, path, tries=6, pause=0.05):
                     tmp.unlink(missing_ok=True)     # сосед записал тот же круг
                     return
                 raise
-            time.sleep(pause)
+            time.sleep(pause * (attempt + 1))
 
 
 def load_lap(path):

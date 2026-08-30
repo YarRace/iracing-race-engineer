@@ -712,8 +712,8 @@ class OptimalWidget(CycleBind, StatWidget):
     CYCLE_OPT, CYCLE_DEFAULT = "mode", "optimal"
     CYCLE_VALUES = [m for m, _ in MODES]
 
-    def __init__(self, store, config):
-        super().__init__(store, config)
+    def __init__(self, store, config, parent=None):
+        super().__init__(store, config, parent)
         self._cycle_init()          # кнопка/клавиша/хат листает режим (вперёд/назад)
 
     def rows(self):
@@ -1183,8 +1183,8 @@ class RelativeWidget(CycleBind, OverlayWidget):
     CYCLE_OPT, CYCLE_DEFAULT = "name_style", "full"
     CYCLE_VALUES = ["full", "f_last", "last_f", "last", "initials"]
 
-    def __init__(self, store, config):
-        super().__init__(store, config)
+    def __init__(self, store, config, parent=None):
+        super().__init__(store, config, parent)
         self._cycle_init()
 
     def draw(self, p):
@@ -1271,8 +1271,8 @@ class Head2HeadWidget(CycleBind, OverlayWidget):
     CYCLE_OPT, CYCLE_DEFAULT = "vs", "ahead"
     CYCLE_VALUES = ["ahead", "behind", "leader"]
 
-    def __init__(self, store, config):
-        super().__init__(store, config)
+    def __init__(self, store, config, parent=None):
+        super().__init__(store, config, parent)
         self._cycle_init()
 
     def draw(self, p):
@@ -1501,8 +1501,8 @@ class HStandingsWidget(CycleBind, OverlayWidget):
     CYCLE_OPT, CYCLE_DEFAULT = "anchor", "top"
     CYCLE_VALUES = ["top", "me"]
 
-    def __init__(self, store, config):
-        super().__init__(store, config)
+    def __init__(self, store, config, parent=None):
+        super().__init__(store, config, parent)
         self._cycle_init()
 
     def draw(self, p):
@@ -1566,8 +1566,8 @@ class StandingsWidget(CycleBind, OverlayWidget):
     CYCLE_OPT, CYCLE_DEFAULT = "rows_style", "me"
     CYCLE_VALUES = ["me", "solid", "stripes", "stripes_rev"]
 
-    def __init__(self, store, config):
-        super().__init__(store, config)
+    def __init__(self, store, config, parent=None):
+        super().__init__(store, config, parent)
         self._cycle_init()
 
     def draw(self, p):
