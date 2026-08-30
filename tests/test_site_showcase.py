@@ -164,11 +164,17 @@ def test_download_page_lists_the_real_commands():
     assert r".venv\Scripts\activate" in html
 
 
-def test_download_page_does_not_promise_an_installer():
-    """Кнопки «Download» поверх пустоты быть не должно: установщика нет."""
+def test_download_page_does_not_promise_a_file_that_is_not_there():
+    """Кнопки «Download» поверх пустоты быть не должно: ничего не опубликовано.
+
+    Собрать себе .exe страница предлагает — это правда и это работает.
+    А вот ссылки на готовый файл нет, потому что файла нет.
+    """
     html = site.page_download(site.load_catalog(), [])
-    assert "no packaged installer yet" in html
-    assert ".exe" not in html and ".msi" not in html
+    assert "nothing is published yet" in html
+    assert "python tools/build_exe.py" in html
+    for fake in ('href="/download/', ".msi", ".zip"):
+        assert fake not in html, f"обещание несуществующего файла: {fake}"
 
 
 def test_download_page_survives_an_unbuilt_catalog():

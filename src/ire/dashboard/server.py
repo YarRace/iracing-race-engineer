@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, HTMLResponse, Response
 import os
 
+from ire import paths
 from ire.storage import history
 from . import site
 
@@ -83,12 +84,13 @@ def trackmap(): return STATE["trackmap"]
 def wheel_image(name: str):
     # фото рулей (MOZA KS/ES/RS/FSR/GS) для виджета «Руль» — статик из static/wheels/
     safe = os.path.basename(name)
-    path = os.path.join(os.path.dirname(__file__), "static", "wheels", safe)
+    path = os.path.join(STATIC, "wheels", safe)
     if not (safe.endswith(".png") and os.path.exists(path)):
         return Response(status_code=404)
     return FileResponse(path, media_type="image/png")
 
-DOCS = os.path.join(os.path.dirname(__file__), "..", "..", "..", "docs")
+DOCS = paths.res("docs")            # ресурсы сборки, не данные пользователя
+STATIC = paths.res("src", "ire", "dashboard", "static")
 
 
 @app.get("/hero.png")
@@ -172,7 +174,7 @@ def news_rss():
 def tokens():
     """Палитра проекта. Отдельным файлом, чтобы цвета правились в одном месте."""
     return FileResponse(
-        os.path.join(os.path.dirname(__file__), "static", "tokens.css"),
+        os.path.join(STATIC, "tokens.css"),
         media_type="text/css",
         headers={"Cache-Control": "no-store"},
     )
@@ -182,6 +184,6 @@ def tokens():
 def index():
     # no-store: браузер не кеширует страницу — всегда свежий UI без Ctrl+F5
     return FileResponse(
-        os.path.join(os.path.dirname(__file__), "static", "index.html"),
+        os.path.join(STATIC, "index.html"),
         headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"},
     )

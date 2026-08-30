@@ -26,7 +26,10 @@ from overlay.widgets import WIDGETS
 def main():
     app = QApplication(sys.argv)
     store = Store()
-    config = Config(os.path.join(os.path.dirname(__file__), "data", "overlay_config.json"))
+    # Раскладка — данные ПОЛЬЗОВАТЕЛЯ: рядом с программой, а не внутри
+    # сборки, иначе обновление .exe стёрло бы всю настройку (ire.paths).
+    from ire import paths
+    config = Config(str(paths.data_dir() / "overlay_config.json"))
     panel = ControlPanel(store, config, WIDGETS)
 
     store.start()                                       # опрос сети — в ФОНОВОМ потоке

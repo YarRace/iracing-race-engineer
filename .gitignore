@@ -8,3 +8,8 @@ data/
 dmitry_volume.txt
 tg_config.json
 dmitry_tg.session
+
+# сборка PyInstaller — 270 МБ бинарников, в git им не место
+dist/
+build/
+*.spec

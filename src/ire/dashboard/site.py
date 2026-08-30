@@ -18,7 +18,11 @@ import json
 import pathlib
 import re
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]
+from ire import paths
+
+# Ресурсы сборки: и чейнджлог, и каталог одинаковы у всех, кто поставил
+# программу, — им место рядом с кодом, а не в данных пользователя.
+ROOT = paths.res_root()
 NEWS_DIR = ROOT / "docs" / "news"
 CATALOG = ROOT / "data" / "catalog.json"
 
@@ -222,7 +226,7 @@ def load_shots(root=None):
     ради страницы «о проекте» никто не обязан.
     """
     base = pathlib.Path(root) if root else (
-        pathlib.Path(__file__).resolve().parents[3] / "docs" / "widgets")
+        ROOT / "docs" / "widgets")
     f = base / "index.json"
     if not f.exists():
         return []
@@ -239,7 +243,7 @@ def _load_index(folder, root=None):
     картинки ради страницы «о проекте» никто не обязан.
     """
     base = pathlib.Path(root) if root else (
-        pathlib.Path(__file__).resolve().parents[3] / "docs" / folder)
+        ROOT / "docs" / folder)
     f = base / "index.json"
     if not f.exists():
         return []
@@ -361,7 +365,7 @@ def page_about(cat, shots=None, panels=None, dash=None):
     why = "".join(f"<div><h3>{e(t)}</h3><p>{e(d)}</p></div>" for t, d in WHY)
     groups = " · ".join(f"{e(g)} — {n}" for g, n in (k["by_group"] or {}).items())
     hero_img = ""
-    if (pathlib.Path(__file__).resolve().parents[3] / "docs" / "hero.png").exists():
+    if (ROOT / "docs" / "hero.png").exists():
         hero_img = ('<figure class="shot"><img src="/hero.png" '
                     'alt="The overlay over the game">'
                     '<figcaption>The overlay over the game: standings, delta, track '
@@ -472,10 +476,21 @@ def page_download(cat, panels=None):
 <section>
   <h2>Four steps</h2>
   <ol class="steps">{steps}</ol>
-  <p class="note" style="margin-top:20px">There is no packaged installer yet —
-  this is the source, and you start it with Python. A one-click build is on the
-  list, but shipping a half-working installer is worse than four honest
-  commands.</p>
+  <p class="note" style="margin-top:20px">There is no download link here on
+  purpose: nothing is published yet, and a button over an empty file is worse
+  than four honest commands.</p>
+</section>
+<section>
+  <h2>Or build it standalone</h2>
+  <p class="lead">If you would rather not keep Python around, build the two
+  apps once and run them by double-click afterwards.</p>
+  <pre class="cmd">pip install pyinstaller
+python tools/build_exe.py</pre>
+  <p class="note">You get <span class="k">dist/RaceEngineer</span> and
+  <span class="k">dist/RaceEngineerOverlay</span> — a folder each, not a single
+  file. One-file builds unpack 120 MB into a temp directory on every launch and
+  trip antivirus heuristics doing it. Your data lives next to the app, so
+  replacing the folder never touches your lap history.</p>
 </section>
 {panel_gallery(panels or [])}
 <section>

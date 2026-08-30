@@ -36,7 +36,11 @@ from ire.dashboard.server import app, STATE
 
 
 def _serve():
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
+    # Порт из окружения: 8000 занят, когда инженер уже запущен, и второй
+    # экземпляр раньше просто падал на bind, продолжая крутить цикл сима
+    # без дашборда — со стороны это выглядело как «запустился и молчит».
+    port = int(os.environ.get("IRE_PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
 
 def _connected(ir):

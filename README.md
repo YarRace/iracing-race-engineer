@@ -1,34 +1,140 @@
-# iRacing Race Engineer
+# Race Engineer for iRacing
 
-Персональный «гоночный инженер» для iRacing: после заезда анализирует телеметрию + условия трассы + текущий сетап и выдаёт разбор пилотирования, рекомендации по сетапу и готовый `.sto`-файл с объяснением.
+A race engineer that runs on your own machine: a dashboard for the second
+screen, 44 configurable overlays on top of the game, lap history that survives
+between sessions, and an analysis of the stint in plain words.
 
-**v1:** Cadillac V-Series.R GTP @ Watkins Glen, только пост-анализ.
+No subscription, no cloud, no keys to anyone else's service. The data stays
+on the PC that produced it.
 
-## Документы
-- Спека (дизайн): [`docs/superpowers/specs/2026-06-15-iracing-race-engineer-design.md`](docs/superpowers/specs/2026-06-15-iracing-race-engineer-design.md)
-- План реализации (по задачам): [`docs/superpowers/plans/2026-06-15-iracing-race-engineer.md`](docs/superpowers/plans/2026-06-15-iracing-race-engineer.md)
+![The overlay over the game](docs/hero.png)
 
-## ⚠️ Платформа
-Всё запускается на **Windows-ПК, где установлен iRacing** (SDK = Windows memory-mapped file). Разработка метрик идёт оффлайн на записанной фикстуре, но спайки и сквозной прогон требуют запущенного iRacing.
+## What it does
 
-## Подхват на Windows (порядок)
+| | |
+|---|---|
+| **Overlay** | 44 widgets over the game — fuel, delta, standings, relative, track map, tyre temps, spotter, blind spot, lap log. Each one is tuned on its own: colour, size and font of every number. |
+| **Dashboard** | 61 cards across 6 tabs (Solo, Endurance, Setup, Records, Strategy, Race analysis) on the second screen. |
+| **History** | Every valid lap is resampled onto a distance grid and written to disk, with the conditions it was driven in. Progress shows across dates, not one drive. |
+| **Analysis** | After a stint a local model explains what the car was doing and suggests setup changes, with the reasoning attached. |
+
+Nothing is smoothed. Raw values at a high refresh rate — smoothing hides
+exactly what you open the numbers for.
+
+## Requirements
+
+- **Windows 10 or 11**, on the machine where iRacing runs. The telemetry SDK
+  is a Windows memory-mapped file; there is no way around that.
+- **iRacing** in windowed or borderless mode, not exclusive fullscreen —
+  an overlay cannot draw over an exclusive fullscreen surface.
+- **Python 3.12**.
+- Optional: [Ollama](https://ollama.com) for the stint analysis. Without it
+  everything else still works; only the written analysis is unavailable.
+
+## Getting started
+
 ```bash
-git clone <этот-репозиторий>
+git clone https://github.com/YarRace/iracing-race-engineer
 cd iracing-race-engineer
-python -m venv .venv && .venv\Scripts\activate
-pip install -r requirements.txt        # появится после Task 1
-setx ANTHROPIC_API_KEY "<ключ>"         # для модуля explainer
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 ```
-Дальше открыть план и идти по задачам **по порядку** — начиная с Task 1 (скаффолд), затем спайки Task 2–4 (снимают единственные неизвестные: реальные имена каналов SDK и формат `.sto`). Метрики (Task 10–15) пилятся на фикстуре без сима.
 
-Рекомендуемый способ исполнения — субагент на задачу (`superpowers:subagent-driven-development`).
+Then two processes — the engineer, and the overlay on top of it:
 
-## Архитектура (5 модулей, всё локально на Windows)
-1. **collector** — pyirsdk → нормализованный кадр телеметрии + лог стинта.
-2. **metrics** — детерминированный расчёт симптомов (шины/баланс/подвеска/инпуты/стабильность) → JSON. *Тестируемое ядро.*
-3. **explainer** — Claude: симптомы + сетап → разбор + дельта. *Сменный модуль (Claude Code → Claude API).*
-4. **setup** — чтение/запись `.sto` (новый файл, исходник не трогаем).
-5. **dashboard** — FastAPI + HTML на втором экране (живьё + разбор).
+```bash
+python run.py              # reads the sim, serves the dashboard on :8000
+python overlay_app.py      # the settings window with the live preview
+```
 
-## Шаг 2 (будущее, не в v1)
-Живой гоночный инженер во время гонки: пит-стратегия, слежка за соперником, подсказки по тому, что крутится на ходу (ABS/ТК/тормозной баланс). См. §11 спеки.
+On Windows the `.bat` files do the same with one double-click:
+`start-dashboard.bat`, `start-overlay.bat`. `start-demo.bat` runs the
+dashboard on demo data with no sim at all — useful for looking around.
+
+If the overlay panel shows a red dot and every widget is empty, `run.py` is
+not running. That is the first thing to check.
+
+## The analysis
+
+Local by default, through Ollama:
+
+```bash
+ollama pull qwen2.5:7b
+```
+
+To use Claude instead:
+
+```bash
+set IRE_LLM=claude
+set ANTHROPIC_API_KEY=...
+```
+
+## How it is put together
+
+Seven modules under `src/ire/`, all local:
+
+1. **collector** — pyirsdk → one normalised telemetry frame, plus session
+   identity, standings, relative, damage and the track map built from your
+   own laps.
+2. **metrics** — deterministic symptoms from that frame: tyres, balance,
+   suspension, inputs, consistency, fuel strategy. This is the tested core.
+3. **storage** — SQLite history and gzipped per-lap telemetry in `data/`.
+4. **explainer** — symptoms plus setup → the written analysis.
+5. **setup** — reads the car setup from the SDK and writes a `.sto` file.
+   The original is never touched.
+6. **dashboard** — FastAPI, 13 API endpoints, plus the project site
+   (`/about`, `/catalog`, `/download`, `/news`).
+7. **orchestrator** — ties the live loop together.
+
+The overlay itself lives in `overlay/` (PySide6): `widgets.py` holds all 44,
+`panel.py` is the three-column settings window, `preview.py` renders the live
+preview inside it.
+
+## Building a standalone app
+
+If you would rather not keep Python around:
+
+```bash
+pip install pyinstaller
+python tools/build_exe.py
+```
+
+You get `dist/RaceEngineer` and `dist/RaceEngineerOverlay` — a folder each,
+not a single file. One-file builds unpack 120 MB into a temp directory on
+every launch and trip antivirus heuristics doing it.
+
+Your `data/` lives next to the app, never inside it, so replacing the folder
+with a newer build never touches your lap history or overlay layout.
+
+## Tests
+
+```bash
+python -m pytest -q
+```
+
+203 tests, no sim required. The Qt ones run offscreen.
+
+## Tools
+
+```bash
+python tools/build_catalog.py       # widget/card catalogue → data/catalog.json
+python tools/render_widgets.py      # a PNG of every widget on demo data
+python tools/render_panel.py        # screenshots of the settings window
+python tools/render_dashboard.py    # screenshots of the dashboard
+python tools/render_hero.py         # the overlay-over-the-game hero image
+python tools/overlay_audit.py       # does every widget survive empty data
+```
+
+## Where things are
+
+- `data/` — your history, lap telemetry, track maps and overlay config.
+  Not in git, and not to be deleted.
+- `docs/news/` — the changelog, rendered at `/news` with an RSS feed.
+- `docs/widgets/`, `docs/panel/`, `docs/dashboard/` — generated screenshots.
+
+## Status
+
+Works end to end and is used in real races. Nothing is published as a
+download yet — you either run it from source or build it yourself with the
+command above.

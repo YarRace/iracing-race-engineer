@@ -63,13 +63,17 @@ _MIGRATIONS = {"laps": [("car_class", "TEXT")], "stints": [("car_class", "TEXT")
 
 
 def default_path():
-    """Путь к базе: IRE_DB_PATH или <корень проекта>/data/history.db.
-    Без хардкода пользовательских путей — считается от расположения модуля."""
+    """Путь к базе: IRE_DB_PATH или <данные пользователя>/data/history.db.
+
+    Именно ПОЛЬЗОВАТЕЛЬСКИЕ данные, а не корень исходников: в собранном
+    .exe это разные каталоги, и положить базу внутрь сборки значило бы
+    стирать всю историю при каждом обновлении программы (см. ire.paths).
+    """
     env = os.environ.get("IRE_DB_PATH")
     if env:
         return env
-    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-    return os.path.join(root, "data", "history.db")
+    from ire import paths
+    return str(paths.data_dir() / "history.db")
 
 
 def connect(path=None):
