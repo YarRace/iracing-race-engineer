@@ -17,8 +17,11 @@
 Запуск:
     python tools/build_exe.py                 → dist/RaceEngineer/
     python tools/build_exe.py --clean         с нуля, без кеша
+    python tools/build_exe.py --zip           плюс архивы для раздачи
+    python tools/build_exe.py --shortcuts     плюс ярлыки на рабочий стол
 """
 import argparse
+import os
 import pathlib
 import shutil
 import subprocess
@@ -27,6 +30,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 WORK = ROOT / "build"
+ICON = ROOT / "docs" / "icon.ico"
 
 # (имя приложения, точка входа, оконное ли)
 # Инженер — консольный намеренно: он печатает, что видит в симе, и когда
@@ -77,6 +81,8 @@ def command(name, entry, windowed, clean):
         cmd.append("--clean")
     if windowed:
         cmd.append("--windowed")
+    if ICON.exists():
+        cmd += ["--icon", str(ICON)]     # иначе значок питоновский
     for src, dst in DATAS:
         p = ROOT / src
         if p.exists():                            # снимков может не быть — не беда
@@ -93,11 +99,52 @@ def size_of(path):
     return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
 
 
+def make_zip(name, folder):
+    """Архив папки для раздачи. Один файл вместо «скачай папку целиком»."""
+    out = DIST / f"{name}.zip"
+    if out.exists():
+        out.unlink()
+    shutil.make_archive(str(out.with_suffix("")), "zip",
+                        root_dir=str(folder.parent), base_dir=folder.name)
+    return out
+
+
+def make_shortcut(name, target, where=None):
+    """Ярлык на рабочем столе. Без него .exe надо каждый раз искать в dist/.
+
+    Через PowerShell и WScript.Shell: .lnk — двоичный формат Windows, руками
+    его не собрать, а тащить зависимость ради одной ссылки не стоит того.
+    """
+    desktop = pathlib.Path(where) if where else (
+        pathlib.Path(os.path.expanduser("~")) / "Desktop")
+    if not desktop.is_dir():
+        return None
+    link = desktop / f"{name}.lnk"
+    # Значок берём из самого .exe, а не из docs/icon.ico: иконка уже внутри,
+    # а ссылка на файл в репозитории сломалась бы, стоит унести папку
+    # с программой на другой компьютер.
+    ps = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{link}');"
+          f"$s.TargetPath='{target}';"
+          f"$s.WorkingDirectory='{target.parent}';"
+          f"$s.IconLocation='{target},0';"
+          f"$s.Description='Race Engineer for iRacing';$s.Save()")
+    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive",
+                        "-Command", ps], capture_output=True, text=True)
+    return link if (r.returncode == 0 and link.exists()) else None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--clean", action="store_true")
     ap.add_argument("--only", default="", help="собрать только одно приложение")
+    ap.add_argument("--zip", action="store_true", help="архивы для раздачи")
+    ap.add_argument("--shortcuts", action="store_true",
+                    help="ярлыки на рабочий стол")
+    ap.add_argument("--desktop", default="", help="куда класть ярлыки")
     args = ap.parse_args()
+
+    if not ICON.exists():
+        print("  иконки нет — собираю без неё:  python tools/make_icon.py")
 
     try:
         import PyInstaller                                    # noqa: F401
@@ -125,8 +172,18 @@ def main():
         print(f"  ГОТОВО {name}: {out}  ({size_of(out) // 1024 // 1024} МБ)")
     for name, err in failed:
         print(f"  ПРОВАЛ {name}:\n      {err}")
+    if args.zip:
+        for name, out in built:
+            z = make_zip(name, out)
+            print(f"  архив {z.name}  ({z.stat().st_size // 1024 // 1024} МБ)")
+    if args.shortcuts:
+        for name, out in built:
+            link = make_shortcut(name, out / f"{name}.exe", args.desktop or None)
+            print(f"  ярлык {link}" if link else f"  ярлык {name} НЕ создан")
+
     if built and not failed:
-        print("\n  Раздавать: заархивировать папки из dist/ целиком.")
+        if not args.zip:
+            print("\n  Раздавать: --zip соберёт архивы, или заархивируй сам.")
         print("  data/ внутрь не кладётся — программа создаст её при запуске.")
     return 1 if failed else 0
 

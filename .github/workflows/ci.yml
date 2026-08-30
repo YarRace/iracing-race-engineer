@@ -1,0 +1,58 @@
+# Проверка на каждый push и pull request.
+#
+# Только Windows: SDK iRacing — это memory-mapped file Windows, и половина
+# кода вокруг него собирается только здесь. Гонять на Linux ради галочки
+# смысла нет — он всё равно не проверит то, что ломается.
+#
+# Симулятора на раннере нет и не будет, поэтому проверяем то, что можно без
+# него: тесты (Qt — в offscreen), сборку каталога и снимков. Байты картинок
+# НЕ сравниваем: PNG отличаются от машины к машине версией шрифтов и
+# сглаживанием, и такая проверка была бы вечно красной. Расхождение ловит
+# тест по СПИСКУ виджетов — он падает, когда виджет добавили, а снимок нет.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        # pyirsdk ставится, но без сима ничего не читает — это нормально,
+        # весь код вокруг него ветвится по is_connected.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Rebuild the catalogue
+        # Каталог собирается из кода и в git не лежит (он внутри data/).
+        # Без этого шага тесты, сверяющие сайт с реестром, просто пропустятся.
+        run: python tools/build_catalog.py
+
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+      - name: Snapshots are not stale
+        # Перерисовываем и смотрим на СПИСОК, а не на картинки: если виджет
+        # добавили, а снимок нет — index.json разойдётся с реестром, и
+        # соответствующий тест это поймает.
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python tools/refresh_assets.py
+          python -m pytest -q tests/test_ui_language.py

@@ -97,12 +97,14 @@ If you would rather not keep Python around:
 
 ```bash
 pip install pyinstaller
-python tools/build_exe.py
+python tools/build_exe.py --zip --shortcuts
 ```
 
 You get `dist/RaceEngineer` and `dist/RaceEngineerOverlay` — a folder each,
 not a single file. One-file builds unpack 120 MB into a temp directory on
-every launch and trip antivirus heuristics doing it.
+every launch and trip antivirus heuristics doing it. `--zip` packs each
+folder into one archive to hand around; `--shortcuts` puts both on your
+desktop so you never go looking in `dist/` again.
 
 Your `data/` lives next to the app, never inside it, so replacing the folder
 with a newer build never touches your lap history or overlay layout.
@@ -113,7 +115,8 @@ with a newer build never touches your lap history or overlay layout.
 python -m pytest -q
 ```
 
-203 tests, no sim required. The Qt ones run offscreen.
+211 tests, no sim required. The Qt ones run offscreen, and CI runs the same
+suite on Windows for every push.
 
 ## Tools
 
@@ -124,7 +127,13 @@ python tools/render_panel.py        # screenshots of the settings window
 python tools/render_dashboard.py    # screenshots of the dashboard
 python tools/render_hero.py         # the overlay-over-the-game hero image
 python tools/overlay_audit.py       # does every widget survive empty data
+python tools/make_icon.py           # the app icon, drawn in code
+python tools/refresh_assets.py      # all of the above, in the right order
 ```
+
+`refresh_assets.py` is the one to remember — the catalogue has to be rebuilt
+before the screenshots, and forgetting that leaves the site a version behind
+the code. A test catches the drift, but the command avoids it.
 
 ## Where things are
 

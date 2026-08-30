@@ -14,6 +14,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
+from ire import preflight                                        # noqa: E402
+preflight.check(extra=preflight.OVERLAY)
+
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 

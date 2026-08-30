@@ -14,6 +14,11 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
+# ДО импорта остального: на старом Python падение выглядит как SyntaxError
+# в случайном файле, и человек решает, что сломана программа, а не версия.
+from ire import preflight                                        # noqa: E402
+preflight.check(extra=[("irsdk", "pyirsdk")])
+
 import irsdk
 import uvicorn
 
