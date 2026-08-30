@@ -62,6 +62,33 @@ QSlider::handle:horizontal { width:14px; background:#e8eaed; border-radius:7px; 
 """
 
 
+class _PreviewStore:
+    """Хранилище для предпросмотра: живые данные, а без них — демо.
+
+    Отдельный класс, а не флаг внутри Store: боевые оверлеи ДОЛЖНЫ показывать
+    прочерки, когда сима нет. Выдуманные цифры поверх игры — прямой путь
+    к неверному решению на трассе.
+    """
+
+    def __init__(self, real, demo):
+        self._real = real
+        self._demo = demo
+        self.allow_demo = True
+
+    @property
+    def ok(self):
+        return getattr(self._real, "ok", False)
+
+    def get(self, ep):
+        data = self._real.get(ep)
+        if data:
+            return data
+        return self._demo.get(ep) if self.allow_demo else data
+
+    def set_active(self, endpoints):
+        self._real.set_active(endpoints)
+
+
 class ControlPanel(QWidget):
     def __init__(self, store, config, widget_classes):
         super().__init__()
@@ -220,10 +247,20 @@ class ControlPanel(QWidget):
         lay.setSpacing(6)
         lay.addWidget(QLabel("ПРЕДПРОСМОТР", objectName="colhead"))
 
-        self.preview = PreviewCanvas(self.store, self.config)
+        # Предпросмотр берёт демо-поток, когда сим молчит: настраивать виджет
+        # по прочеркам бессмысленно — не видно ни цветов, ни ширины колонок.
+        from overlay.demo import DemoFeed
+        self._demo = DemoFeed()
+        self.preview = PreviewCanvas(_PreviewStore(self.store, self._demo), self.config)
         lay.addWidget(self.preview, 1)
 
         bar = QHBoxLayout()
+        self.demo_cb = QCheckBox("Демо-данные, когда сим не запущен")
+        self.demo_cb.setChecked(True)
+        self.demo_cb.setToolTip("Выключи, чтобы видеть настоящие прочерки")
+        self.demo_cb.toggled.connect(lambda v: setattr(self.preview.store, "allow_demo", v))
+        bar.addWidget(self.demo_cb)
+        bar.addSpacing(12)
         bar.addWidget(QLabel("Фон", objectName="hint"))
         self.bg = QComboBox()
         self.bg.addItems([b[0] for b in BACKDROPS])

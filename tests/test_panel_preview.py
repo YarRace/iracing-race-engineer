@@ -114,3 +114,63 @@ def test_preview_endpoints_are_polled(panel):
     active = panel.store._active if hasattr(panel.store, "_active") else None
     if active is not None:
         assert set(panel._cls_by_key["standings"].ENDPOINTS) <= set(active)
+
+
+def test_demo_feed_fills_every_endpoint():
+    """Настраивать виджет по прочеркам бессмысленно — демо-поток даёт данные."""
+    from overlay.demo import DemoFeed
+    d = DemoFeed()
+    for ep in ("live", "race", "standings", "relative", "strategy",
+               "wear", "session", "damage", "result", "trackmap"):
+        assert d.get(ep), f"эндпоинт {ep} пуст"
+
+
+def test_demo_pedals_are_not_stuck_at_the_limits():
+    """Первая версия давала газ 1.00 и тормоз 0.00 весь круг: множитель
+    подобрали на глаз, а производная профиля оказалась в ±0.07."""
+    import time
+    from overlay.demo import DemoFeed, LAP_TIME
+    vals = []
+    for i in range(40):
+        d = DemoFeed(t0=time.monotonic() - LAP_TIME * i / 40)
+        live = d.get("live")
+        vals.append((live["throttle"], live["brake"]))
+    thr = [t for t, _ in vals]
+    # Ноль на тяжёлом торможении — это ПРАВИЛЬНО, гонщик там отпускает педаль
+    # полностью. Плохо не «дошло до края», а «стоит на краю весь круг».
+    assert sum(1 for t in thr if t <= 0.001) <= 3     # изредка, а не постоянно
+    assert sum(1 for t in thr if t >= 0.999) == 0     # в полу не залипает вовсе
+    assert len({round(t, 1) for t in thr}) > 3        # и действительно меняется
+
+
+def test_demo_speed_never_flatlines():
+    """Профиль круга не должен упираться в нижний предел: на графике это
+    выглядело как остановка машины на пятой части круга."""
+    from overlay.demo import _shape
+    vals = [_shape(i / 200) for i in range(200)]
+    assert min(vals) > 0.13                            # предел 0.12 не достигается
+
+
+def test_preview_store_falls_back_to_demo_but_live_wins():
+    """Боевые оверлеи обязаны показывать прочерки без сима: выдуманные цифры
+    поверх игры — прямой путь к неверному решению на трассе."""
+    from overlay.demo import DemoFeed
+    from overlay.panel import _PreviewStore
+
+    class Empty:
+        ok = False
+        def get(self, ep): return {}
+        def set_active(self, e): pass
+
+    class Live:
+        ok = True
+        def get(self, ep): return {"speed": 42.0} if ep == "live" else {}
+        def set_active(self, e): pass
+
+    s = _PreviewStore(Empty(), DemoFeed())
+    assert s.get("live")                               # пусто → берём демо
+    s.allow_demo = False
+    assert s.get("live") == {}                         # выключили → снова пусто
+
+    s = _PreviewStore(Live(), DemoFeed())
+    assert s.get("live")["speed"] == 42.0              # живое всегда важнее демо

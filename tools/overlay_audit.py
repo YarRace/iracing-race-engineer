@@ -19,6 +19,7 @@
 import argparse
 import inspect
 import os
+import pathlib
 import sys
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -26,6 +27,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from PySide6.QtGui import QPainter, QPixmap                            # noqa: E402
 from PySide6.QtWidgets import QApplication                             # noqa: E402
+
+
+def _load_fonts():
+    """Без этого в безголовом режиме Qt не видит шрифтов и текст — квадраты."""
+    from PySide6.QtGui import QFontDatabase
+    for name in ("segoeui.ttf", "segoeuib.ttf", "arial.ttf", "arialbd.ttf"):
+        f = pathlib.Path(r"C:\Windows\Fonts") / name
+        if f.exists():
+            QFontDatabase.addApplicationFont(str(f))
 
 
 class Cfg:
@@ -157,6 +167,7 @@ def main():
     a = ap.parse_args()
 
     QApplication([])
+    _load_fonts()
     from overlay.widgets import WIDGETS
 
     rows = []

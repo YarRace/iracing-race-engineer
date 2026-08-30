@@ -312,9 +312,9 @@ def test_fuel_shows_three_burn_scenarios():
         "fuel": 30.0, "avg_burn": 3.0, "max_burn": 3.5, "min_burn": 2.5,
         "laps_on_fuel": 10.0}))
     rows = {r[0]: r[1] for r in w.rows()}
-    assert rows["At average"].startswith("10.0 laps")
-    assert rows["If pushing"].startswith("8.6 laps")     # 30/3.5
-    assert rows["If saving"].startswith("12.0 laps")     # 30/2.5
+    assert rows["Average"].startswith("10.0 laps")
+    assert rows["Pushing"].startswith("8.6 laps")     # 30/3.5
+    assert rows["Saving"].startswith("12.0 laps")     # 30/2.5
 
 
 def test_fuel_turns_red_on_last_laps():

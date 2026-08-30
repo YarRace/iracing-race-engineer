@@ -228,9 +228,11 @@ class FuelWidget(StatWidget):
                ("Range", f"~{left} laps" if left is not None else "—", col)]
 
         if self._opt("show_scenarios", True) and isinstance(fuel, (int, float)):
-            for label, burn, c in (("At average", avg, WHITE),
-                                   ("If pushing", mx, AMBER),
-                                   ("If saving", mn, GREEN)):
+            # Подписи короткие не для красоты: колонка подписи в StatWidget
+            # узкая, и «At average» налезало на значение справа.
+            for label, burn, c in (("Average", avg, WHITE),
+                                   ("Pushing", mx, AMBER),
+                                   ("Saving", mn, GREEN)):
                 if isinstance(burn, (int, float)) and burn > 0:
                     out.append((label, f"{fuel / burn:.1f} laps  ({burn:.2f} L)", c))
 

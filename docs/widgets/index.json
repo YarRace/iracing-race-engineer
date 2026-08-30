@@ -1,0 +1,464 @@
+[
+  {
+    "key": "inputs",
+    "title": "Inputs",
+    "group": "solo",
+    "size": [
+      240,
+      110
+    ],
+    "file": "inputs.png",
+    "doc": ""
+  },
+  {
+    "key": "position",
+    "title": "Position & gaps",
+    "group": "solo",
+    "size": [
+      220,
+      170
+    ],
+    "file": "position.png",
+    "doc": "Позиция и разрывы."
+  },
+  {
+    "key": "relative",
+    "title": "Relative",
+    "group": "solo",
+    "size": [
+      360,
+      220
+    ],
+    "file": "relative.png",
+    "doc": ""
+  },
+  {
+    "key": "standings",
+    "title": "Standings",
+    "group": "solo",
+    "size": [
+      620,
+      300
+    ],
+    "file": "standings.png",
+    "doc": ""
+  },
+  {
+    "key": "mycar",
+    "title": "My car",
+    "group": "solo",
+    "size": [
+      240,
+      74
+    ],
+    "file": "mycar.png",
+    "doc": "Моя машина: логотип марки + название модели (на чём еду)."
+  },
+  {
+    "key": "head2head",
+    "title": "Head 2 head",
+    "group": "solo",
+    "size": [
+      390,
+      140
+    ],
+    "file": "head2head.png",
+    "doc": "Голова к голове (идея RaceLab Head 2 Head): ты vs соперник — разрыв + Δ лучшего круга."
+  },
+  {
+    "key": "laptimegraph",
+    "title": "Laptime graph",
+    "group": "solo",
+    "size": [
+      300,
+      160
+    ],
+    "file": "laptimegraph.png",
+    "doc": "График времён кругов (идея RaceLab Laptime graph): столбики по кругам, цвет по скорости"
+  },
+  {
+    "key": "deltatrace",
+    "title": "Delta trace",
+    "group": "solo",
+    "size": [
+      300,
+      120
+    ],
+    "file": "deltatrace.png",
+    "doc": "Скользящий график дельты к лучшему кругу (идея RaceLab Delta trace): линия ползёт вправо,"
+  },
+  {
+    "key": "laptimespread",
+    "title": "Laptime spread",
+    "group": "solo",
+    "size": [
+      300,
+      132
+    ],
+    "file": "laptimespread.png",
+    "doc": "Разброс времён кругов (идея RaceLab Laptime spread): распределение по оси времени —"
+  },
+  {
+    "key": "hstandings",
+    "title": "H. standings",
+    "group": "solo",
+    "size": [
+      640,
+      70
+    ],
+    "file": "hstandings.png",
+    "doc": "Горизонтальная таблица заезда (идея RaceLab H. standings): карточки пилотов в РЯД —"
+  },
+  {
+    "key": "fuel",
+    "title": "Fuel & pit",
+    "group": "solo",
+    "size": [
+      230,
+      220
+    ],
+    "file": "fuel.png",
+    "doc": "Топливо и пит-стопы."
+  },
+  {
+    "key": "timing",
+    "title": "Laps",
+    "group": "solo",
+    "size": [
+      210,
+      150
+    ],
+    "file": "timing.png",
+    "doc": "Времена круга. Голые три времени мало говорят: важна РАЗНИЦА между"
+  },
+  {
+    "key": "racebar",
+    "title": "Race bar",
+    "group": "solo",
+    "size": [
+      474,
+      150
+    ],
+    "file": "racebar.png",
+    "doc": "Компактный мини-HUD одной полосой (идея из RaceLab): передача + шифт-лайты +"
+  },
+  {
+    "key": "delta",
+    "title": "Delta to best",
+    "group": "solo",
+    "size": [
+      220,
+      120
+    ],
+    "file": "delta.png",
+    "doc": "Дельта к лучшему кругу крупной цифрой."
+  },
+  {
+    "key": "shift",
+    "title": "RPM & shift",
+    "group": "solo",
+    "size": [
+      200,
+      130
+    ],
+    "file": "shift.png",
+    "doc": "Обороты и момент переключения."
+  },
+  {
+    "key": "gforce",
+    "title": "G-force",
+    "group": "solo",
+    "size": [
+      150,
+      150
+    ],
+    "file": "gforce.png",
+    "doc": ""
+  },
+  {
+    "key": "topspeed",
+    "title": "Top speed",
+    "group": "solo",
+    "size": [
+      210,
+      130
+    ],
+    "file": "topspeed.png",
+    "doc": "Скорость: сейчас, максимум за круг и максимум за сессию."
+  },
+  {
+    "key": "slip",
+    "title": "Slip",
+    "group": "solo",
+    "size": [
+      210,
+      130
+    ],
+    "file": "slip.png",
+    "doc": "Срыв: не просто «скользит», а В КАКУЮ СТОРОНУ."
+  },
+  {
+    "key": "postrend",
+    "title": "Position trend",
+    "group": "solo",
+    "size": [
+      210,
+      150
+    ],
+    "file": "postrend.png",
+    "doc": "Движение по позициям за заезд."
+  },
+  {
+    "key": "summary",
+    "title": "Session summary",
+    "group": "solo",
+    "size": [
+      220,
+      190
+    ],
+    "file": "summary.png",
+    "doc": "Итог сессии: позиция, темп, стабильность, инциденты."
+  },
+  {
+    "key": "tiretemps",
+    "title": "Tire temps",
+    "group": "solo",
+    "size": [
+      260,
+      200
+    ],
+    "file": "tiretemps.png",
+    "doc": "Температуры покрышек по трём зонам каждого колеса."
+  },
+  {
+    "key": "wear",
+    "title": "Tire wear",
+    "group": "solo",
+    "size": [
+      220,
+      150
+    ],
+    "file": "wear.png",
+    "doc": ""
+  },
+  {
+    "key": "session",
+    "title": "Session",
+    "group": "solo",
+    "size": [
+      220,
+      150
+    ],
+    "file": "session.png",
+    "doc": "Что за сессия и сколько её осталось."
+  },
+  {
+    "key": "recorddelta",
+    "title": "Delta to record",
+    "group": "solo",
+    "size": [
+      220,
+      150
+    ],
+    "file": "recorddelta.png",
+    "doc": "Личный рекорд трассы и насколько ты от него сегодня."
+  },
+  {
+    "key": "ers",
+    "title": "ERS / hybrid",
+    "group": "solo",
+    "size": [
+      210,
+      150
+    ],
+    "file": "ers.png",
+    "doc": "Заряд и расход гибрида."
+  },
+  {
+    "key": "weather",
+    "title": "Weather",
+    "group": "solo",
+    "size": [
+      220,
+      170
+    ],
+    "file": "weather.png",
+    "doc": "Погода и температуры."
+  },
+  {
+    "key": "flags",
+    "title": "Flags",
+    "group": "solo",
+    "size": [
+      240,
+      70
+    ],
+    "file": "flags.png",
+    "doc": ""
+  },
+  {
+    "key": "radar",
+    "title": "Radar",
+    "group": "solo",
+    "size": [
+      150,
+      150
+    ],
+    "file": "radar.png",
+    "doc": ""
+  },
+  {
+    "key": "trackmap",
+    "title": "Track map",
+    "group": "solo",
+    "size": [
+      240,
+      200
+    ],
+    "file": "trackmap.png",
+    "doc": ""
+  },
+  {
+    "key": "optimal",
+    "title": "Optimal lap",
+    "group": "solo",
+    "size": [
+      210,
+      90
+    ],
+    "file": "optimal.png",
+    "doc": ""
+  },
+  {
+    "key": "pithelper",
+    "title": "Pit helper",
+    "group": "solo",
+    "size": [
+      210,
+      110
+    ],
+    "file": "pithelper.png",
+    "doc": ""
+  },
+  {
+    "key": "metrics",
+    "title": "Sensors & balance",
+    "group": "solo",
+    "size": [
+      250,
+      160
+    ],
+    "file": "metrics.png",
+    "doc": "Как ты работаешь педалями — по разбору стинта."
+  },
+  {
+    "key": "deltabar",
+    "title": "Delta bar",
+    "group": "solo",
+    "size": [
+      260,
+      92
+    ],
+    "file": "deltabar.png",
+    "doc": ""
+  },
+  {
+    "key": "weargraph",
+    "title": "Wear graph",
+    "group": "solo",
+    "size": [
+      240,
+      160
+    ],
+    "file": "weargraph.png",
+    "doc": ""
+  },
+  {
+    "key": "spotter",
+    "title": "Spotter",
+    "group": "solo",
+    "size": [
+      210,
+      110
+    ],
+    "file": "spotter.png",
+    "doc": ""
+  },
+  {
+    "key": "weatherradar",
+    "title": "Weather radar",
+    "group": "solo",
+    "size": [
+      250,
+      130
+    ],
+    "file": "weatherradar.png",
+    "doc": ""
+  },
+  {
+    "key": "e_driver",
+    "title": "Driver & stint",
+    "group": "endur",
+    "size": [
+      240,
+      138
+    ],
+    "file": "e_driver.png",
+    "doc": ""
+  },
+  {
+    "key": "e_time",
+    "title": "Time left",
+    "group": "endur",
+    "size": [
+      240,
+      130
+    ],
+    "file": "e_time.png",
+    "doc": "Сколько осталось гонки — крупно, с полосой прогресса."
+  },
+  {
+    "key": "e_incidents",
+    "title": "Team incidents",
+    "group": "endur",
+    "size": [
+      220,
+      150
+    ],
+    "file": "e_incidents.png",
+    "doc": "Инциденты команды в эндурансе."
+  },
+  {
+    "key": "s_symptoms",
+    "title": "Symptoms",
+    "group": "setup",
+    "size": [
+      250,
+      180
+    ],
+    "file": "s_symptoms.png",
+    "doc": "Поведение машины по фазам поворота: вход, середина, выход."
+  },
+  {
+    "key": "s_balance",
+    "title": "Front/rear balance",
+    "group": "setup",
+    "size": [
+      240,
+      150
+    ],
+    "file": "s_balance.png",
+    "doc": "Тепловой баланс осей — и что с ним делать в сетапе."
+  },
+  {
+    "key": "s_weartrend",
+    "title": "Wear trend",
+    "group": "setup",
+    "size": [
+      220,
+      150
+    ],
+    "file": "s_weartrend.png",
+    "doc": "Скорость износа резины и сколько её осталось."
+  }
+]
