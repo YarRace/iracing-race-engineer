@@ -1,0 +1,17 @@
+[
+ {
+  "file": "dashboard-solo.png",
+  "tab": "solo",
+  "caption": "The solo tab: gauges, delta, fuel, tyres, the track map and the field — everything from one lap in one place."
+ },
+ {
+  "file": "dashboard-endur.png",
+  "tab": "endur",
+  "caption": "Endurance: who is in the car, how long is left, and what the team's incident count looks like while someone else drives."
+ },
+ {
+  "file": "dashboard-setup.png",
+  "tab": "setup",
+  "caption": "Setup: what the car did on entry, mid-corner and exit — and the change the numbers ask for."
+ }
+]

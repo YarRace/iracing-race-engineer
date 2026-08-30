@@ -142,3 +142,61 @@ def test_exported_file_is_readable_by_a_human(tmp_path):
     assert "\n" in text, "одна строка на весь файл — не для чтения"
     d = _json.loads(text)
     assert d["format"] == Config.EXPORT_FORMAT and d["version"] == 1
+
+
+# ── сброс всего и автоснимки ────────────────────────────────────────────────
+
+def test_reset_all_clears_the_look_but_not_the_choices(tmp_path):
+    """«Сбросить вид» и «забыть, чем я пользуюсь» — разные желания."""
+    c = Config(str(tmp_path / "cfg.json"))
+    c.set_enabled("fuel", True)
+    c.set_favourite("fuel", True)
+    c.set_widget_opt("fuel", "bg", 0.2)
+    c.set_geometry("fuel", 5, 6, 700, 500)
+    c.set_opacity(0.4)
+    c.save_widget_preset("fuel", "race")
+    c.save_profile("mine")
+
+    c.reset_all()
+    assert c.widget_opt("fuel", "bg") is None       # вид — стёрт
+    assert c.geometry("fuel") is None
+    assert c.opacity() == 1.0
+    assert c.is_enabled("fuel")                     # выбор — на месте
+    assert c.is_favourite("fuel")
+    assert "race" in c.widget_presets("fuel")
+    assert "mine" in c.profiles()
+
+
+def test_backup_writes_one_file_per_day(tmp_path):
+    """Файл на запуск дал бы триста снимков за месяц и ни одного нужного."""
+    c = Config(str(tmp_path / "cfg.json"))
+    c.set_enabled("fuel", True)
+    first = c.backup_layout(today="2026-08-30")
+    c.set_enabled("delta", True)
+    again = c.backup_layout(today="2026-08-30")
+    assert first == again
+
+    d = tmp_path / Config.BACKUP_DIR
+    assert [f.name for f in d.glob("*.json")] == ["layout-2026-08-30.json"]
+    # переписан свежим состоянием, а не оставлен утренним
+    restored = Config(str(tmp_path / "r.json"))
+    restored.import_layout(first)
+    assert restored.is_enabled("delta")
+
+
+def test_backup_keeps_only_the_last_days(tmp_path):
+    c = Config(str(tmp_path / "cfg.json"))
+    for day in range(1, Config.BACKUP_KEEP + 4):
+        c.backup_layout(today=f"2026-08-{day:02d}")
+    kept = sorted(f.name for f in (tmp_path / Config.BACKUP_DIR).glob("*.json"))
+    assert len(kept) == Config.BACKUP_KEEP
+    assert kept[0] == "layout-2026-08-04.json"      # самые старые подрезаны
+    assert kept[-1] == f"layout-2026-08-{Config.BACKUP_KEEP + 3:02d}.json"
+
+
+def test_backup_never_raises(tmp_path, monkeypatch):
+    """Уронить выход из приложения из-за резервной копии нельзя."""
+    c = Config(str(tmp_path / "cfg.json"))
+    monkeypatch.setattr("os.makedirs",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("нет места")))
+    assert c.backup_layout() == ""

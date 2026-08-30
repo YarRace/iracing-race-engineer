@@ -135,6 +135,20 @@ class Config:
         self.data.get("opts", {}).pop(key, None)
         self.save()
 
+    def reset_all(self):
+        """Вернуть к заводскому виду ВСЕ виджеты разом.
+
+        Стираем оформление, позиции и общую прозрачность. НЕ трогаем то,
+        что человек выбирал, а не подгонял: какие оверлеи включены,
+        избранное, сохранённые раскладки и пресеты. «Сбросить вид» и
+        «забыть, чем я пользуюсь» — разные желания, и второе никто
+        не заказывал.
+        """
+        self.data["opts"] = {}
+        self.data["geo"] = {}
+        self.data["opacity"] = 1.0
+        self.save()
+
     def reset_widget(self, key: str):
         """Вернуть виджет к заводскому виду: оформление И размер с позицией.
 
@@ -213,6 +227,42 @@ class Config:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(bundle, f, indent=1, ensure_ascii=False)
         return bundle["name"]
+
+    BACKUP_DIR = "layout-backups"
+    BACKUP_KEEP = 10
+
+    def backup_layout(self, today: str = "") -> str:
+        """Снимок раскладки рядом с конфигом — один файл на день.
+
+        Настройки правятся понемногу и каждый день; заметить, что вчера
+        было лучше, обычно получается уже назавтра. Отката не было вовсе:
+        конфиг перезаписывается на каждое движение ползунка.
+
+        Один файл на дату, а не на запуск: иначе за месяц накопится триста
+        снимков и найти в них нужный нельзя. Старые подрезаются до
+        BACKUP_KEEP — папка не должна расти без предела.
+
+        Возвращает путь к файлу или "" — молча, если записать не вышло:
+        уронить выход из приложения из-за резервной копии нельзя.
+        """
+        import datetime
+        import glob
+
+        stamp = today or datetime.date.today().isoformat()
+        d = os.path.join(os.path.dirname(os.path.abspath(self.path)), self.BACKUP_DIR)
+        try:
+            os.makedirs(d, exist_ok=True)
+            path = os.path.join(d, f"layout-{stamp}.json")
+            self.export_layout(path)
+            old = sorted(glob.glob(os.path.join(d, "layout-*.json")))
+            for f in old[:-self.BACKUP_KEEP]:
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+            return path
+        except OSError:
+            return ""
 
     def import_layout(self, path: str, name: str = "") -> str:
         """Прочитать файл раскладки, сохранить её профилем и применить.

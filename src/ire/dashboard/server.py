@@ -114,6 +114,16 @@ def widget_shot(name: str):
     return FileResponse(path, media_type="image/png")
 
 
+@app.get("/dash/{name}")
+def dashboard_shot(name: str):
+    """Снимок дашборда (tools/render_dashboard.py). Защита как у /w/ и /panel/."""
+    safe = os.path.basename(name)
+    path = os.path.abspath(os.path.join(DOCS, "dashboard", safe))
+    if not (safe.endswith(".png") and os.path.exists(path)):
+        return Response(status_code=404)
+    return FileResponse(path, media_type="image/png")
+
+
 @app.get("/panel/{name}")
 def panel_shot(name: str):
     """Снимок панели настроек (tools/render_panel.py).
@@ -132,7 +142,7 @@ def panel_shot(name: str):
 def about():
     """Витрина проекта: что внутри и почему сделано именно так."""
     return site.page_about(site.load_catalog(), site.load_shots(),
-                           site.load_panel_shots())
+                           site.load_panel_shots(), site.load_dashboard_shots())
 
 
 @app.get("/download", response_class=HTMLResponse)

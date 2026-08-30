@@ -147,18 +147,19 @@ def shell(title, body, active=""):
       background:var(--panel)}}
     .sim b{{display:block;font-size:14.5px;margin-bottom:3px}}
     .sim span{{color:var(--muted);font-size:12.5px}}
-    /* Settings-window gallery: numbered tabs, one shot at a time. */
-    .panels input{{position:absolute;opacity:0;pointer-events:none}}
-    .panel-tabs{{display:flex;gap:8px;margin-bottom:12px}}
-    .panel-tabs label{{width:30px;height:30px;display:flex;align-items:center;
+    /* Screenshot galleries (settings window, dashboard): numbered
+       tabs, one shot at a time, no script. */
+    .gal input{{position:absolute;opacity:0;pointer-events:none}}
+    .gal-tabs{{display:flex;gap:8px;margin-bottom:12px}}
+    .gal-tabs label{{width:30px;height:30px;display:flex;align-items:center;
       justify-content:center;border:1px solid var(--line);border-radius:8px;
       color:var(--muted);font-size:13px;cursor:pointer;
       font-variant-numeric:tabular-nums}}
-    .panel-tabs label:hover{{color:var(--txt);border-color:var(--muted)}}
-    .panel-stage figure{{display:none}}
-    .panel-stage img{{display:block;width:100%;height:auto;border-radius:12px;
+    .gal-tabs label:hover{{color:var(--txt);border-color:var(--muted)}}
+    .gal-stage figure{{display:none}}
+    .gal-stage img{{display:block;width:100%;height:auto;border-radius:12px;
       border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.4)}}
-    .panel-stage figcaption{{color:var(--muted);font-size:14px;margin-top:14px;
+    .gal-stage figcaption{{color:var(--muted);font-size:14px;margin-top:14px;
       max-width:680px}}
     /* Get-it page: numbered steps with the command under each one. */
     ol.steps{{list-style:none;counter-reset:s;display:grid;gap:14px}}
@@ -231,14 +232,14 @@ def load_shots(root=None):
         return []
 
 
-def load_panel_shots(root=None):
-    """Опись снимков панели настроек из docs/panel/index.json.
+def _load_index(folder, root=None):
+    """Опись снимков из docs/<folder>/index.json.
 
-    Снимки делает tools/render_panel.py. Как и у витрины: нет файлов —
-    раздел просто не рисуется, сайт остаётся рабочим.
+    Нет файлов — раздел просто не рисуется, сайт остаётся рабочим: собирать
+    картинки ради страницы «о проекте» никто не обязан.
     """
     base = pathlib.Path(root) if root else (
-        pathlib.Path(__file__).resolve().parents[3] / "docs" / "panel")
+        pathlib.Path(__file__).resolve().parents[3] / "docs" / folder)
     f = base / "index.json"
     if not f.exists():
         return []
@@ -248,35 +249,64 @@ def load_panel_shots(root=None):
         return []
 
 
-def panel_gallery(shots):
-    """Раздел «как это настраивается»: снимки окна настроек.
+def load_panel_shots(root=None):
+    """Снимки панели настроек (tools/render_panel.py)."""
+    return _load_index("panel", root)
 
-    Витрина показывает, ЧТО видно в игре. На вопрос «а настраивать это как»
-    она не отвечает, а у обоих конкурентов именно окно настроек занимает
-    половину страницы: покупают не виджеты, а лёгкость подгонки под себя.
+
+def load_dashboard_shots(root=None):
+    """Снимки дашборда (tools/render_dashboard.py)."""
+    return _load_index("dashboard", root)
+
+
+def gallery(shots, ident, heading, route, alt):
+    """Раздел со снимками: пронумерованные вкладки, по одному кадру за раз.
 
     Переключение — те же радиокнопки и соседний селектор, что и в витрине,
-    и с той же ловушкой: инпуты обязаны быть ПРЯМЫМИ детьми `.panels`.
+    и с той же ловушкой: инпуты обязаны быть ПРЯМЫМИ детьми `.gal`. «~»
+    связывает только элементы с общим родителем; спрячешь инпуты внутрь
+    вкладок — и сцена молча останется пустой при правильной на вид разметке.
     """
     if not shots:
         return ""
     inputs, tabs, stage, rules = [], [], [], []
     for i, s in enumerate(shots):
         sel = " checked" if i == 0 else ""
-        inputs.append(f'<input type="radio" name="panel" id="p{i}"{sel}>')
-        tabs.append(f'<label for="p{i}">{i + 1}</label>')
+        inputs.append(f'<input type="radio" name="{ident}" id="{ident}{i}"{sel}>')
+        tabs.append(f'<label for="{ident}{i}">{i + 1}</label>')
         stage.append(
-            f'<figure id="pf{i}"><img src="/panel/{e(s["file"])}" '
-            f'alt="The settings window" loading="lazy">'
+            f'<figure id="{ident}f{i}"><img src="/{route}/{e(s["file"])}" '
+            f'alt="{e(alt)}" loading="lazy">'
             f'<figcaption>{e(s.get("caption") or "")}</figcaption></figure>')
-        rules.append(f"#p{i}:checked~.panel-stage #pf{i}{{display:block}}")
-        rules.append(f'#p{i}:checked~.panel-tabs label[for="p{i}"]'
+        rules.append(f"#{ident}{i}:checked~.gal-stage #{ident}f{i}{{display:block}}")
+        rules.append(f'#{ident}{i}:checked~.gal-tabs label[for="{ident}{i}"]'
                      f"{{background:var(--accent);color:#08111c;border-color:var(--accent)}}")
-    return (f"<section><h2>How you set it up</h2>"
+    return (f"<section><h2>{e(heading)}</h2>"
             f'<style>{"".join(rules)}</style>'
-            f'<div class="panels">{"".join(inputs)}'
-            f'<div class="panel-tabs">{"".join(tabs)}</div>'
-            f'<div class="panel-stage">{"".join(stage)}</div></div></section>')
+            f'<div class="gal">{"".join(inputs)}'
+            f'<div class="gal-tabs">{"".join(tabs)}</div>'
+            f'<div class="gal-stage">{"".join(stage)}</div></div></section>')
+
+
+def panel_gallery(shots):
+    """Как это настраивается.
+
+    Витрина показывает, ЧТО видно в игре. На вопрос «а настраивать это как»
+    она не отвечает, а у обоих конкурентов именно окно настроек занимает
+    половину страницы: покупают не виджеты, а лёгкость подгонки под себя.
+    """
+    return gallery(shots, "pn", "How you set it up", "panel",
+                   "The settings window")
+
+
+def dashboard_gallery(shots):
+    """Второй экран.
+
+    Оверлей на сайте показан, панель настроек показана — а дашборда,
+    ради которого половина проекта и написана, человек так и не видел.
+    """
+    return gallery(shots, "db", "The second screen", "dash",
+                   "The dashboard")
 
 
 def showcase(shots):
@@ -316,7 +346,7 @@ def showcase(shots):
             f'data: the numbers and driver names are made up.</p></section>')
 
 
-def page_about(cat, shots=None, panels=None):
+def page_about(cat, shots=None, panels=None, dash=None):
     k = cat["counts"]
     labels = (
         (k["widgets"], ("overlay widget", "overlay widgets")),
@@ -363,6 +393,7 @@ def page_about(cat, shots=None, panels=None):
 </section>
 {showcase(shots or [])}
 {panel_gallery(panels or [])}
+{dashboard_gallery(dash or [])}
 <section>
   <h2>What is inside</h2>
   <div class="nums">{nums}</div>

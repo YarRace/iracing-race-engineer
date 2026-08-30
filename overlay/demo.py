@@ -99,6 +99,9 @@ class DemoFeed:
             return {
                 "speed": speed, "gear": max(1, min(7, int(1 + v * 6))),
                 "rpm": rpm, "shift_rpm": 7400,
+                # круг и топливо приходят из SDK в том же кадре: без них
+                # карточка приборов показывает прочерки посреди живых цифр
+                "lap": lap, "fuel": round(55.2 - (lap - 1) * 3.1 - u * 3.1, 1),
                 "throttle": throttle, "brake": brake, "steer": steer, "clutch": 0.0,
                 "lat_accel": steer * 28.0, "long_accel": dv * 300.0,
                 "yaw_rate": steer * 1.1,
@@ -118,7 +121,9 @@ class DemoFeed:
                 "gap_behind": 0.9 + 0.4 * math.cos(el / 9),
                 "last_lap_time": LAP_TIME + 0.4, "best_lap_time": LAP_TIME - 0.6,
                 "predicted": LAP_TIME + delta, "delta_best": delta,
-                "rpm": rpm, "shift_rpm": 7400, "on_pit": False,
+                # blink_rpm — верх шкалы оборотов. Без него дашборд не рисует
+                # ни полосу RPM, ни карточку шифта: он делит на этот предел.
+                "rpm": rpm, "shift_rpm": 7400, "blink_rpm": 7800, "on_pit": False,
                 "car_left_right": 2 if 0.3 < u < 0.36 else 1,
                 "flags": [{"key": "green", "label": "green"}],
                 "warnings": [],

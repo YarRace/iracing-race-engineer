@@ -410,6 +410,12 @@
 
 <script>
 const $ = id => document.getElementById(id);
+// Одна сломанная карточка не должна уносить весь тик. Тик — это два десятка
+// render* подряд, и исключение в любом из них обрывало все следующие: 30.08
+// падение renderProgress оставляло пустыми позицию, круги, итоги, обороты,
+// погоду, таблицу и ERS — каждый кадр, молча, в промисе. Ошибку по-прежнему
+// видно в консоли: глушить её нельзя, иначе баг не найти никогда.
+const safe = (f, ...a) => { try{ return f(...a); }catch(e){ console.error(f.name||'render', e); } };
 const fix = (v,d=0)=> (v==null||isNaN(v)) ? "—" : Number(v).toFixed(d);
 // время круга в формате М:СС.cc (84.32с -> 1:24.32)
 const lapTime = sec => {
@@ -689,7 +695,8 @@ function renderPitHelper(r){
 async function tickRelative(){
   let d; try{ d=await (await fetch('/api/relative')).json(); }catch{ return; }
   _lastRelCars=(d&&d.cars)||[]; _st.relative=d;
-  renderRelative(d); renderRadar(d); renderTrackRing(d); renderTrackMap();
+  safe(renderRelative, d); safe(renderRadar, d);
+  safe(renderTrackRing, d); safe(renderTrackMap);
 }
 async function tickWearSession(){
   try{ const w=await (await fetch('/api/wear')).json(); _st.wear=w; renderWear(w); }catch{}
@@ -872,10 +879,10 @@ async function tickLive(){
   $('atemp').textContent = fix(l.air_temp,1);
   $('thr').style.width = (l.throttle*100||0)+'%'; $('thrv').textContent = fix(l.throttle*100,0)+'%';
   $('brk').style.width = (l.brake*100||0)+'%';   $('brkv').textContent = fix(l.brake*100,0)+'%';
-  if(l.tires){ renderTires(l.tires); }
-  renderGforce(l);
-  renderSteer(l);
-  renderTopSpeed(l);
+  if(l.tires){ safe(renderTires, l.tires); }
+  safe(renderGforce, l);
+  safe(renderSteer, l);
+  safe(renderTopSpeed, l);
 }
 
 function renderTires(t){
@@ -1142,19 +1149,6 @@ function renderDrivingLine(){
   el.innerHTML=`<div class="mini" style="grid-template-columns:1fr 1fr">${blocks.join('')}</div>`;
 }
 
-// Records → Progress: времена кругов этой сессии (тренд)
-function renderProgress(){
-  const el=$('r_progress'); if(!el) return;
-  const t=_goodTimes((_st.race&&_st.race.lap_log)||[]);
-  if(!t.length){ el.innerHTML=`<div class="empty">Drive laps — your progress this session appears here.</div>`; return; }
-  const best=Math.min(...t), worst=Math.max(...t), rng=(worst-best)||1;
-  let bars='';
-  t.forEach(x=>{ const f=(x-best)/rng, bh=6+f*42, col=x===best?'var(--best)':(f<0.34?'var(--good)':(f<0.67?'var(--warn)':'var(--bad)'));
-    bars+=`<div style="flex:1;height:54px;display:flex;align-items:flex-end"><div style="width:100%;height:${bh}px;background:${col};border-radius:2px"></div></div>`; });
-  el.innerHTML=`<div style="display:flex;gap:2px;align-items:flex-end">${bars}</div>
-    <div class="why" style="margin-top:6px">Best <b style="color:var(--best)">${lapTime(best)}</b> · ${t.length} laps this session</div>`;
-}
-
 // Strategy → Stint plan
 function renderStintPlan(){
   const el=$('st_stints'); if(!el) return;
@@ -1220,22 +1214,21 @@ async function tickRace(){
   let r; try{ r = await (await fetch('/api/race')).json(); }catch{ return; }
   if(!r){ return; }
   // работают и в практике (без позиции):
-  renderTraining(r.lap_log||[]);
-  renderDeltaBar(r);
-  renderShift(r);
-  renderErs(r);
-  renderFlagLog(r);
-  renderOptimal(r.lap_log||[]);
-  renderBestSectors(r.lap_log||[]);
+  safe(renderTraining, r.lap_log||[]);
+  safe(renderDeltaBar, r);
+  safe(renderShift, r);
+  safe(renderErs, r);
+  safe(renderFlagLog, r);
+  safe(renderOptimal, r.lap_log||[]);
+  safe(renderBestSectors, r.lap_log||[]);
   _lastCarLR = r.car_left_right||0; _lastRaceBest = r.best_lap_time;   // для радара/дельты рекорда
   _st.race = r;
-  renderPitHelper(r);
-  renderTimeLost();
-  renderRaceResult();
-  renderProgress();
+  safe(renderPitHelper, r);
+  safe(renderTimeLost);
+  safe(renderRaceResult);
   if(r.position==null){ return; }
-  renderSummary(r, r.lap_log||[]);
-  renderPosTrend(r);
+  safe(renderSummary, r, r.lap_log||[]);
+  safe(renderPosTrend, r);
 
   if(r.rpm!=null && r.blink_rpm){
     const pct = Math.max(0, Math.min(100, r.rpm/r.blink_rpm*100));
@@ -1453,13 +1446,22 @@ bindNotes('e_stintplan_txt', 'ire_stintplan');   // план стинтов (End
 bindNotes('s_notes_txt', 'ire_setupnotes');      // заметки по сетапу (Setup)
 
 // переключение главных вкладок Соло / Endurance / Setup
+function showTab(name){
+  const btns = [...document.querySelectorAll('.mtab')];
+  const b = btns.find(x=> x.dataset.tab===name) || btns[0];
+  if(!b) return;
+  btns.forEach(x=> x.classList.toggle('on', x===b));
+  document.querySelectorAll('.mpane').forEach(p=> p.style.display = (p.id==='tab-'+b.dataset.tab) ? '' : 'none');
+  $('customizeMenu').style.display = 'none';   // меню настройки закрываем при смене вкладки
+}
 document.querySelectorAll('.mtab').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('.mtab').forEach(x=> x.classList.toggle('on', x===b));
-    document.querySelectorAll('.mpane').forEach(p=> p.style.display = (p.id==='tab-'+b.dataset.tab) ? '' : 'none');
-    $('customizeMenu').style.display = 'none';   // меню настройки закрываем при смене вкладки
-  };
+  // Вкладка в адресе: перезагрузка (и Ctrl+F5 после правки) возвращает туда,
+  // где ты был, а не всегда на Solo. Заодно вкладку можно дать ссылкой.
+  b.onclick = ()=>{ location.hash = 'tab=' + b.dataset.tab; showTab(b.dataset.tab); };
 });
+const tabFromHash = ()=> (location.hash.match(/tab=([a-z]+)/)||[])[1];
+addEventListener('hashchange', ()=> showTab(tabFromHash()));
+if(tabFromHash()) showTab(tabFromHash());
 
 // ===== Настройка дашборда: показать/скрыть панели + перетаскивание, с сохранением =====
 const LKEY = id => 'ire_layout_' + id;

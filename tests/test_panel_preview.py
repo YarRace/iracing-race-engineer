@@ -347,3 +347,47 @@ def test_reset_shrinks_the_live_overlay_too(panel):
     panel.reset_selected(confirm=False)
     assert live.size().toTuple() == tuple(cls.DEFAULT)
     assert panel.config.geometry("fuel") is None, "геометрия записалась обратно"
+
+
+def test_reset_all_backs_up_before_wiping(panel):
+    """Кнопка стирает работу вечера одним нажатием — копия не опция."""
+    import pathlib as _p
+
+    from overlay.config import Config
+
+    panel.config.set_enabled("fuel", True)
+    panel.config.set_widget_opt("fuel", "bg", 0.2)
+    panel.config.set_widget_opt("delta", "bg", 0.3)
+    panel.config.set_geometry("fuel", 5, 6, 700, 500)
+    panel.config.set_opacity(0.5)
+
+    assert panel.reset_all(confirm=False) is True
+    assert panel.config.widget_opt("fuel", "bg") is None
+    assert panel.config.widget_opt("delta", "bg") is None
+    assert panel.config.opacity() == 1.0
+    assert panel.op.value() == 100                    # ползунок тоже вернулся
+
+    backups = sorted((_p.Path(panel.config.path).parent
+                      / Config.BACKUP_DIR).glob("*.json"))
+    assert backups, "копии не осталось — откатиться было бы нечем"
+    back = Config(str(_p.Path(panel.config.path).parent / "restored.json"))
+    back.import_layout(str(backups[-1]))
+    assert back.widget_opt("fuel", "bg") == 0.2       # из копии всё достаётся
+
+
+def test_closing_the_panel_leaves_a_snapshot(app, tmp_path):
+    """Конфиг перезаписывается на каждое движение ползунка: «вчерашнего»
+    состояния нигде не было."""
+    import pathlib as _p
+
+    from overlay.config import Config
+
+    cfg = Config(str(tmp_path / "cfg.json"))
+    p = ControlPanel(Store(), cfg, WIDGETS)
+    cfg.set_widget_opt("fuel", "bg", 0.42)
+    p.close()
+    backups = sorted((_p.Path(cfg.path).parent / Config.BACKUP_DIR).glob("*.json"))
+    assert backups
+    back = Config(str(tmp_path / "back.json"))
+    back.import_layout(str(backups[-1]))
+    assert back.widget_opt("fuel", "bg") == 0.42

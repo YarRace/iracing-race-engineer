@@ -490,6 +490,14 @@ class ControlPanel(QWidget):
         self.hide_cb.toggled.connect(self.set_hide_offtrack)
         h.addWidget(self.hide_cb)
         h.addStretch(1)
+
+        # Сброс всего — в подвале, рядом с остальными «на весь оверлей»
+        # переключателями, и подальше от кнопки одного виджета.
+        self.reset_all_btn = QPushButton("Reset all overlays", objectName="tiny")
+        self.reset_all_btn.setToolTip("Every widget back to factory look, "
+                                      "position and size. A backup is saved first.")
+        self.reset_all_btn.clicked.connect(self.reset_all)
+        h.addWidget(self.reset_all_btn)
         return card
 
     # ──────────────────────────── выбор виджета ─────────────────────────────
@@ -597,6 +605,41 @@ class ControlPanel(QWidget):
         self.select(key)                     # предпросмотр и настройки — заново
         return True
 
+    def reset_all(self, confirm=True):
+        """Сбросить вид ВСЕХ виджетов. Перед этим — резервная копия.
+
+        Кнопка стирает работу целого вечера одним нажатием, поэтому копия
+        не опция: без неё «отмена» есть только у того, кто заранее сделал
+        экспорт, а заранее его не делает никто.
+        """
+        backup = self.config.backup_layout()
+        if confirm:
+            from PySide6.QtWidgets import QMessageBox
+            where = f"\n\nA backup was saved to\n{backup}" if backup else ""
+            answer = QMessageBox.question(
+                self, "Reset all overlays",
+                "Every widget goes back to its factory look, position and size."
+                "\nWhich overlays are on, your favourites and your saved layouts "
+                "stay as they are." + where,
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer != QMessageBox.Yes:
+                return False
+
+        self.config.reset_all()
+        for key, w in self.widgets.items():
+            cls = self._cls_by_key.get(key)
+            if cls is not None:
+                w.resize(*cls.DEFAULT)
+            w.apply_opacity()
+            w.update()
+        self.op.blockSignals(True)
+        self.op.setValue(int(self.config.opacity() * 100))
+        self.op.blockSignals(False)
+        self.op_lbl.setText(f"{self.op.value()}%")
+        if self._selected:
+            self.select(self._selected)
+        return True
+
     # ───────────────────── обмен раскладками файлом ─────────────────────────
     def export_layout(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -615,8 +658,16 @@ class ControlPanel(QWidget):
         return path
 
     def import_layout(self):
+        import os
+
         from PySide6.QtWidgets import QFileDialog, QMessageBox
-        path, _ = QFileDialog.getOpenFileName(self, "Import layout", "",
+        # Открываемся в папке автоснимков: самый частый импорт — не «принёс
+        # файл с флешки», а «верни как было вчера».
+        start = os.path.join(os.path.dirname(os.path.abspath(self.config.path)),
+                             self.config.BACKUP_DIR)
+        if not os.path.isdir(start):
+            start = ""
+        path, _ = QFileDialog.getOpenFileName(self, "Import layout", start,
                                               "Layout files (*.json)")
         if not path:
             return None
@@ -778,6 +829,10 @@ class ControlPanel(QWidget):
                 w.update()
 
     def closeEvent(self, e):
+        # Снимок раскладки на выход. Конфиг перезаписывается на каждое
+        # движение ползунка, так что «вчерашнего» состояния нигде не было:
+        # заметить, что вчера было лучше, обычно получается уже назавтра.
+        self.config.backup_layout()
         for w in self.widgets.values():
             w.close()
         e.accept()

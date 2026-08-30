@@ -112,34 +112,45 @@ PANELS = [
 ]
 
 
-def test_panel_inputs_are_siblings_of_the_stage():
+def test_gallery_inputs_are_siblings_of_the_stage():
     """Та же ловушка, что и в витрине: «~» связывает только элементы
     с ОБЩИМ родителем. Инпуты внутри вкладок — и галерея мертва."""
     html = site.panel_gallery(PANELS)
-    block = html[html.index('<div class="panels">'):]
-    assert block.index('<input type="radio"') < block.index('<div class="panel-tabs">')
+    block = html[html.index('<div class="gal">'):]
+    assert block.index('<input type="radio"') < block.index('<div class="gal-tabs">')
 
 
-def test_panel_gallery_wires_every_shot():
+def test_gallery_wires_every_shot():
     html = site.panel_gallery(PANELS)
     for i, s in enumerate(PANELS):
-        assert f'id="p{i}"' in html
-        assert f'<figure id="pf{i}">' in html
-        assert f"#p{i}:checked~.panel-stage #pf{i}{{display:block}}" in html
+        assert f'id="pn{i}"' in html
+        assert f'<figure id="pnf{i}">' in html
+        assert f"#pn{i}:checked~.gal-stage #pnf{i}{{display:block}}" in html
         assert f'/panel/{s["file"]}' in html
-    assert 'id="p0" checked' in html.replace('id="p0"checked', 'id="p0" checked')
+    assert 'id="pn0" checked' in html
 
 
-def test_panel_gallery_is_silent_without_shots():
-    """Снимки панели собирать необязательно — сайт должен остаться рабочим."""
+def test_two_galleries_on_one_page_do_not_collide():
+    """Панель и дашборд стоят на /about рядом. Общие id — и клик по вкладке
+    одной галереи переключал бы вторую."""
+    dash = [{"file": "dashboard-solo.png", "caption": "The solo tab."}]
+    html = site.panel_gallery(PANELS) + site.dashboard_gallery(dash)
+    assert 'name="pn"' in html and 'name="db"' in html
+    assert 'id="pn0"' in html and 'id="db0"' in html
+    assert html.count('id="pn0"') == 1 and html.count('id="db0"') == 1
+
+
+def test_galleries_are_silent_without_shots():
+    """Снимки собирать необязательно — сайт должен остаться рабочим."""
     assert site.panel_gallery([]) == ""
-    assert '<div class="panels">' not in site.page_about(site.load_catalog(), [], [])
+    assert site.dashboard_gallery([]) == ""
+    assert '<div class="gal">' not in site.page_about(site.load_catalog(), [], [], [])
 
 
-def test_panel_captions_are_escaped():
+def test_gallery_captions_are_escaped():
     html = site.panel_gallery([{"file": "x.png", "caption": "a <b> & c"}])
-    assert "<b>" not in html.replace("<b>", "", 0) or "&lt;b&gt;" in html
-    assert "&amp; c" in html
+    assert "<b>" not in html
+    assert "a &lt;b&gt; &amp; c" in html
 
 
 # ── страница «как это взять» ────────────────────────────────────────────────
