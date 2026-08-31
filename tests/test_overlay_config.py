@@ -26,25 +26,52 @@ def test_enabled_and_geometry_roundtrip(tmp_path):
     assert Config(path).widget_opt("fuel", "bg", 0.78) == 0.78  # сброшено
 
 
-def test_profiles_snapshot_switch_and_autosync(tmp_path):
+def test_a_saved_set_is_a_snapshot_you_can_come_back_to(tmp_path):
+    """Набор — снимок на момент сохранения, а не зеркало текущей раскладки.
+
+    Зеркалом он был раньше, и это молча уничтожало сохранённое: собрал
+    «Endurance night», один раз подвигал виджеты под спринт — и набора нет.
+    """
     path = str(tmp_path / "ov.json")
     c = Config(path)
     c.set_enabled("fuel", True)
     c.set_opacity(0.8)
     c.save_profile("Solo")                              # снимок: fuel on, opacity 0.8
     assert c.active_profile() == "Solo" and "Solo" in c.profiles()
-    c.set_enabled("gforce", True)                       # авто-синхрон в активный (Solo)
-    c.save_profile("Endur")                             # новый профиль из текущего
-    c.set_enabled("fuel", False)                        # меняем только Endur
-    assert c.is_enabled("fuel") is False
-    assert c.load_profile("Solo") is True               # вернулись на Solo — его раскладка
-    assert c.is_enabled("fuel") is True and c.is_enabled("gforce") is True
+
+    c.set_enabled("gforce", True)                       # правим ТЕКУЩЕЕ, не набор
+    c.save_profile("Endur")                             # новый набор из текущего
+    c.set_enabled("fuel", False)
+
+    assert c.load_profile("Solo") is True
+    assert c.is_enabled("fuel") is True
+    assert c.is_enabled("gforce") is False, "Solo подтянул то, чего в нём не было"
     assert c.opacity() == 0.8
-    c.load_profile("Endur")                             # Endur сохранил своё
-    assert c.is_enabled("fuel") is False
+
+    c.load_profile("Endur")
+    assert c.is_enabled("fuel") is True, "Endur сохранял fuel включённым"
+    assert c.is_enabled("gforce") is True
+
     c.delete_profile("Endur")
     assert "Endur" not in c.profiles()
-    assert "Solo" in Config(path).profiles()            # профили переживают перезапуск
+    assert "Solo" in Config(path).profiles()            # наборы переживают перезапуск
+
+
+def test_moving_widgets_does_not_quietly_destroy_the_set_you_are_on(tmp_path):
+    """Тот самый случай, ради которого всё и менялось: подвигал экран под
+    сегодняшнюю гонку — набор обязан остаться таким, каким его сохранили."""
+    path = str(tmp_path / "ov.json")
+    c = Config(path)
+    c.set_enabled("fuel", True)
+    c.set_geometry("fuel", 100, 200, 300, 120)
+    c.save_profile("Endurance night")
+
+    c.set_geometry("fuel", 1500, 40, 300, 120)          # сдвинули под спринт
+    c.set_enabled("fuel", False)                        # и вовсе убрали
+
+    assert c.load_profile("Endurance night") is True
+    assert c.is_enabled("fuel") is True
+    assert c.geometry("fuel")[:2] == (100, 200), "набор перезаписан движением виджета"
 
 
 def test_load_ignores_broken_file(tmp_path):

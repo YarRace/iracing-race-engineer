@@ -174,29 +174,21 @@ class ControlPanel(QWidget):
         else:
             self.status.hide()
         h.addStretch(1)
-        h.addWidget(QLabel("Layout", objectName="hint"))
+        # ОДИН список наборов, а не два. Раньше готовые наборы лежали в одном
+        # выпадающем списке, а свои — в другом, рядом. С точки зрения человека
+        # это одно и то же желание («покажи вот эти виджеты»), и держать его
+        # в двух местах значит заставлять помнить, в каком из них искать.
+        h.addWidget(QLabel("Set", objectName="hint"))
         self.prof = QComboBox()
-        self.prof.setMinimumWidth(150)
-        self.prof.currentTextChanged.connect(self._on_profile_selected)
+        self.prof.setMinimumWidth(190)
+        self.prof.activated.connect(self._on_set_picked)
         h.addWidget(self.prof)
-        addb = QPushButton("+", objectName="tiny")
-        addb.setToolTip("Save current layout as a new one")
-        addb.clicked.connect(self.save_as_profile)
-        h.addWidget(addb)
         delb = QPushButton("🗑", objectName="tiny")
-        delb.setToolTip("Delete the active layout")
+        delb.setToolTip("Delete the set you are on (only your own)")
         delb.clicked.connect(self.delete_profile)
         h.addWidget(delb)
         # Обмен раскладками одним файлом: перенос на второй компьютер и
         # обратная дорога, если правки завели не туда.
-        # Наборы стоят рядом с раскладками: и то и другое отвечает
-        # на вопрос «что показать», просто одно готовое, другое своё.
-        self.starter = QComboBox()
-        self.starter.setMinimumWidth(130)
-        self.starter.addItem("— starter set —")
-        self.starter.addItems([n for n, _ in STARTERS])
-        self.starter.activated.connect(self._apply_starter)
-        h.addWidget(self.starter)
 
         expb = QPushButton("Export", objectName="tiny")
         expb.setToolTip("Export this layout to a file")
@@ -739,7 +731,6 @@ class ControlPanel(QWidget):
         want = set(keys)
         for key, box in self._boxes.items():
             box.setChecked(key in want)
-        self.starter.setCurrentIndex(0)
         if self._selected:
             self.select(self._selected)
 
@@ -852,31 +843,88 @@ class ControlPanel(QWidget):
         for w in self.widgets.values():
             w.apply_opacity()
 
-    # ───────────────────────── профили раскладок ────────────────────────────
+    # ───────────────────────────── наборы ───────────────────────────────────
+    # Готовый набор и свой набор — разные вещи, и разница видна на экране.
+    # Готовый только СТАВИТ ГАЛОЧКИ: места виджетов остаются там, куда их
+    # поставил человек, — иначе выбор набора раскидывал бы выстроенный экран.
+    # Свой набор возвращает всё, включая места: он для того и сохранялся.
+    SAVE_ITEM = "+  Save what I have now as a set…"
+
     def _refresh_profiles(self, select=None):
+        """Пересобрать список: сначала готовые, потом свои, внизу «сохранить».
+
+        Разделители — не украшение: без них свой набор с именем «Spa night»
+        стоит вплотную к «Endurance», и непонятно, почему один переставляет
+        виджеты, а другой нет.
+        """
         self.prof.blockSignals(True)
         self.prof.clear()
-        names = self.config.profiles()
-        if names:
-            self.prof.addItems(names)
-            active = select or self.config.active_profile()
-            if active in names:
-                self.prof.setCurrentText(active)
-        else:
-            self.prof.addItem("— no layouts —")
+        self._set_rows = []                    # что означает каждая строка
+
+        self.prof.addItem("— pick a set —")
+        self._set_rows.append(("none", ""))
+        for name, _ in STARTERS:
+            self.prof.addItem(name)
+            self._set_rows.append(("starter", name))
+
+        mine = self.config.profiles()
+        if mine:
+            self.prof.insertSeparator(self.prof.count())
+            self._set_rows.append(("sep", ""))
+            for name in mine:
+                self.prof.addItem(name)
+                self._set_rows.append(("mine", name))
+
+        self.prof.insertSeparator(self.prof.count())
+        self._set_rows.append(("sep", ""))
+        self.prof.addItem(self.SAVE_ITEM)
+        self._set_rows.append(("save", ""))
+
+        active = select or self.config.active_profile()
+        if active:
+            for i, (kind, name) in enumerate(self._set_rows):
+                if kind == "mine" and name == active:
+                    self.prof.setCurrentIndex(i)
+                    break
         self.prof.blockSignals(False)
 
-    def _on_profile_selected(self, name):
-        if name and name in self.config.profiles() and name != self.config.active_profile():
+    def _on_set_picked(self, index):
+        kind, name = (self._set_rows[index] if 0 <= index < len(self._set_rows)
+                      else ("none", ""))
+        if kind == "starter":
+            self._apply_starter([n for n, _ in STARTERS].index(name) + 1)
+        elif kind == "mine":
+            # Грузим ВСЕГДА, даже если этот набор уже значится активным.
+            # Именно в этом случае он и нужен: человек сохранил набор, потом
+            # всё сдвинул и выбирает его же, чтобы вернуть как было. Проверка
+            # «уже активный» превращала эту кнопку в ничего не делающую.
             self.config.load_profile(name)
             self._rebuild_from_config()
+        elif kind == "save":
+            self.save_as_profile()
+        else:                                  # заголовок или разделитель
+            self._refresh_profiles()
 
     def save_as_profile(self):
-        name, ok = QInputDialog.getText(self, "New layout", "Name:")
+        name, ok = QInputDialog.getText(self, "Save set", "Name:")
         name = (name or "").strip()
-        if ok and name:
-            self.config.save_profile(name)
-            self._refresh_profiles(select=name)
+        if not (ok and name):
+            self._refresh_profiles()           # передумал — вернуть список в вид
+            return
+        # Набор — снимок, и запись поверх существующего стирает его насовсем.
+        # Спрашиваем ровно в этом случае: на новом имени вопрос был бы шумом.
+        if name in self.config.profiles():
+            from PySide6.QtWidgets import QMessageBox
+            q = QMessageBox.question(
+                self, "Replace set",
+                f"There is already a set called «{name}». "
+                "Replace it with what is on screen now?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if q != QMessageBox.Yes:
+                self._refresh_profiles()
+                return
+        self.config.save_profile(name)
+        self._refresh_profiles(select=name)
 
     def delete_profile(self):
         name = self.config.active_profile()

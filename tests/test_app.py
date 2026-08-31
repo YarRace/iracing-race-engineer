@@ -252,3 +252,135 @@ def test_the_starter_sets_cover_the_three_ways_people_drive():
     sets = [set(k) for _, k in STARTERS]
     for a, b in ((0, 1), (0, 2), (1, 2)):
         assert sets[a] != sets[b], "два набора одинаковы"
+
+
+# ── один список наборов вместо двух ─────────────────────────────────────────
+
+def _rows(panel, kind):
+    return [n for k, n in panel._set_rows if k == kind]
+
+
+def test_ready_made_and_my_own_sets_live_in_one_list(panel):
+    """Раньше готовые наборы лежали в одном выпадающем списке, а свои — в
+    соседнем. Это одно и то же желание «покажи вот эти виджеты», и держать
+    его в двух местах значит заставлять помнить, в каком из них искать."""
+    from overlay.panel import STARTERS
+    panel._boxes["fuel"].setChecked(True)
+    panel.config.save_profile("Spa night")
+    panel._refresh_profiles()
+
+    assert _rows(panel, "starter") == [n for n, _ in STARTERS]
+    assert _rows(panel, "mine") == ["Spa night"]
+    assert _rows(panel, "save") == [""], "нет строки «сохранить как набор»"
+
+
+def test_picking_a_ready_made_set_does_not_move_the_widgets(panel):
+    """Готовый набор отвечает на вопрос «что показать», а не «где». Человек
+    выстроил экран под свой монитор — переставлять всё под наш вкус нельзя."""
+    panel._boxes["fuel"].setChecked(True)
+    panel.config.set_geometry("fuel", 1234, 567, 300, 120)
+
+    i = [k for k, _ in panel._set_rows].index("starter")
+    panel._on_set_picked(i)                       # Sprint race, там есть fuel
+
+    assert panel.config.geometry("fuel")[:2] == (1234, 567), "виджет уехал"
+
+
+def test_picking_my_own_set_puts_everything_back_including_places(panel):
+    """Свой набор для того и сохраняли: вернуть экран целиком, а не только
+    галочки. Иначе он ничем не отличался бы от готового."""
+    panel._boxes["fuel"].setChecked(True)
+    panel.config.set_geometry("fuel", 100, 200, 300, 120)
+    panel.config.save_profile("Spa night")
+
+    panel.config.set_geometry("fuel", 999, 999, 300, 120)   # всё сдвинули
+    panel._boxes["fuel"].setChecked(False)                  # и выключили
+    panel._refresh_profiles()
+
+    i = [k for k, _ in panel._set_rows].index("mine")
+    panel._on_set_picked(i)
+
+    assert panel.config.is_enabled("fuel"), "набор не вернул виджет"
+    assert panel.config.geometry("fuel")[:2] == (100, 200), "место не вернулось"
+
+
+def test_the_header_line_of_the_list_does_nothing(panel):
+    panel._boxes["fuel"].setChecked(True)
+    panel._on_set_picked(0)                       # «— pick a set —»
+    assert panel.config.is_enabled("fuel"), "заголовок списка стёр выбор"
+
+
+def test_the_save_row_asks_for_a_name_and_saves_under_it(panel, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+    monkeypatch.setattr(QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("Monza wet", True)))
+    panel._boxes["radar"].setChecked(True)
+
+    i = [k for k, _ in panel._set_rows].index("save")
+    panel._on_set_picked(i)
+
+    assert "Monza wet" in panel.config.profiles()
+    assert _rows(panel, "mine") == ["Monza wet"], "новый набор не встал в список"
+
+
+def test_backing_out_of_the_save_dialog_leaves_no_half_made_set(panel, monkeypatch):
+    """Нажал «сохранить», передумал — список обязан вернуться в прежний вид,
+    а не остаться стоять на строке, которая ничего не значит."""
+    from PySide6.QtWidgets import QInputDialog
+    monkeypatch.setattr(QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("", False)))
+    i = [k for k, _ in panel._set_rows].index("save")
+    panel._on_set_picked(i)
+
+    assert panel.config.profiles() == [], "сохранился набор без имени"
+    assert panel._set_rows[panel.prof.currentIndex()][0] != "save"
+
+
+def test_saving_over_an_existing_set_asks_first(panel, monkeypatch):
+    """Набор — снимок, и запись поверх стирает его насовсем. Раньше вопрос
+    был не нужен, потому что набор и так молча затирался при каждом движении
+    виджета; теперь он единственная защита."""
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    panel._boxes["fuel"].setChecked(True)
+    panel.config.save_profile("Spa night")
+    panel._refresh_profiles()
+
+    panel._boxes["fuel"].setChecked(False)
+    monkeypatch.setattr(QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("Spa night", True)))
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda *a, **k: QMessageBox.No))
+    panel.save_as_profile()
+
+    assert panel.config.load_profile("Spa night")
+    assert panel.config.is_enabled("fuel"), "набор затёрли, хотя ответили «нет»"
+
+
+def test_saying_yes_does_replace_it(panel, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    panel._boxes["fuel"].setChecked(True)
+    panel.config.save_profile("Spa night")
+    panel._boxes["fuel"].setChecked(False)
+
+    monkeypatch.setattr(QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("Spa night", True)))
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda *a, **k: QMessageBox.Yes))
+    panel.save_as_profile()
+
+    panel.config.load_profile("Spa night")
+    assert not panel.config.is_enabled("fuel"), "ответили «да», а набор прежний"
+
+
+def test_a_new_name_is_saved_without_extra_questions(panel, monkeypatch):
+    """Вопрос уместен только там, где что-то теряется. На новом имени он шум."""
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+    def refuse(*a, **k):
+        raise AssertionError("спросили про замену там, где нечего заменять")
+
+    monkeypatch.setattr(QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("Monza wet", True)))
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(refuse))
+    panel.save_as_profile()
+    assert "Monza wet" in panel.config.profiles()
