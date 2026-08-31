@@ -431,14 +431,16 @@ STEPS = [
      "pip install -r requirements.txt",
      "Python 3.12. The virtual environment keeps these packages out of "
      "your system Python."),
-    ("Start the engineer",
-     "python run.py",
-     "This is the part that reads the sim and serves the dashboard on "
-     "http://localhost:8000. Leave it running."),
-    ("Start the overlay",
-     "python overlay_app.py",
-     "The settings window opens. Tick the overlays you want, place them "
-     "with Ctrl+Shift+L, and go drive."),
+    ("Start it",
+     "python launcher.py --start",
+     "One command starts both halves. It waits until the engineer actually "
+     "answers before opening the overlay — an overlay opened too early shows "
+     "a red dot and empty widgets, and that is what makes people think it is "
+     "broken."),
+    ("Go drive",
+     "http://localhost:8000",
+     "The dashboard is on that address, and the overlay panel opens on its "
+     "own. Tick the overlays you want and place them with Ctrl+Shift+L."),
 ]
 
 NEEDS = [
@@ -482,15 +484,17 @@ def page_download(cat, panels=None):
 </section>
 <section>
   <h2>Or build it standalone</h2>
-  <p class="lead">If you would rather not keep Python around, build the two
-  apps once and run them by double-click afterwards.</p>
+  <p class="lead">If you would rather not keep Python around, build it once
+  and run it by double-click afterwards.</p>
   <pre class="cmd">pip install pyinstaller
-python tools/build_exe.py</pre>
-  <p class="note">You get <span class="k">dist/RaceEngineer</span> and
-  <span class="k">dist/RaceEngineerOverlay</span> — a folder each, not a single
-  file. One-file builds unpack 120 MB into a temp directory on every launch and
-  trip antivirus heuristics doing it. Your data lives next to the app, so
-  replacing the folder never touches your lap history.</p>
+python tools/build_exe.py --zip --shortcuts</pre>
+  <p class="note">You get three folders in <span class="k">dist/</span> — the
+  engineer, the overlay and the launcher — plus one desktop shortcut that
+  starts everything. Keep the folders next to each other: the launcher looks
+  for the other two as siblings. A folder each, not a single file: one-file
+  builds unpack 120 MB into a temp directory on every launch and trip antivirus
+  heuristics doing it. Your data lives next to the app, so replacing a folder
+  never touches your lap history.</p>
 </section>
 {panel_gallery(panels or [])}
 <section>

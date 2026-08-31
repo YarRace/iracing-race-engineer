@@ -1,0 +1,100 @@
+# Сборка релиза: тег → готовые архивы в Releases.
+#
+# Пока архивы собирались только на машине Ярослава, страница /download не
+# могла дать ссылку — файла нигде не было. Здесь тег превращается в три
+# архива, которые можно скачать по постоянному адресу.
+#
+# Запускается ТОЛЬКО по тегу вида v1.2.3 или вручную. На каждый push это
+# было бы двадцать минут сборки ради ничего: 270 МБ бинарников, которые
+# никому не нужны, пока не объявлен релиз.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # нужно, чтобы создать Release и приложить файлы
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Tests
+        # Собирать релиз из кода, который не проходит тесты, — раздавать
+        # заведомо сломанное. Дешевле упасть здесь.
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python tools/build_catalog.py
+          python -m pytest -q
+
+      - name: Build assets
+        # Каталог и снимки уезжают ВНУТРЬ сборки: без них сайт в приложении
+        # показывает пустую витрину.
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/refresh_assets.py
+
+      - name: Build the apps
+        run: python tools/build_exe.py --zip
+
+      - name: Check the build actually starts
+        # Сборка, которая собралась, но не запускается, — худший вид зелёной
+        # галочки. Поднимаем инженера на свободном порту и ждём ответа.
+        shell: pwsh
+        env:
+          IRE_PORT: "8137"
+        run: |
+          $p = Start-Process -FilePath "dist\RaceEngineer\RaceEngineer.exe" -PassThru
+          $ok = $false
+          foreach ($i in 1..30) {
+            Start-Sleep -Seconds 2
+            try {
+              $r = Invoke-WebRequest "http://127.0.0.1:8137/about" -UseBasicParsing -TimeoutSec 3
+              if ($r.StatusCode -eq 200) { $ok = $true; break }
+            } catch { }
+          }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          if (-not $ok) { throw "the built engineer never answered on :8137" }
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/*.zip
+          draft: true          # черновик: последнее слово за человеком
+          generate_release_notes: true
+          body: |
+            Windows only. Unpack a folder and run it — no installer, no Python needed.
+
+            - **RaceEngineerLauncher.zip** — one button that starts both. Start here.
+            - **RaceEngineer.zip** — the engineer: reads the sim, serves the dashboard on :8000.
+            - **RaceEngineerOverlay.zip** — the overlay panel.
+
+            Unpack all three next to each other: the launcher looks for the other two as siblings.
+
+            Windows SmartScreen will warn about an unknown publisher — the build is not
+            code-signed yet. Choose *More info* → *Run anyway*, or check the file yourself.
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        with:
+          name: race-engineer-build
+          path: dist/*.zip
+          retention-days: 7

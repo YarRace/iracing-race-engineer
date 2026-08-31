@@ -6,9 +6,13 @@
 самораспаковку. Папка стартует мгновенно; для раздачи её всё равно
 кладут в архив.
 
-Собираются ДВА приложения, как и запускаются:
-    RaceEngineer.exe        — инженер: читает сим, отдаёт дашборд на :8000
-    RaceEngineerOverlay.exe — панель оверлея поверх игры
+Собираются ТРИ приложения:
+    RaceEngineer.exe         — инженер: читает сим, отдаёт дашборд на :8000
+    RaceEngineerOverlay.exe  — панель оверлея поверх игры
+    RaceEngineerLauncher.exe — одна кнопка «Старт»: поднимает оба по порядку
+
+Лаунчер ищет соседей по путям вида ../RaceEngineer/RaceEngineer.exe,
+поэтому в dist/ все три папки должны лежать рядом — так они и лежат.
 
 Данные пользователя (data/) внутрь НЕ кладутся: история кругов, карты трасс
 и раскладка оверлея принадлежат тому, у кого стоит программа, а не сборке.
@@ -38,6 +42,7 @@ ICON = ROOT / "docs" / "icon.ico"
 APPS = [
     ("RaceEngineer", "run.py", False),
     ("RaceEngineerOverlay", "overlay_app.py", True),
+    ("RaceEngineerLauncher", "launcher.py", True),
 ]
 
 # Данные, без которых приложение не работает. Пути внутри сборки повторяют
@@ -109,7 +114,7 @@ def make_zip(name, folder):
     return out
 
 
-def make_shortcut(name, target, where=None):
+def make_shortcut(name, target, where=None, args=""):
     """Ярлык на рабочем столе. Без него .exe надо каждый раз искать в dist/.
 
     Через PowerShell и WScript.Shell: .lnk — двоичный формат Windows, руками
@@ -125,6 +130,7 @@ def make_shortcut(name, target, where=None):
     # с программой на другой компьютер.
     ps = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{link}');"
           f"$s.TargetPath='{target}';"
+          + (f"$s.Arguments='{args}';" if args else "") +
           f"$s.WorkingDirectory='{target.parent}';"
           f"$s.IconLocation='{target},0';"
           f"$s.Description='Race Engineer for iRacing';$s.Save()")
@@ -177,9 +183,16 @@ def main():
             z = make_zip(name, out)
             print(f"  архив {z.name}  ({z.stat().st_size // 1024 // 1024} МБ)")
     if args.shortcuts:
-        for name, out in built:
-            link = make_shortcut(name, out / f"{name}.exe", args.desktop or None)
-            print(f"  ярлык {link}" if link else f"  ярлык {name} НЕ создан")
+        # Ярлык ОДИН — на лаунчер. Три значка на столе, из которых два нельзя
+        # нажимать в неправильном порядке, — это не удобство, а ловушка.
+        target = next((o for n, o in built if n == "RaceEngineerLauncher"), None)
+        if target is None:
+            print("  ярлык не создан: лаунчер не собран")
+        else:
+            link = make_shortcut("Race Engineer",
+                                 target / "RaceEngineerLauncher.exe",
+                                 args.desktop or None, args="--start")
+            print(f"  ярлык {link}" if link else "  ярлык НЕ создан")
 
     if built and not failed:
         if not args.zip:

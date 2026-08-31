@@ -159,7 +159,7 @@ def test_download_page_lists_the_real_commands():
     """Инструкция, которая не работает, хуже отсутствующей."""
     html = site.page_download(site.load_catalog(), [])
     for cmd in ("git clone", "python -m venv .venv", "pip install -r requirements.txt",
-                "python run.py", "python overlay_app.py"):
+                "python launcher.py --start"):
         assert cmd in html, cmd
     assert r".venv\Scripts\activate" in html
 

@@ -42,16 +42,26 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Then two processes — the engineer, and the overlay on top of it:
+Then one command:
+
+```bash
+python launcher.py --start
+```
+
+It starts the engineer, waits until it actually answers, and only then opens
+the overlay. The order matters: an overlay opened before the server shows a
+red dot and empty widgets, which is exactly what makes people think the thing
+is broken.
+
+To run the two halves yourself:
 
 ```bash
 python run.py              # reads the sim, serves the dashboard on :8000
 python overlay_app.py      # the settings window with the live preview
 ```
 
-On Windows the `.bat` files do the same with one double-click:
-`start-dashboard.bat`, `start-overlay.bat`. `start-demo.bat` runs the
-dashboard on demo data with no sim at all — useful for looking around.
+On Windows `start.bat` does the launcher with one double-click.
+`start-demo.bat` runs the dashboard on demo data with no sim at all.
 
 If the overlay panel shows a red dot and every widget is empty, `run.py` is
 not running. That is the first thing to check.
@@ -101,7 +111,9 @@ pip install pyinstaller
 python tools/build_exe.py --zip --shortcuts
 ```
 
-You get `dist/RaceEngineer` and `dist/RaceEngineerOverlay` — a folder each,
+You get three folders in `dist/` — the engineer, the overlay and the
+launcher. Keep them next to each other: the launcher looks for the other two
+as siblings. They are a folder each,
 not a single file. One-file builds unpack 120 MB into a temp directory on
 every launch and trip antivirus heuristics doing it. `--zip` packs each
 folder into one archive to hand around; `--shortcuts` puts both on your
@@ -116,7 +128,7 @@ with a newer build never touches your lap history or overlay layout.
 python -m pytest -q
 ```
 
-251 tests, no sim required. The Qt ones run offscreen, and CI runs the same
+262 tests, no sim required. The Qt ones run offscreen, and CI runs the same
 suite on Windows for every push.
 
 ## Tools

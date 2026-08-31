@@ -28,3 +28,16 @@ time in each driver's own timezone.
   planned lap means an extra splash of fuel nobody needed
 - back-to-back stints are counted and flagged — nobody should discover at
   3 a.m. that they are driving twice in a row
+
+---
+
+**One button.** `launcher.py` starts the engineer, waits until it actually
+answers on the network, and only then opens the overlay. Starting the overlay
+first shows a red dot and empty widgets — which is exactly what makes people
+conclude the thing is broken. It also refuses to start a second engineer over
+a running one, and says so when the first one dies on start-up instead of
+quietly opening an overlay with nothing behind it.
+
+Builds are now three folders and one desktop shortcut, and a tagged commit
+builds them in CI — including a check that the built engineer really answers
+before anything is published.
