@@ -461,3 +461,49 @@ def leaderboard(track, car=None, season=None, limit=100, clean_only=True):
         "my_pos": my_row["pos"] if my_row else None,
         "my_gap": my_row["gap"] if my_row else None,
     }
+
+
+def sector_table(track, car=None, season=None, limit=60):
+    """Сектора всех пилотов и «идеальный круг» из лучших секторов.
+
+    Garage 61 отдаёт сектора вместе с кругом, а мы их выбрасывали. Между
+    тем это отдельный и очень прямой ответ: «первый сектор у тебя лучший
+    в таблице, второй — восьмой». По одному времени круга такого не видно,
+    а работать надо именно над вторым.
+
+    «Идеальный круг» здесь — сумма ЛУЧШИХ секторов разных людей. Никто его
+    не проезжал, и это честно написано: он показывает, сколько лежит на
+    столе, а не чей-то результат.
+    """
+    board = leaderboard(track, car, season, limit=limit)
+    if not board["ok"]:
+        return board
+
+    rows = []
+    for r in board["rows"]:
+        sec = [x for x in (r.get("sectors") or []) if isinstance(x, (int, float))]
+        if sec:
+            rows.append({**r, "sectors": sec})
+    if not rows:
+        return {**board, "rows": [], "reason": "no sector times on this track"}
+
+    n = min(len(r["sectors"]) for r in rows)
+    best = []
+    for i in range(n):
+        cand = min(rows, key=lambda r: r["sectors"][i])
+        best.append({"sector": i + 1, "time": cand["sectors"][i],
+                     "driver": cand["driver"], "is_me": cand["is_me"]})
+
+    me = next((r for r in rows if r["is_me"]), None)
+    my_ranks = []
+    if me:
+        for i in range(n):
+            faster = sum(1 for r in rows if r["sectors"][i] < me["sectors"][i])
+            my_ranks.append({"sector": i + 1, "time": me["sectors"][i],
+                             "pos": faster + 1,
+                             "gap": round(me["sectors"][i] - best[i]["time"], 3)})
+
+    return {**board, "rows": rows, "sectors": n, "best": best,
+            "ideal": round(sum(b["time"] for b in best), 3),
+            "mine": my_ranks,
+            "my_lap": me["lap_time"] if me else None}

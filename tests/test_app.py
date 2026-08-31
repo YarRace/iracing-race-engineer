@@ -210,3 +210,45 @@ def test_a_missing_snapshot_does_not_break_the_gallery(panel, monkeypatch, tmp_p
     panel._build_gallery()
     grid = panel._gallery.widget().layout()
     assert grid.count() == len(WIDGETS)
+
+
+# ── готовые наборы ──────────────────────────────────────────────────────────
+
+def test_every_starter_set_names_real_widgets():
+    """Опечатка в ключе — и набор молча включит на один виджет меньше."""
+    from overlay.panel import STARTERS
+    keys = {c.KEY for c in WIDGETS}
+    for name, ks in STARTERS:
+        missing = [k for k in ks if k not in keys]
+        assert not missing, f"{name}: нет таких виджетов — {missing}"
+        assert len(set(ks)) == len(ks), f"{name}: повторы в наборе"
+
+
+def test_a_starter_set_replaces_the_choice_rather_than_adding_to_it(panel):
+    """Иначе поверх своей раскладки ляжет чужой набор, и на экране окажется
+    всё сразу — чего никто не просил."""
+    from overlay.panel import STARTERS
+    panel._boxes["weatherradar"].setChecked(True)      # что-то своё, не из набора
+    panel._apply_starter(1)                            # Sprint race
+
+    name, keys = STARTERS[0]
+    on = {k for k in panel._boxes if panel.config.is_enabled(k)}
+    assert on == set(keys), "набор не заменил прежний выбор"
+    assert not panel.config.is_enabled("weatherradar")
+
+
+def test_picking_the_header_line_does_nothing(panel):
+    panel._boxes["fuel"].setChecked(True)
+    panel._apply_starter(0)                            # «— starter set —»
+    assert panel.config.is_enabled("fuel"), "заголовок выпадашки стёр раскладку"
+
+
+def test_the_starter_sets_cover_the_three_ways_people_drive():
+    """Спринт, эндуранс и практика — три разных экрана. Один набор на всех
+    означал бы, что он не подходит никому."""
+    from overlay.panel import STARTERS
+    names = [n for n, _ in STARTERS]
+    assert len(names) == len(set(names)) == 3
+    sets = [set(k) for _, k in STARTERS]
+    for a, b in ((0, 1), (0, 2), (1, 2)):
+        assert sets[a] != sets[b], "два набора одинаковы"

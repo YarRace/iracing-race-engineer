@@ -279,6 +279,29 @@ def garage61_board(track: str = Query(""), car: str = Query(""),
     return G.leaderboard(track, car or None, season or None, clean_only=bool(clean))
 
 
+@app.get("/api/garage61/sectors")
+def garage61_sectors(track: str = Query(""), car: str = Query(""),
+                     season: int = Query(0)):
+    """Сектора: где ты первый, а где восьмой.
+
+    По времени круга этого не видно — а работать надо именно над тем
+    сектором, в котором отстаёшь.
+    """
+    from ire.collector import garage61 as G
+
+    if not G.available():
+        return {"ok": False, "rows": [], "reason": "no Garage 61 token"}
+    if not track:
+        from ire.storage import laps as L
+        saved = L.list_laps(L.default_root())
+        if saved:
+            latest = max(saved, key=lambda m: m.get("ts") or "")
+            track, car = latest.get("track") or "", car or latest.get("car") or ""
+    if not track:
+        return {"ok": False, "rows": [], "reason": "no track yet"}
+    return G.sector_table(track, car or None, season or None)
+
+
 @app.get("/api/laps")
 def saved_laps(track: str = Query(""), car: str = Query("")):
     """Список сохранённых кругов — для выбора, что с чем сравнивать."""

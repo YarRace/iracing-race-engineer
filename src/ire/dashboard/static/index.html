@@ -422,6 +422,9 @@
     <div class="col">
       <div class="card" data-card="an_cleanup" data-title="🧹 Broken laps"><h2>🧹 Broken laps</h2>
         <div id="an_cleanup"><div class="empty">Checking the reference laps…</div></div></div>
+      <div class="card" data-card="g61_sectors" data-title="🟪 Sectors vs everyone">
+        <h2>🟪 Sectors vs everyone</h2>
+        <div id="g61_sectors"><div class="empty">Where you are first and where you are eighth.</div></div></div>
       <div class="card" data-card="g61_board" data-title="🌍 Lap times — everyone">
         <h2>🌍 Lap times — everyone</h2>
         <div class="mini" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
@@ -468,6 +471,7 @@ let _topSpeed=0, _posStart=null, _burnHist=[], _prevBurn=null;
 let _lastCarLR=0, _lastRaceBest=null, _lastSpeedKmh=null;
 // --- трек-мапа: форма трассы + последние машины ---
 let _trackShape=[], _lastRelCars=[], _trackSource='', _trackName='';
+let _worstCorners=[];       // три худших поворота последнего разбора — метки на карте
 // --- общий кэш последних данных (для вкладок Endurance/Setup, без лишних запросов) ---
 const _st = {};
 // --- таймер стинта: имя активного пилота + когда он сел ---
@@ -773,11 +777,23 @@ function renderTrackMap(){
       const p=_posOnTrack(c.lap_pct||0, pts); if(!p) return '';
       return mapCarDot(p.x, p.y, c);
     }).join('');
+  // Худшие повороты прямо на карте. Номер в таблице разбора ничего не
+  // говорит человеку, который не помнит нумерацию наизусть: «поворот 3»
+  // приходится искать глазами по трассе. Метка снимает этот шаг.
+  const marks = (_worstCorners||[]).map(c=>{
+    const p=_posOnTrack(c.pct, pts); if(!p) return '';
+    return `<circle cx="${p.x}" cy="${p.y}" r="3.2" fill="none"
+              stroke="var(--bad)" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+            <text x="${p.x}" y="${p.y+1.4}" font-size="3.4" text-anchor="middle"
+              fill="var(--bad)" style="font-weight:700">${c.index}</text>`;
+  }).join('');
+
   $('trackmap').innerHTML = `${_trackName?`<div style="text-align:center;font-weight:700;font-size:14px;margin-bottom:4px">${_trackName}</div>`:''}
     <svg viewBox="0 0 100 100" style="width:100%;max-width:340px;display:block;margin:0 auto">
     <polyline points="${line}" fill="none" stroke="#8b97a6" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
-    ${cars}</svg>
-    <div class="why" style="text-align:center;margin-top:6px">map: ${_trackSource||'—'} · cars: ${(_lastRelCars||[]).length} · you are green</div>`;
+    ${marks}${cars}</svg>
+    <div class="why" style="text-align:center;margin-top:6px">map: ${_trackSource||'—'} · cars: ${(_lastRelCars||[]).length} · you are green${
+      (_worstCorners||[]).length ? ' · red = where you lose most' : ''}</div>`;
 }
 async function tickTrackmap(){
   let m; try{ m=await (await fetch('/api/trackmap')).json(); }catch{ return; }
@@ -1520,6 +1536,57 @@ function renderCleanup(r){
   };
 }
 
+// ===== Sectors vs everyone =====
+// По времени круга не видно, В КАКОМ секторе ты отстаёшь. А работать надо
+// именно над ним. «Идеальный круг» — сумма лучших секторов РАЗНЫХ людей:
+// его никто не проезжал, и это написано прямо.
+let _secSig = null;
+async function tickG61Sectors(){
+  if(!$('g61_sectors')) return;
+  const season = $('g61_season') ? $('g61_season').value : '0';
+  if(season === _secSig) return;
+  _secSig = season;
+  let r; try{ r = await (await fetch('/api/garage61/sectors?season='+season)).json(); }
+  catch{ return; }
+  safe(renderSectors, r);
+}
+
+function renderSectors(r){
+  const el = $('g61_sectors'); if(!el) return;
+  if(!r || !r.ok || !(r.best||[]).length){
+    el.innerHTML = `<div class="empty">${r && r.reason ? r.reason : 'No sector times yet.'}</div>`;
+    return;
+  }
+  const mine = r.mine || [];
+  const head = `<div class="mini" style="grid-template-columns:1fr 1fr">
+    ${card('Ideal lap', lapTime(r.ideal), 'best sectors of different drivers')}
+    ${card('Your lap', r.my_lap ? lapTime(r.my_lap) : '—',
+           r.my_lap ? `+${(r.my_lap - r.ideal).toFixed(3)} to the ideal` : 'not in the table')}</div>`;
+
+  const rows = r.best.map((b,i)=>{
+    const m = mine[i];
+    const col = !m ? 'var(--muted)' : (m.pos===1 ? 'var(--best)' : (m.pos<=3 ? 'var(--good)' : 'var(--warn)'));
+    return `<tr>
+      <td style="width:34px;color:var(--muted)">S${b.sector}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums">${b.time.toFixed(3)}</td>
+      <td class="why">${b.driver}${b.is_me?' (you)':''}</td>
+      <td style="text-align:right;color:${col};font-weight:700">${m ? 'P'+m.pos : '—'}</td>
+      <td style="text-align:right;color:var(--muted);font-variant-numeric:tabular-nums">
+        ${m ? (m.gap>0 ? '+'+m.gap.toFixed(3) : '—') : ''}</td></tr>`;
+  }).join('');
+
+  const worst = mine.slice().sort((a,b)=>b.gap-a.gap)[0];
+  const hint = worst && worst.gap > 0.02
+    ? `<div class="why" style="margin-top:8px">Most of it is in <b>sector ${worst.sector}</b>
+        — ${worst.gap.toFixed(3)}s behind the best there.</div>` : '';
+
+  el.innerHTML = head +
+    `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:10px">
+      <tr><th></th><th style="text-align:right">Best</th><th>By</th>
+      <th style="text-align:right">You</th><th style="text-align:right">Gap</th></tr>
+      ${rows}</table>` + hint;
+}
+
 // ===== Lap times — everyone (Garage 61) =====
 // Свой лучший круг отвечает «где я хуже себя». Эта таблица отвечает
 // «на каком я месте среди всех и сколько до первого» — другой вопрос.
@@ -1617,6 +1684,12 @@ async function tickCorners(){
                               laps.length]);
   if(sig === _cornerSig) return;                 // разбор меняется раз в круг
   _cornerSig = sig;
+  // Метки на карту берём отсюда же: пересчитывать разбор ради карты глупо,
+  // а держать два источника «где теряется время» — верный способ их развести.
+  _worstCorners = !r.ok ? [] : (r.segments||[])
+    .filter(x=>x.loss > 0.02)
+    .sort((a,b)=>b.loss-a.loss).slice(0,3)
+    .map(x=>({index: x.index, pct: (x.apex||0) / (r.points||1000), loss: x.loss}));
   safe(renderCorners, r, laps);
 }
 
@@ -2091,6 +2164,7 @@ setInterval(tickSetupExtra, 1500);
 tpInit();
 setInterval(tickCorners, 6000);
 setInterval(tickG61Board, 20000);
+setInterval(tickG61Sectors, 25000);
 setInterval(tickCleanup, 15000);   // чужие круги меняются раз в день, не в секунду
 setInterval(tickTeamPlan, 3000);
 </script>

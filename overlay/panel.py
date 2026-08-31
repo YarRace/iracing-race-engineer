@@ -31,6 +31,20 @@ from overlay.preview import BACKDROPS, PreviewCanvas
 
 GROUPS = [("solo", "🟢 SOLO"), ("endur", "🔵 ENDURANCE"), ("setup", "🟣 SETUP")]
 
+# Готовые наборы. Сорок пять виджетов — это каталог, и выбирать из него
+# с нуля человек не хочет: он хочет ехать. Удалять «лишние» при этом
+# неправильно — они не лишние, это разные формы одного и того же
+# (крупная цифра / полоса / бегущий график), и каждому подходит своё.
+# Правильный ответ не «убрать», а «выбрать за него первый раз».
+STARTERS = [
+    ("Sprint race", ["inputs", "shift", "delta", "relative", "position",
+                     "fuel", "radar", "flags"]),
+    ("Endurance", ["inputs", "fuel", "e_driver", "e_time", "e_incidents",
+                   "relative", "standings", "wear", "weather", "trackmap"]),
+    ("Practice / hotlap", ["inputs", "shift", "deltatrace", "laptimegraph",
+                           "timing", "topspeed", "cornerloss", "trackmap"]),
+]
+
 QSS = """
 QWidget { background:#0f1216; color:#e8eaed; font-family:'Segoe UI'; font-size:13px; }
 QScrollArea, QSplitter { border:none; background:#0f1216; }
@@ -175,6 +189,15 @@ class ControlPanel(QWidget):
         h.addWidget(delb)
         # Обмен раскладками одним файлом: перенос на второй компьютер и
         # обратная дорога, если правки завели не туда.
+        # Наборы стоят рядом с раскладками: и то и другое отвечает
+        # на вопрос «что показать», просто одно готовое, другое своё.
+        self.starter = QComboBox()
+        self.starter.setMinimumWidth(130)
+        self.starter.addItem("— starter set —")
+        self.starter.addItems([n for n, _ in STARTERS])
+        self.starter.activated.connect(self._apply_starter)
+        h.addWidget(self.starter)
+
         expb = QPushButton("Export", objectName="tiny")
         expb.setToolTip("Export this layout to a file")
         expb.clicked.connect(self.export_layout)
@@ -705,6 +728,20 @@ class ControlPanel(QWidget):
             live.update()
         self.select(key)                     # предпросмотр и настройки — заново
         return True
+
+    def _apply_starter(self, index):
+        """Включить готовый набор. Прежний выбор СТИРАЕТСЯ — иначе поверх
+        своей раскладки лёг бы чужой набор, и на экране оказалось бы всё
+        сразу, чего никто не просил."""
+        if index <= 0:
+            return
+        name, keys = STARTERS[index - 1]
+        want = set(keys)
+        for key, box in self._boxes.items():
+            box.setChecked(key in want)
+        self.starter.setCurrentIndex(0)
+        if self._selected:
+            self.select(self._selected)
 
     def reset_all(self, confirm=True):
         """Сбросить вид ВСЕХ виджетов. Перед этим — резервная копия.

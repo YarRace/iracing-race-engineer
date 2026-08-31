@@ -16,7 +16,8 @@ on the PC that produced it.
 | **Overlay** | 45 widgets over the game — fuel, delta, standings, relative, track map, tyre temps, spotter, blind spot, lap log. Each one is tuned on its own: colour, size and font of every number. |
 | **Dashboard** | 63 cards across 6 tabs (Solo, Endurance, Setup, Records, Strategy, Race analysis) on the second screen. |
 | **History** | Every valid lap is resampled onto a distance grid and written to disk, with the conditions it was driven in. Progress shows across dates, not one drive. |
-| **Analysis** | Corner by corner: the lap is split at its own speed minima, each corner compared against your reference lap, and the loss explained — braked earlier, lower apex speed, later back to throttle. After a stint a local model adds the setup side. |
+| **Analysis** | Corner by corner: the lap is split at its own speed minima, each corner compared against a reference — your own lap or a quick stranger's from Garage 61 — with the loss explained, the speed and pedal traces drawn, and both racing lines overlaid. |
+| **Everyone else** | Lap times from Garage 61: your position, the gap to the leader, sector by sector. iRating and licence from the official iRacing API. |
 | **Endurance** | A full team stint plan: who drives when, in race time and in each driver's own clock, with laps and fuel per stint. |
 
 Nothing is smoothed. Raw values at a high refresh rate — smoothing hides
@@ -128,7 +129,7 @@ with a newer build never touches your lap history or overlay layout.
 python -m pytest -q
 ```
 
-285 tests, no sim required. The Qt ones run offscreen, and CI runs the same
+323 tests, no sim required. The Qt ones run offscreen, and CI runs the same
 suite on Windows for every push.
 
 ## Tools
