@@ -28,6 +28,7 @@ import time
 from . import history
 
 POINTS = 1000
+MIN_COVERAGE = 0.92        # доля круга, которую телеметрия обязана покрыть
 
 # Каналы, которые нужны для разбора круга. Температуры и износ сюда не
 # попадают: они меняются на масштабе стинта, а не поворота, и хранятся
@@ -73,6 +74,21 @@ def lap_time(frames):
     """Длительность круга по меткам времени кадров."""
     ts = [f.get("t") for f in frames if f.get("t") is not None]
     return (max(ts) - min(ts)) if len(ts) >= 2 else None
+
+
+def coverage(frames):
+    """Какую долю круга кадры реально покрывают: (начало, конец).
+
+    Это не мелочь. За пределами покрытия `_interp` держит крайнее значение,
+    то есть рисует ПРЯМУЮ на постоянной скорости. 31.08.2026 сохранённый круг
+    начинался с 8.9% дистанции, и первые 89 точек из тысячи оказались ровной
+    полкой на 64 км/ч. Разбор по поворотам честно посчитал это потерей
+    в 19.8 секунды — при том, что весь круг медленнее эталона на одну.
+    """
+    xs = [f.get("lap_dist_pct") for f in frames if f.get("lap_dist_pct") is not None]
+    if len(xs) < 2:
+        return (0.0, 0.0)
+    return (min(xs), max(xs))
 
 
 def resample(frames, points=POINTS):
@@ -136,6 +152,16 @@ def save_lap(root, identity, lap_num, lap_t, frames, valid=None):
         valid = history.is_valid_lap(lap_t)
     if not valid:
         return None
+
+    # Круг обязан покрывать почти всю дистанцию. Проверять только ВРЕМЯ мало:
+    # 31.08.2026 на диск лёг круг с правильным временем, но телеметрией
+    # с 8.9% дистанции — начало заполнилось ровной полкой на 64 км/ч, и разбор
+    # насчитал по ней 19.8 секунды потерь при разнице круга в одну.
+    # База эталонов от таких кругов бесполезна, а вреда от них больше, чем
+    # от их отсутствия.
+    lo, hi = coverage(frames)
+    if hi - lo < MIN_COVERAGE:
+        return None
     ch = resample(frames)
     if not ch:
         return None
@@ -152,6 +178,10 @@ def save_lap(root, identity, lap_num, lap_t, frames, valid=None):
         "fuel_start": _num(first.get("fuel")),
         "track_temp": _num(first.get("track_temp")),
         "air_temp": _num(first.get("air_temp")),
+        # Какую часть круга кадры реально покрывают. Без этого поля круг
+        # с обрезанным началом неотличим от целого: недостающее место
+        # заполняется ровной полкой и выглядит как настоящая телеметрия.
+        "covers": list(coverage(frames)),
         "ts": history._now(),
     }
 

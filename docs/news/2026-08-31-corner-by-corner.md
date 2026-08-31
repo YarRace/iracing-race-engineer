@@ -56,3 +56,26 @@ scheduled. When nobody is free for a stint, the plan says so instead of
 quietly assigning someone — a plan that breaks at 3 a.m. is worse than one
 that admits the gap. And the whole thing downloads as plain text, to paste
 into the team chat in one message.
+
+---
+
+**Reference laps from other drivers.** Garage 61 hands over other people's laps
+with full telemetry, and they arrive in exactly the same shape as our own —
+so the corner analysis compares against them without a single change.
+
+Your own best lap answers "where am I worse than me". A quick stranger's lap
+answers "where can anyone go faster", which is a different and more useful
+question.
+
+Two things that only showed up against real data:
+
+- a lap saved on disk had the right lap time but telemetry starting at 8.9% of
+  the distance. The missing start was filled with a flat line at 64 km/h, and
+  the analysis dutifully reported **19.8 seconds lost in turn one** on a lap
+  that was one second off. Laps now have to cover 92% of the distance to be
+  written at all, and the analysis refuses outright when the per-corner losses
+  do not add up to the lap difference. Printing those numbers would send
+  somebody off to relearn a corner that was fine.
+- `canViewTelemetry: true` does not mean you can view it — some laps answer
+  403, and some 504 while the server is still building the CSV. So the search
+  walks down the list instead of insisting on the fastest lap.

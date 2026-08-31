@@ -1,0 +1,349 @@
+"""Garage 61: круги других пилотов как эталон для разбора.
+
+Свой лучший круг — плохой эталон для того, кто хочет ехать быстрее: он
+показывает, где ты хуже СЕБЯ, а не где вообще можно быстрее. Garage 61
+отдаёт круги других пилотов на той же трассе и машине вместе с телеметрией,
+и вот против них разбор уже отвечает на нужный вопрос.
+
+Что проверено на живом API (31.08.2026):
+
+  • токен даёт driving_data, и чужие круги отдаются: Road Atlanta Full —
+    20 кругов, среди них GTP на 1:07.6;
+  • телеметрия приходит CSV по /laps/{id}/csv: 4083 строки на круг, все
+    восемь наших каналов ПЛЮС Lat/Lon — настоящие координаты трассы;
+  • `canViewTelemetry: true` НЕ гарантирует доступ: часть кругов отвечает
+    403 forbidden_lap. Значит по списку идём вниз, а не упираемся в первый;
+  • сервер собирает CSV на лету и иногда не успевает — отдаёт 504.
+
+Отсюда две вещи в устройстве модуля. Первая: скачанный круг кладётся на
+диск и больше не качается — на трассу их нужно один-два, а качается круг
+десятками секунд. Вторая: любая ошибка сети возвращается значением, а не
+исключением, — инженер крутится в живом цикле рядом с гонкой, и падать
+из-за чужого сервера он не имеет права.
+
+Токен НИКОГДА не печатается и не уезжает в логи.
+"""
+from __future__ import annotations
+
+import gzip
+import json
+import os
+import pathlib
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+from ire import paths
+from ire.storage import laps as lap_store
+
+BASE = "https://garage61.net/api/v1"
+CATALOG_TTL = 7 * 24 * 3600        # справочник трасс и машин меняется раз в сезон
+LAP_TIMEOUT = 200                  # с: CSV сервер собирает на лету
+LIST_TIMEOUT = 40
+
+# Колонка CSV → наш канал. Совпадает с laps.CHANNELS, чтобы разбор по
+# поворотам работал с чужим кругом ровно так же, как со своим.
+COLUMNS = {
+    "Speed": "speed", "Throttle": "throttle", "Brake": "brake",
+    "SteeringWheelAngle": "steer", "Gear": "gear",
+    "LatAccel": "lat_accel", "LongAccel": "long_accel", "YawRate": "yaw_rate",
+}
+
+
+def _dir():
+    d = paths.data_dir() / "garage61"
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return d
+
+
+def token():
+    """Токен из окружения или из data/garage61_token.txt. Пустой — если нет."""
+    t = os.environ.get("GARAGE61_TOKEN", "").strip()
+    if t:
+        return t
+    f = paths.data_dir() / "garage61_token.txt"
+    try:
+        # utf-8-sig: Блокнот дописывает BOM, а он ломает заголовок Authorization
+        return f.read_text(encoding="utf-8-sig").strip()
+    except OSError:
+        return ""
+
+
+def available():
+    return bool(token())
+
+
+def get(path, timeout=LIST_TIMEOUT, **params):
+    """(код, данные). Ошибки возвращаются, а не бросаются.
+
+    Живой цикл инженера крутится рядом с гонкой: упасть из-за того, что
+    у чужого сервера плохой день, он не имеет права.
+    """
+    tok = token()
+    if not tok:
+        return 0, "no token"
+    url = BASE + path + ("?" + urllib.parse.urlencode(params, doseq=True) if params else "")
+    req = urllib.request.Request(url, headers={
+        "Authorization": "Bearer " + tok,
+        "Accept": "application/json",
+        "User-Agent": "iracing-race-engineer/1.0",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            body = r.read()
+            ct = r.headers.get("Content-Type", "")
+            if "json" in ct:
+                return r.status, json.loads(body)
+            return r.status, body.decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")[:200]
+    except Exception as e:                                   # сеть, таймаут, VPN
+        return 0, str(e)
+
+
+def _items(data):
+    """Списки приходят конвертом {"items": [...], "total": N}, а не голыми."""
+    if isinstance(data, dict):
+        return data.get("items", [])
+    return data if isinstance(data, list) else []
+
+
+def catalog(kind, force=False):
+    """Справочник трасс или машин, с кэшем на диске.
+
+    468 трасс приходят за секунду, но дёргать их на каждый вопрос «а какой
+    id у Road Atlanta» незачем: список меняется раз в сезон.
+    """
+    f = _dir() / f"{kind}.json"
+    if not force:
+        try:
+            if time.time() - f.stat().st_mtime < CATALOG_TTL:
+                return json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+    code, data = get("/" + kind)
+    if code != 200:
+        try:                                    # сеть отвалилась — берём старый
+            return json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+    rows = _items(data)
+    try:
+        f.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+    return rows
+
+
+def _norm(s):
+    return "".join(ch for ch in str(s or "").lower() if ch.isalnum())
+
+
+def find_track(name, config=None):
+    """Наш идентификатор трассы → запись Garage 61.
+
+    Мы храним «roadatlanta full» и config «Full Course», у них — name
+    «Road Atlanta» и variant «Full Course». Сопоставляем по склеенным
+    буквам: пробелы и дефисы у всех расставлены по-разному.
+    """
+    want, cfg = _norm(name), _norm(config)
+    rows = catalog("tracks")
+    hits = [t for t in rows if _norm(t.get("name")) and _norm(t.get("name")) in want]
+    if not hits:
+        hits = [t for t in rows if want and want.startswith(_norm(t.get("name")))]
+    if not hits:
+        return None
+    if cfg:
+        exact = [t for t in hits if _norm(t.get("variant")) == cfg]
+        if exact:
+            return exact[0]
+    # Без конфигурации берём вариант, чьё имя встречается в нашем: «roadatlanta
+    # full» → «Full Course». Иначе — самый первый, но это уже гадание.
+    named = [t for t in hits if _norm(t.get("variant")) and _norm(t.get("variant"))[:4] in want]
+    return (named or hits)[0]
+
+
+def find_car(name):
+    want = _norm(name)
+    if not want:
+        return None
+    rows = catalog("cars")
+    for c in rows:
+        if _norm(c.get("name")) == want:
+            return c
+    for c in rows:
+        n = _norm(c.get("name"))
+        if n and (n in want or want in n):
+            return c
+    return None
+
+
+def list_laps(track, car=None, limit=20):
+    """Круги с Garage 61. track/car — НАШИ названия, не их id."""
+    ours = track if isinstance(track, str) else ""
+    t = find_track(track) if isinstance(track, str) else track
+    if not t:
+        return {"ok": False, "reason": "track not found in Garage 61", "laps": []}
+    q = {"tracks": t["id"], "limit": max(1, min(int(limit), 100))}
+    c = find_car(car) if isinstance(car, str) else car
+    if c:
+        q["cars"] = c["id"]
+    code, data = get("/laps", **q)
+    if code != 200:
+        return {"ok": False, "reason": f"Garage 61 answered {code}", "laps": []}
+
+    out = []
+    for x in _items(data):
+        d = x.get("driver") or {}
+        out.append({
+            "id": x.get("id"),
+            "lap_time": x.get("lapTime"),
+            "driver": (f"{d.get('firstName', '')} {d.get('lastName', '')}".strip()
+                       or d.get("slug") or "?"),
+            "car": (x.get("car") or {}).get("name"),
+            # НАШ идентификатор трассы, а не их название. Разбор сверяет
+            # трассы строкой, и «Road Atlanta» против «roadatlanta full»
+            # он честно считает разными — сравнение просто не состоится.
+            "track": ours or t.get("name"),
+            "track_display": t.get("name"),
+            "config": t.get("variant"),
+            "telemetry": bool(x.get("canViewTelemetry")),
+        })
+    out.sort(key=lambda x: x["lap_time"] if isinstance(x["lap_time"], (int, float)) else 9e9)
+    return {"ok": True, "track": t.get("name"), "config": t.get("variant"), "laps": out}
+
+
+def parse_csv(text):
+    """CSV Garage 61 → кадры в нашем виде, с долей дистанции.
+
+    Заодно вытаскиваем Lat/Lon: iRacing SDK координат не даёт вовсе, и это
+    единственный источник настоящей геометрии трассы, который у нас есть.
+    """
+    lines = (text or "").splitlines()
+    if len(lines) < 3:
+        return [], []
+    head = [h.strip() for h in lines[0].split(",")]
+    idx = {h: i for i, h in enumerate(head)}
+    if "LapDistPct" not in idx:
+        return [], []
+
+    frames, shape = [], []
+    for line in lines[1:]:
+        parts = line.split(",")
+        if len(parts) < len(head):
+            continue
+
+        def num(col):
+            i = idx.get(col)
+            if i is None:
+                return 0.0
+            try:
+                return float(parts[i])
+            except (TypeError, ValueError):
+                return 0.0
+
+        f = {"lap_dist_pct": num("LapDistPct")}
+        for col, ch in COLUMNS.items():
+            f[ch] = num(col)
+        frames.append(f)
+        if "Lat" in idx and "Lon" in idx:
+            shape.append((num("Lat"), num("Lon")))
+    return frames, shape
+
+
+def _cache_path(lap_id):
+    return _dir() / "laps" / f"{lap_id}.json.gz"
+
+
+def load_cached(lap_id):
+    p = _cache_path(lap_id)
+    try:
+        with gzip.open(p, "rt", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def download_lap(meta, force=False):
+    """Круг целиком в НАШЕМ формате: 1000 точек по дистанции.
+
+    Ровно тот же формат, что у своих кругов, поэтому `metrics/corners`
+    разбирает чужой круг без единой правки — и это главное: одна логика
+    сравнения, а не две почти одинаковые.
+
+    Скачанное кладётся на диск навсегда. Круг качается десятками секунд,
+    а нужен он на трассу один-два: перекачивать его при каждом открытии
+    вкладки — впустую жечь и время, и чужой сервер.
+    """
+    lap_id = meta.get("id") if isinstance(meta, dict) else meta
+    if not lap_id:
+        return None
+    if not force:
+        hit = load_cached(lap_id)
+        if hit:
+            return hit
+
+    code, csv = get(f"/laps/{lap_id}/csv", timeout=LAP_TIMEOUT)
+    if code != 200 or not isinstance(csv, str):
+        return None
+    frames, shape = parse_csv(csv)
+    if len(frames) < 50:
+        return None
+
+    channels = lap_store.resample(frames)
+    if not channels:
+        return None
+    m = meta if isinstance(meta, dict) else {}
+    out = {
+        "source": "garage61",
+        "g61_id": lap_id,
+        "track": m.get("track"),
+        "track_display": m.get("track_display") or m.get("track"),
+        "config": m.get("config"), "car": m.get("car"),
+        "driver": m.get("driver"),
+        "lap_time": m.get("lap_time"),
+        "points": lap_store.POINTS,
+        "channels": channels,
+        "shape": shape[::max(1, len(shape) // 600)] if shape else [],
+    }
+    try:
+        _cache_path(lap_id).parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(_cache_path(lap_id), "wt", encoding="utf-8") as fh:
+            json.dump(out, fh, separators=(",", ":"))
+    except OSError:
+        pass                                   # не записалось — не беда, круг уже в руках
+    return out
+
+
+def best_reference(track, car=None, tries=4, slower_than=None):
+    """Самый быстрый круг, который реально отдаётся.
+
+    Идём по списку вниз: `canViewTelemetry: true` не гарантирует доступ —
+    часть кругов отвечает 403, а часть 504, когда сервер не успел собрать
+    CSV. Упереться в самый быстрый значит не получить ничего.
+
+    Свои круги из выдачи НЕ выбрасываем: Garage 61 хранит и их, и там
+    вполне может лежать твой же круг быстрее сохранённого локально.
+    Кто это был, видно по полю driver — пусть решает человек.
+
+    slower_than отсекает круги медленнее твоего: эталон, который хуже
+    разбираемого круга, показал бы, где ты ЛУЧШЕ, — это не разбор.
+    """
+    listing = list_laps(track, car, limit=25)
+    if not listing["ok"]:
+        return None, listing["reason"]
+    cand = [x for x in listing["laps"]
+            if x["telemetry"] and isinstance(x["lap_time"], (int, float))]
+    if slower_than:
+        cand = [x for x in cand if x["lap_time"] < slower_than]
+    if not cand:
+        return None, "no laps with telemetry on this track and car"
+    for meta in cand[:tries]:
+        lap = download_lap(meta)
+        if lap:
+            return lap, ""
+    return None, "Garage 61 did not hand over any lap (403 or 504)"

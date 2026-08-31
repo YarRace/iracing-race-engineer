@@ -194,8 +194,35 @@ def test_zero_speed_does_not_divide_by_zero():
     lap = make_lap()
     lap["channels"]["speed"][10:20] = [0.0] * 10
     r = corners.analyse(lap, make_lap())
-    assert r["ok"]
-    assert all(math.isfinite(v) for v in r["trace"])
+    # Такой круг больше не разбирается: десять точек на нуле — это уже
+    # рассинхрон, и сумма по сегментам не сойдётся с разницей кругов.
+    # Важно другое: не деление на ноль и не NaN, а внятный отказ.
+    assert r["ok"] is False and r["reason"]
+    assert math.isfinite(r["raw_sum"]) and math.isfinite(r["delta"])
+
+
+def test_misaligned_laps_are_refused_not_dressed_up():
+    """31.08.2026: круг с телеметрией от 8.9% дистанции дал «+19.8с в первом
+    повороте» при разнице круга в одну секунду. Начало заполнилось ровной
+    полкой на 64 км/ч, и разбор честно посчитал её потерей.
+
+    Показать такие числа как ни в чём не бывало хуже, чем не показать ничего:
+    по ним человек пойдёт переучивать поворот, в котором всё было нормально.
+    """
+    ref = make_lap()
+    broken = make_lap()
+    n = broken["points"]
+    broken["channels"]["speed"][:n // 10] = [18.0] * (n // 10)   # полка в начале
+    r = corners.analyse(broken, ref)
+    assert r["ok"] is False
+    assert "do not line up" in r["reason"]
+    assert abs(r["raw_sum"]) > abs(r["delta"])
+
+
+def test_a_lap_that_lines_up_is_still_analysed():
+    """Сторож не должен отказывать здоровым кругам."""
+    r = corners.analyse(make_lap(apex_scale=0.93), make_lap())
+    assert r["ok"] is True and r["segments"]
 
 
 # ── выбор эталона ───────────────────────────────────────────────────────────
@@ -234,3 +261,34 @@ def test_it_survives_a_real_recorded_lap():
     assert 2 <= len(segs) <= 25, f"неправдоподобное число поворотов: {len(segs)}"
     r = corners.analyse(lap, lap)
     assert r["ok"] and abs(r["trace"][-1]) < 1e-6
+
+
+# ── чужой круг как эталон ───────────────────────────────────────────────────
+
+def test_a_garage61_lap_is_analysed_like_our_own():
+    """Чужой круг приходит в ТОМ ЖЕ формате, что свой, — иначе завелись бы
+    две почти одинаковые логики сравнения, и разошлись бы они на первой правке.
+    """
+    from ire.collector import garage61
+
+    ours = make_lap()
+    csv_head = ("Speed,LapDistPct,Lat,Lon,Brake,Throttle,RPM,SteeringWheelAngle,"
+                "Gear,Clutch,ABSActive,DRSActive,LatAccel,LongAccel,VertAccel,"
+                "Yaw,YawRate,PositionType")
+    rows = []
+    for i in range(400):
+        pct = i / 399
+        v = ours["channels"]["speed"][min(i, N - 1)]
+        rows.append(f"{v},{pct},34.1,-83.8,0,1,9000,0.03,6,1,false,false,"
+                    f"0.3,2.8,10.8,-1.5,0.04,3")
+    frames, shape = garage61.parse_csv("\n".join([csv_head] + rows))
+    assert len(frames) == 400
+    assert len(shape) == 400, "Lat/Lon потерялись — а это единственная геометрия трассы"
+    assert abs(frames[0]["speed"] - ours["channels"]["speed"][0]) < 1e-6
+
+
+def test_garage61_csv_without_distance_is_refused():
+    """Без LapDistPct круг не лечь на сетку — сравнивать его не с чем."""
+    from ire.collector import garage61
+    frames, shape = garage61.parse_csv("Speed,Throttle\n50,1\n51,1\n52,1")
+    assert frames == [] and shape == []

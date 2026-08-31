@@ -108,6 +108,27 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
     lap_meta = pick(lap, latest)
     if lap_meta is None:
         return {"ok": False, "reason": "lap not found"}
+    # Эталон с Garage 61: ref=g61 (лучший подходящий) или ref=g61:<id>.
+    if ref.startswith("g61"):
+        from ire.collector import garage61 as G
+        mine = L.load_lap(lap_meta["path"])
+        _, _, want = ref.partition(":")
+        if want:
+            g = G.download_lap({"id": want, "track": mine.get("track"),
+                                "car": mine.get("car")})
+            why = "Garage 61 did not hand over that lap"
+        else:
+            g, why = G.best_reference(mine.get("track"), mine.get("car"),
+                                      slower_than=mine.get("lap_time"))
+        if not g:
+            return {"ok": False, "reason": why or "no Garage 61 lap"}
+        res = C.analyse(mine, g)
+        res["lap_file"] = os.path.basename(lap_meta["path"])
+        res["ref_file"] = f"g61:{g.get('g61_id')}"
+        res["ref_driver"] = g.get("driver")
+        res["ref_source"] = "Garage 61"
+        return res
+
     ref_meta = pick(ref, C.pick_reference(meta, lap_meta))
     if ref_meta is None:
         return {"ok": False, "reason": "no second lap on this track and car yet"}
@@ -119,6 +140,31 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
     res["lap_file"] = os.path.basename(lap_meta["path"])
     res["ref_file"] = os.path.basename(ref_meta["path"])
     return res
+
+
+@app.get("/api/garage61")
+def garage61_laps(track: str = Query(""), car: str = Query("")):
+    """Круги других пилотов на этой трассе — эталоны из Garage 61.
+
+    Свой лучший круг показывает, где ты хуже СЕБЯ. Чужой быстрый — где
+    вообще можно быстрее, а это другой вопрос и куда более полезный.
+    """
+    from ire.collector import garage61 as G
+
+    if not G.available():
+        return {"ok": False, "laps": [],
+                "reason": "no Garage 61 token — put it in data/garage61_token.txt"}
+    if not track:
+        # Без явной трассы берём ту, где стоим. До выезда её нет, и это
+        # не ошибка: просто ещё нечего спрашивать.
+        from ire.storage import laps as L
+        saved = L.list_laps(L.default_root())
+        if saved:
+            latest = max(saved, key=lambda m: m.get("ts") or "")
+            track, car = latest.get("track") or "", car or latest.get("car") or ""
+    if not track:
+        return {"ok": False, "laps": [], "reason": "no track yet — drive a lap first"}
+    return G.list_laps(track, car or None, limit=25)
 
 
 @app.get("/api/laps")

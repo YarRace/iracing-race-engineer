@@ -243,6 +243,20 @@ def analyse(lap, ref):
         return {"ok": False, "reason": "lap is too short to split"}
 
     trace = delta_trace(lap, ref)
+
+    # Сумма по сегментам ОБЯЗАНА сойтись с разницей кругов. Когда не сходится,
+    # круги не выровнены — например у одного обрезано начало, и недостающее
+    # место заполнено ровной полкой на постоянной скорости. 31.08.2026 такой
+    # круг дал «+19.8с в первом повороте» при разнице круга в одну секунду.
+    # Показать эти числа как ни в чём не бывало хуже, чем не показать ничего.
+    want = (lap.get("lap_time") or 0) - (ref.get("lap_time") or 0)
+    got = trace[-1] if trace else 0.0
+    if abs(got - want) > max(0.15, abs(want) * 0.25):
+        return {"ok": False, "reason":
+                "these two laps do not line up — one of them is missing part "
+                "of the lap, so the per-corner numbers would be made up",
+                "delta": want, "raw_sum": got}
+
     segs = []
     for seg in segments(lap["channels"], n):
         v = verdict(lap, ref, seg, trace)

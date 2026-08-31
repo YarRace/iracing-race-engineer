@@ -201,3 +201,32 @@ def test_two_writers_same_lap_never_corrupt(tmp_path):
         m = laps.load_lap(lap["path"])
         assert len(m["channels"]["speed"]) == laps.POINTS
     assert not list(tmp_path.rglob("*.tmp"))        # временные убраны за собой
+
+
+def test_a_lap_with_missing_telemetry_is_not_saved(tmp_path):
+    """Правильное время круга ещё не значит, что круг годится в эталоны.
+
+    31.08.2026 на диск лёг круг с временем 1:10.27 и телеметрией, начинавшейся
+    с 8.9% дистанции. Недостающее начало `_interp` заполнил ровной полкой на
+    64 км/ч, разбор по поворотам посчитал по ней 19.8 секунды потерь — при
+    разнице круга в одну секунду. Проверять надо не только время.
+    """
+    frames = [{"lap_dist_pct": 0.089 + i * (0.911 / 199), "t": i * 0.35,
+               "speed": 60.0, "throttle": 1.0, "brake": 0.0, "steer": 0.0,
+               "gear": 5, "lat_accel": 0.0, "long_accel": 0.0, "yaw_rate": 0.0,
+               "fuel": 50.0, "track_temp": 30.0, "air_temp": 22.0}
+              for i in range(200)]
+    assert laps.save_lap(tmp_path, IDENT, 4, 70.0, frames) is None
+    assert laps.list_laps(tmp_path) == []
+
+
+def test_a_complete_lap_still_saves(tmp_path):
+    frames = [{"lap_dist_pct": i / 199, "t": i * 0.35,
+               "speed": 60.0, "throttle": 1.0, "brake": 0.0, "steer": 0.0,
+               "gear": 5, "lat_accel": 0.0, "long_accel": 0.0, "yaw_rate": 0.0,
+               "fuel": 50.0, "track_temp": 30.0, "air_temp": 22.0}
+              for i in range(200)]
+    assert laps.save_lap(tmp_path, IDENT, 4, 70.0, frames) is not None
+    got = laps.list_laps(tmp_path)
+    assert len(got) == 1
+    assert got[0]["covers"][0] < 0.01 and got[0]["covers"][1] > 0.99
