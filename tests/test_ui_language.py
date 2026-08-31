@@ -123,3 +123,30 @@ def test_catalog_matches_the_code():
     keys = {w["key"] for w in json.loads(cat.read_text(encoding="utf-8"))["widgets"]}
     assert keys == {c.KEY for c in WIDGETS}, \
         "каталог разошёлся с реестром: python tools/build_catalog.py"
+
+
+def test_a_widget_snapshot_shows_the_widget_with_its_own_backdrop():
+    """Снимок должен показывать виджет ТАКИМ, какой он на экране.
+
+    Раньше снималось голое draw(), а подложку рисует paintEvent, — и снимок
+    выходил полностью прозрачным. Галерея для того и нужна, чтобы узнать
+    виджет в лицо, а показывала она не его: на светлом фоне белый текст
+    просто исчезал.
+
+    Проверяем угол картинки: там, где виджет ничего не пишет, обязана быть
+    подложка, а не пустота.
+    """
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    pytest.importorskip("PySide6")
+    from PySide6.QtGui import QImage
+
+    shot = ROOT / "docs" / "widgets" / "fuel.png"
+    if not shot.exists():
+        pytest.skip("снимки не собраны")
+    im = QImage(str(shot))
+    assert not im.isNull(), "снимок не читается"
+
+    # Середина картинки — заведомо внутри подложки, подальше от скруглений.
+    mid = im.pixelColor(im.width() // 2, int(im.height() * 0.75))
+    assert mid.alpha() > 100, "снимок прозрачный — подложка не нарисована"
