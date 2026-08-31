@@ -48,6 +48,9 @@ COLUMNS = {
     "Speed": "speed", "Throttle": "throttle", "Brake": "brake",
     "SteeringWheelAngle": "steer", "Gear": "gear",
     "LatAccel": "lat_accel", "LongAccel": "long_accel", "YawRate": "yaw_rate",
+    # Координаты — тем же именем, что и у своих кругов, чтобы разбор
+    # траектории не разбирал, откуда круг приехал.
+    "Lat": "lat", "Lon": "lon",
 }
 
 
@@ -343,7 +346,12 @@ def best_reference(track, car=None, tries=4, slower_than=None):
     cand = [x for x in listing["laps"]
             if x["telemetry"] and isinstance(x["lap_time"], (int, float))]
     if slower_than:
-        cand = [x for x in cand if x["lap_time"] < slower_than]
+        # Быстрее твоего — предпочтительно. Но если быстрее нет (ты первый
+        # в таблице), сравнение всё равно полезно: в ОТДЕЛЬНЫХ поворотах
+        # человек медленнее тебя кругом вполне мог проехать лучше. Пустой
+        # ответ «эталона нет» здесь был бы отказом там, где есть что сказать.
+        faster = [x for x in cand if x["lap_time"] < slower_than]
+        cand = faster or [x for x in cand if abs(x["lap_time"] - slower_than) > 1e-6]
     if not cand:
         return None, "no laps with telemetry on this track and car"
     for meta in cand[:tries]:

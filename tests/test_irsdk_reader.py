@@ -23,3 +23,43 @@ def test_normalize_maps_raw_to_contract():
     assert f["tires"]["LR"]["tm"] == 86
     assert f["shock_defl"]["RR"] == 0.021
     assert f["track_temp"] == 40.0
+
+
+def test_missing_coordinates_do_not_break_the_frame():
+    """Координаты машины могут не публиковаться сессией. Кадр читается
+    шестьдесят раз в секунду — падать из-за отсутствующего канала нельзя.
+    """
+    from config.channels import SHOCK_DEFL, TIRE_TEMP
+    raw = {
+        "SessionTime": 1.0, "Lap": 1, "LapDistPct": 0.1, "Speed": 50.0,
+        "Throttle": 1.0, "Brake": 0.0, "SteeringWheelAngle": 0.0,
+        "LatAccel": 0.0, "LongAccel": 0.0, "YawRate": 0.0, "Gear": 3,
+        "FuelLevel": 40.0, "TrackSurfaceTemp": 30.0, "TrackAirTemp": 20.0,
+    }
+    for c, t in TIRE_TEMP.items():
+        for name in t:
+            raw[name] = 80.0
+    for c, v in SHOCK_DEFL.items():
+        raw[v] = 0.01
+
+    f = normalize_frame(lambda k: raw[k])          # словарь бросит KeyError на Lat
+    assert f["lat"] is None and f["lon"] is None
+    assert f["speed"] == 50.0                      # остальное на месте
+
+
+def test_coordinates_are_passed_through_when_present():
+    from config.channels import SHOCK_DEFL, TIRE_TEMP
+    raw = {
+        "SessionTime": 1.0, "Lap": 1, "LapDistPct": 0.1, "Speed": 50.0,
+        "Throttle": 1.0, "Brake": 0.0, "SteeringWheelAngle": 0.0,
+        "LatAccel": 0.0, "LongAccel": 0.0, "YawRate": 0.0, "Gear": 3,
+        "FuelLevel": 40.0, "TrackSurfaceTemp": 30.0, "TrackAirTemp": 20.0,
+        "Lat": 34.15, "Lon": -83.81,
+    }
+    for c, t in TIRE_TEMP.items():
+        for name in t:
+            raw[name] = 80.0
+    for c, v in SHOCK_DEFL.items():
+        raw[v] = 0.01
+    f = normalize_frame(lambda k: raw[k])
+    assert f["lat"] == 34.15 and f["lon"] == -83.81

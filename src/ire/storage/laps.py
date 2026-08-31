@@ -36,6 +36,12 @@ MIN_COVERAGE = 0.92        # доля круга, которую телемет�
 CHANNELS = ("speed", "throttle", "brake", "steer", "gear",
             "lat_accel", "long_accel", "yaw_rate")
 
+# Координаты машины. Отдельно от CHANNELS, потому что их может не быть:
+# старые круги записаны без них, а новые появятся только после того, как
+# сим отдаст Lat/Lon. Ради них весь разбор траектории и нужен — без
+# координат «твоя линия против эталонной» рисовать не из чего.
+OPTIONAL = ("lat", "lon")
+
 
 def default_root():
     """data/laps рядом с базой истории."""
@@ -106,6 +112,16 @@ def resample(frames, points=POINTS):
     out = {}
     for ch in CHANNELS:
         ys = [_num(f.get(ch)) for _, f in pts]
+        out[ch] = [_interp(xs, ys, i / (points - 1)) for i in range(points)]
+
+    # Координаты пишем ТОЛЬКО если они реально есть. Иначе на диск лягут
+    # тысяча нулей на канал, и круг без траектории станет неотличим
+    # от круга с траекторией посреди Гвинейского залива.
+    for ch in OPTIONAL:
+        vals = [f.get(ch) for _, f in pts]
+        if not any(isinstance(v, (int, float)) and v not in (0, 0.0) for v in vals):
+            continue
+        ys = [_num(v) for v in vals]
         out[ch] = [_interp(xs, ys, i / (points - 1)) for i in range(points)]
     return out
 

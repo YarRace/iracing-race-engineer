@@ -133,13 +133,89 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
     if ref_meta is None:
         return {"ok": False, "reason": "no second lap on this track and car yet"}
 
-    res = C.analyse(L.load_lap(lap_meta["path"]), L.load_lap(ref_meta["path"]))
+    mine = L.load_lap(lap_meta["path"])
+    res = C.analyse(mine, L.load_lap(ref_meta["path"]))
+
+    # Свой эталон не подошёл (у одного из кругов обрезана телеметрия) —
+    # пробуем Garage 61, прежде чем показать отказ. Отказ верен, но это
+    # тупик: рядом лежит круг, с которым сравнение получится.
+    if not res.get("ok") and not ref:
+        from ire.collector import garage61 as G
+        if G.available():
+            g, _ = G.best_reference(mine.get("track"), mine.get("car"),
+                                    slower_than=mine.get("lap_time"))
+            if g:
+                alt = C.analyse(mine, g)
+                if alt.get("ok"):
+                    alt["lap_file"] = os.path.basename(lap_meta["path"])
+                    alt["ref_file"] = f"g61:{g.get('g61_id')}"
+                    alt["ref_driver"] = g.get("driver")
+                    alt["ref_source"] = "Garage 61"
+                    alt["fell_back"] = res.get("reason", "")
+                    return alt
+
     # Какие круги ВЗЯЛИ на самом деле. Без этого выпадашки на странице
     # показывают первый круг списка, пока человек не выбрал сам, — и врут:
     # в шапке одно время, в выборе другое.
     res["lap_file"] = os.path.basename(lap_meta["path"])
     res["ref_file"] = os.path.basename(ref_meta["path"])
     return res
+
+
+@app.get("/api/corners/line")
+def corner_line(seg: int = Query(0), lap: str = Query(""), ref: str = Query("")):
+    """Две траектории в одном повороте: твоя и эталонная.
+
+    Отдельным запросом, а не внутри разбора: линия нужна только когда её
+    смотрят, а весит она больше, чем весь остальной ответ.
+    """
+    from ire.metrics import corners as C
+
+    res = corners_analysis(lap=lap, ref=ref)
+    if not res.get("ok") or not res.get("has_line"):
+        return {"ok": False, "reason": res.get("reason") or "no coordinates in these laps"}
+    segs = res.get("segments") or []
+    if not segs:
+        return {"ok": False, "reason": "no corners"}
+    i = max(0, min(int(seg), len(segs) - 1))
+    ln = _line_for(lap, ref, segs[i])
+    if not ln:
+        return {"ok": False, "reason": "could not build the line"}
+    return {"ok": True, "corner": segs[i]["index"], **ln}
+
+
+def _line_for(lap, ref, seg):
+    """Достаёт оба круга ещё раз и строит линию. Дублирует загрузку, но
+    делает это ТОЛЬКО когда линию действительно попросили."""
+    from ire.metrics import corners as C
+    from ire.storage import laps as L
+
+    meta = L.list_laps(L.default_root())
+    if not meta:
+        return None
+
+    def load(which, fallback):
+        if which.startswith("g61:"):
+            from ire.collector import garage61 as G
+            return G.load_cached(which.split(":", 1)[1])
+        safe = os.path.basename(which) if which else ""
+        hit = next((m for m in meta if os.path.basename(m["path"]) == safe), fallback)
+        return L.load_lap(hit["path"]) if hit else None
+
+    latest = max(meta, key=lambda m: m.get("ts") or "")
+    a = load(lap, latest)
+    if ref.startswith("g61"):
+        from ire.collector import garage61 as G
+        _, _, want = ref.partition(":")
+        b = G.load_cached(want) if want else None
+        if b is None:
+            b, _ = G.best_reference(a.get("track"), a.get("car"),
+                                    slower_than=a.get("lap_time"))
+    else:
+        b = load(ref, C.pick_reference(meta, {**(a or {}), "path": ""}))
+    if not a or not b:
+        return None
+    return C.line(a, b, seg)
 
 
 @app.get("/api/garage61")

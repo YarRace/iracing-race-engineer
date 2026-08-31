@@ -1600,6 +1600,16 @@ async function tickCorners(){
   let laps = _cornerLaps;
   if(laps === null){
     try{ laps = await (await fetch('/api/laps')).json(); }catch{ laps = []; }
+    // Круги Garage 61 идут в тот же список эталонов: сравнивать с чужим
+    // быстрым кругом — главное, ради чего он вообще подключён, и прятать
+    // это за отдельной кнопкой значит спрятать насовсем.
+    try{
+      const g = await (await fetch('/api/garage61')).json();
+      (g.laps||[]).filter(x=>x.telemetry).slice(0, 10).forEach(x=>{
+        laps.push({file: 'g61:' + x.id, lap_time: x.lap_time, car: x.car,
+                   ts: '', driver: x.driver, g61: true});
+      });
+    }catch{}
     _cornerLaps = laps;
   }
   const sig = JSON.stringify([r.ok, r.lap_time, r.ref_time, (r.segments||[]).length,
@@ -1620,8 +1630,9 @@ function cornerPicker(laps, chose){
   const pick = {lap: _cornerPick.lap || (chose||{}).lap_file || '',
                 ref: _cornerPick.ref || (chose||{}).ref_file || ''};
   const opt = (sel) => laps.map(l=>{
-    const t = lapTime(l.lap_time), when = (l.ts||'').slice(5,16).replace('T',' ');
-    return `<option value="${l.file}" ${l.file===sel?'selected':''}>${t} · ${when} · ${l.car||''}</option>`;
+    const t = lapTime(l.lap_time);
+    const who = l.g61 ? `Garage 61 · ${l.driver}` : (l.ts||'').slice(5,16).replace('T',' ');
+    return `<option value="${l.file}" ${l.file===sel?'selected':''}>${t} · ${who} · ${l.car||''}</option>`;
   }).join('');
   return `<div class="mini" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
     <label class="tire"><div class="cn">This lap</div>
@@ -1698,6 +1709,9 @@ function renderCorners(r, laps){
     bindCornerPicker();
     return;
   }
+  const fell = r.fell_back ? `<div class="why" style="color:var(--warn);margin-bottom:8px">
+      Your own reference lap could not be used (${r.fell_back}) — comparing
+      against ${r.ref_driver||'Garage 61'} instead.</div>` : '';
   const d = r.delta;
   const dCol = d > 0 ? 'var(--bad)' : 'var(--good)';
   const head = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">
@@ -1719,9 +1733,12 @@ function renderCorners(r, laps){
       <td>${s.text}</td></tr>`;
   }).join('');
 
-  el.innerHTML = cornerPicker(laps, r) + head + bars +
+  const seg = Math.min(_cornerSeg, (r.segments||[]).length - 1);
+  el.innerHTML = cornerPicker(laps, r) + fell + head + bars +
     `<table style="width:100%;border-collapse:collapse;font-size:13px">${rows}</table>` +
-    cornerChart(r, Math.min(_cornerSeg, (r.segments||[]).length - 1));
+    cornerChart(r, seg) + pedalChart(r, seg) +
+    (r.has_line ? `<div id="corner_line" class="why">Loading the racing line…</div>` : '');
+  if(r.has_line) safe(loadLine, seg);
   bindCornerPicker();
   el.querySelectorAll('.segbtn').forEach(b=>{
     b.onclick = ()=>{ _cornerSeg = +b.dataset.seg; _cornerSig = null; tickCorners(); };
@@ -1732,6 +1749,57 @@ function renderCorners(r, laps){
     tr.style.cursor = 'pointer';
     tr.onclick = ()=>{ _cornerSeg = +tr.dataset.seg; _cornerSig = null; tickCorners(); };
   });
+}
+
+// Второй график — педали под скоростью. По одной скорости не отличить
+// «затормозил раньше» от «затормозил слабее»: кривая одна и та же, а
+// причина разная, и лечится по-разному.
+function pedalChart(r, i){
+  const seg = (r.segments||[])[i];
+  if(!seg || !r.brake || !r.brake.length) return '';
+  const cut = (arr) => arr.slice(seg.start, seg.end);
+  const ba = cut(r.brake), bb = cut(r.ref_brake);
+  const ta = cut(r.throttle), tb = cut(r.ref_throttle);
+  if(ba.length < 2) return '';
+  const W = 620, H = 90, pad = 26;
+  const x = k => pad + k * (W - pad*2) / (ba.length - 1);
+  const y = v => H - 12 - Math.max(0, Math.min(1, v)) * (H - 26);
+  const line = arr => arr.map((v,k)=> `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return `<div style="margin-top:6px">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+      <polyline points="${line(tb)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <polyline points="${line(bb)}" fill="none" stroke="#7a4b4b" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <polyline points="${line(ta)}" fill="none" stroke="var(--good)" stroke-width="2"/>
+      <polyline points="${line(ba)}" fill="none" stroke="var(--bad)" stroke-width="2"/>
+    </svg>
+    <div class="why"><b style="color:var(--good)">throttle</b> and
+      <b style="color:var(--bad)">brake</b> — solid is you, dashed is the reference.</div>
+  </div>`;
+}
+
+// Траектория запрашивается отдельно: она весит больше, чем весь остальной
+// разбор, а нужна только когда на неё смотрят.
+async function loadLine(seg){
+  const box = $('corner_line'); if(!box) return;
+  const q = new URLSearchParams({seg});
+  if(_cornerPick.lap) q.set('lap', _cornerPick.lap);
+  if(_cornerPick.ref) q.set('ref', _cornerPick.ref);
+  let r; try{ r = await (await fetch('/api/corners/line?'+q)).json(); }catch{ return; }
+  if(!r || !r.ok || !(r.you||[]).length){
+    box.innerHTML = `<span class="why">${r && r.reason ? r.reason : 'no racing line'}</span>`;
+    return;
+  }
+  const path = pts => pts.map(p=>`${p[0]},${p[1]}`).join(' ');
+  box.innerHTML = `<div style="display:flex;gap:14px;align-items:center;margin-top:10px">
+    <svg viewBox="0 0 100 100" style="width:200px;height:200px;flex:none">
+      <polyline points="${path(r.ref)}" fill="none" stroke="var(--muted)"
+        stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="${path(r.you)}" fill="none" stroke="var(--accent)"
+        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="why">Corner ${r.corner}: <b style="color:var(--accent)">your line</b>
+      over <b>the reference</b>. Where the thin line sits outside the thick one,
+      you took a wider path.</div></div>`;
 }
 
 function bindCornerPicker(){

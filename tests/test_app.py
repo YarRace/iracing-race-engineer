@@ -135,3 +135,78 @@ def test_a_dead_engineer_is_shown_not_swallowed(app, tmp_path, monkeypatch):
         assert "порт занят" in w.home.sub.text()
     finally:
         w.close()
+
+
+def test_closing_while_the_news_are_loading_does_not_crash(app, tmp_path, monkeypatch):
+    """Восемь лент ходят по сети секунды. Если за это время закрыть окно,
+    сигнал уходит в удалённый объект — RuntimeError и падение на выходе.
+    """
+    import threading
+
+    import ire.paths as P
+    monkeypatch.setattr(P, "data_dir", lambda: tmp_path)
+    import app as A
+    monkeypatch.setattr(A.Engineer, "start", lambda self: None)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow_load(*a, **k):
+        started.set()
+        release.wait(5)
+        return [{"title": "Norris extends McLaren deal", "summary": "",
+                 "section": "F1", "source": "T", "link": ""}]
+
+    import ire.collector.racenews as N
+    monkeypatch.setattr(N, "load", slow_load)
+
+    w = A.App()
+    w.show_page(3)                        # запускаем загрузку
+    assert started.wait(3), "загрузка не стартовала"
+    w.close()
+    w.news.deleteLater()
+    app.processEvents()
+    release.set()                         # поток отдаёт результат уже в никуда
+    for _ in range(20):
+        app.processEvents()
+    # Дошли сюда — значит поток не уронил приложение.
+
+
+# ── галерея оверлеев картинками ─────────────────────────────────────────────
+
+def test_gallery_is_built_lazily_not_on_startup(panel):
+    """Сорок пять картинок с диска на открытии окна — лишняя секунда
+    на пустом месте: обычно человеку хватает списка."""
+    assert panel._gallery_built is False
+    assert panel.views.currentIndex() == 0
+
+
+def test_switching_to_the_gallery_shows_a_card_per_widget(panel):
+    panel.view_btn.setChecked(True)
+    assert panel._gallery_built and panel.views.currentIndex() == 1
+    grid = panel._gallery.widget().layout()
+    assert grid.count() == len(WIDGETS), "карточек не столько, сколько виджетов"
+    assert panel.view_btn.text() == "list"
+
+
+def test_the_gallery_checkbox_and_the_list_stay_in_sync(panel):
+    """У виджета теперь две галочки — в списке и на карточке. Разъедутся —
+    и человек будет видеть разное в двух местах одного окна."""
+    panel.view_btn.setChecked(True)
+    panel._boxes["fuel"].setChecked(True)
+
+    grid = panel._gallery.widget().layout()
+    boxes = [w for i in range(grid.count())
+             for w in grid.itemAt(i).widget().findChildren(type(panel._boxes["fuel"]))]
+    assert any(b.isChecked() for b in boxes), "галочка на карточке не отразилась"
+
+
+def test_a_missing_snapshot_does_not_break_the_gallery(panel, monkeypatch, tmp_path):
+    """Снимки собирать необязательно. Галерея без картинок хуже, чем
+    с картинками, но лучше, чем пустая колонка."""
+    import ire.paths as P
+    monkeypatch.setattr(P, "res_root", lambda: tmp_path)     # снимков там нет
+    panel._gallery_built = False
+    panel._build_gallery()
+    grid = panel._gallery.widget().layout()
+    assert grid.count() == len(WIDGETS)

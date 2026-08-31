@@ -20,9 +20,11 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel,
                                QFrame, QScrollArea, QPushButton, QSlider, QComboBox,
-                               QInputDialog, QLineEdit, QSizePolicy, QSplitter)
+                               QInputDialog, QLineEdit, QSizePolicy, QSplitter,
+                               QGridLayout, QStackedWidget)
 
 from overlay.hotkey import GlobalHotkey
 from overlay.preview import BACKDROPS, PreviewCanvas
@@ -130,13 +132,13 @@ class ControlPanel(QWidget):
         root.setSpacing(8)
         root.addLayout(self._build_header())
 
-        split = QSplitter(Qt.Horizontal)
-        split.addWidget(self._build_list(widget_classes))
-        split.addWidget(self._build_preview())
-        split.addWidget(self._build_settings())
-        split.setSizes([250, 610, 320])
-        split.setStretchFactor(1, 1)
-        root.addWidget(split, 1)
+        self.split = QSplitter(Qt.Horizontal)
+        self.split.addWidget(self._build_list(widget_classes))
+        self.split.addWidget(self._build_preview())
+        self.split.addWidget(self._build_settings())
+        self.split.setSizes([250, 610, 320])
+        self.split.setStretchFactor(1, 1)
+        root.addWidget(self.split, 1)
 
         root.addWidget(self._build_footer())
 
@@ -189,7 +191,19 @@ class ControlPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 8, 0)
         lay.setSpacing(6)
-        lay.addWidget(QLabel("OVERLAYS", objectName="colhead"))
+        head = QHBoxLayout()
+        head.setContentsMargins(0, 0, 0, 0)
+        head.addWidget(QLabel("OVERLAYS", objectName="colhead"))
+        head.addStretch(1)
+        # Список — быстро искать, галерея — узнавать в лицо. У RaceLab
+        # только карточки, но сорок пять картинок листать дольше, чем
+        # набрать три буквы. Поэтому оба вида и переключатель.
+        self.view_btn = QPushButton("gallery", objectName="link")
+        self.view_btn.setCheckable(True)
+        self.view_btn.setCursor(Qt.PointingHandCursor)
+        self.view_btn.toggled.connect(self._toggle_view)
+        head.addWidget(self.view_btn)
+        lay.addLayout(head)
 
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search overlays…")
@@ -249,8 +263,89 @@ class ControlPanel(QWidget):
                     self.toggle(cls, True)
         il.addStretch(1)
         scroll.setWidget(inner)
-        lay.addWidget(scroll, 1)
+
+        # Два вида в стопке: список и галерея. Галерея строится ЛЕНИВО,
+        # при первом показе — сорок пять картинок с диска на старте окна
+        # это лишняя секунда на пустом месте.
+        self.views = QStackedWidget()
+        self.views.addWidget(scroll)
+        self._gallery = QScrollArea()
+        self._gallery.setWidgetResizable(True)
+        self.views.addWidget(self._gallery)
+        self._gallery_built = False
+        lay.addWidget(self.views, 1)
         return box
+
+    def _toggle_view(self, gallery):
+        """Галерея шире списка: карточка со снимком в колонку на 250 пикселей
+        не помещается — картинка обрезается ровно там, где на неё смотрят.
+        Поэтому вместе с видом меняется и ширина колонки."""
+        self.view_btn.setText("list" if gallery else "gallery")
+        if gallery and not self._gallery_built:
+            self._build_gallery()
+        self.views.setCurrentIndex(1 if gallery else 0)
+        total = sum(self.split.sizes()) or self.width() or 1180
+        if gallery:
+            self.split.setSizes([380, max(300, total - 700), 320])
+        else:
+            self.split.setSizes([250, max(300, total - 570), 320])
+
+    def _build_gallery(self):
+        """Карточки со снимками виджетов — узнать в лицо, а не по названию.
+
+        Снимки те же, что на сайте (docs/widgets/*.png, tools/render_widgets.py).
+        Нет файла — карточка всё равно есть, просто без картинки: галерея
+        не должна разваливаться оттого, что снимки не собирали.
+        """
+        from ire import paths
+        self._gallery_built = True
+        shots = paths.res_root() / "docs" / "widgets"
+
+        inner = QWidget()
+        grid = QGridLayout(inner)
+        grid.setContentsMargins(0, 0, 6, 0)
+        grid.setSpacing(8)
+        for i, (key, cls) in enumerate(sorted(self._cls_by_key.items(),
+                                              key=lambda kv: kv[1].TITLE.lower())):
+            card = QFrame(objectName="card")
+            v = QVBoxLayout(card)
+            v.setContentsMargins(8, 8, 8, 8)
+            v.setSpacing(4)
+            pic = QLabel()
+            pic.setAlignment(Qt.AlignCenter)
+            pic.setMinimumHeight(64)
+            f = shots / f"{key}.png"
+            if f.exists():
+                pm = QPixmap(str(f))
+                if not pm.isNull():
+                    # Ширина под ячейку сетки, а не «на глаз»: карточка
+                    # шире колонки обрезается ровно там, куда смотрят.
+                    pic.setPixmap(pm.scaledToWidth(155, Qt.SmoothTransformation))
+            else:
+                pic.setText("no snapshot")
+                pic.setObjectName("hint")
+            v.addWidget(pic)
+
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            cb = QCheckBox()
+            cb.setChecked(self.config.is_enabled(key))
+            cb.setToolTip("Include in the layout")
+            cb.toggled.connect(lambda on, c=cls: self.toggle(c, on))
+            self._boxes[key].toggled.connect(
+                lambda on, box=cb: (box.blockSignals(True), box.setChecked(on),
+                                    box.blockSignals(False)))
+            row.addWidget(cb)
+            name = QPushButton(_btn_text(cls.TITLE), objectName="row")
+            name.setCursor(Qt.PointingHandCursor)
+            name.clicked.connect(lambda _=False, k=key: self.select(k))
+            row.addWidget(name, 1)
+            v.addLayout(row)
+            grid.addWidget(card, i // 2, i % 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        grid.setRowStretch(grid.rowCount(), 1)
+        self._gallery.setWidget(inner)
 
     def _build_row(self, cls):
         """Строка списка: галочка «включён» + кнопка выбора для предпросмотра."""

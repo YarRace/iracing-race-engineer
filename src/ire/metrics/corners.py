@@ -13,8 +13,11 @@ iRacing: поворот — там, где машина реально груж�
 дистанции (`storage/laps.py`, 1000 точек): в каждой точке трассы сравнимы
 скорости, а не «примерно в этом месте».
 
-Чего здесь нет намеренно: траектории. Lat/Lon в кадре круга не пишутся,
-и рисовать «твоя линия против эталонной» было бы выдумкой.
+Траектория сравнивается, КОГДА координаты есть у обоих кругов. Круги
+Garage 61 несут Lat/Lon всегда; свои — с 31.08.2026, когда координаты
+добавили в запись. Старый круг без координат не ломает разбор: линия
+просто не рисуется, а цифры остаются те же. Выдумывать линию по кругу,
+где её нет, нельзя — на неё будут смотреть и делать выводы.
 """
 from __future__ import annotations
 
@@ -278,6 +281,7 @@ def analyse(lap, ref):
         "ref_throttle": _clean(ref["channels"].get("throttle") or [], n),
         "brake": _clean(lap["channels"].get("brake") or [], n),
         "ref_brake": _clean(ref["channels"].get("brake") or [], n),
+        "has_line": has_line(lap) and has_line(ref),
     }
 
 
@@ -295,3 +299,57 @@ def pick_reference(laps_meta, lap_meta):
     if not same:
         return None
     return min(same, key=lambda m: m["lap_time"])
+
+
+def has_line(lap):
+    """Есть ли у круга траектория. Проверяем не наличие ключа, а данные:
+    канал из тысячи нулей — это не траектория, это её отсутствие."""
+    ch = (lap or {}).get("channels") or {}
+    lat, lon = ch.get("lat"), ch.get("lon")
+    if not lat or not lon or len(lat) != len(lon):
+        return False
+    return any(abs(v) > 1e-6 for v in lat[:200])
+
+
+def line(lap, ref, seg=None):
+    """Две траектории в общих координатах — «твоя линия против эталонной».
+
+    Проекция та же, что у карты: долгота на косинус широты. Обе линии
+    нормируются ВМЕСТЕ и по одному масштабу — иначе они лягут друг на
+    друга идеально и разницы, ради которой всё считается, не будет видно.
+    """
+    if not (has_line(lap) and has_line(ref)):
+        return None
+    a, b = lap["channels"], ref["channels"]
+    n = min(len(a["lat"]), len(b["lat"]))
+    lo, hi = (seg["start"], min(seg["end"], n)) if seg else (0, n)
+    if hi - lo < 8:
+        return None
+
+    pts_a = [(a["lat"][i], a["lon"][i]) for i in range(lo, hi)]
+    pts_b = [(b["lat"][i], b["lon"][i]) for i in range(lo, hi)]
+    both = [p for p in pts_a + pts_b if abs(p[0]) > 1e-6]
+    if len(both) < 8:
+        return None
+
+    lat0 = sum(p[0] for p in both) / len(both)
+    k = math.cos(math.radians(lat0))
+    xs = [p[1] * k for p in both]
+    ys = [-p[0] for p in both]
+    minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
+    w = (maxx - minx) or 1e-9
+    h = (maxy - miny) or 1e-9
+    scale = 90.0 / max(w, h)
+    ox = (100 - w * scale) / 2
+    oy = (100 - h * scale) / 2
+
+    def to_xy(pts):
+        out = []
+        for la, lo_ in pts:
+            if abs(la) <= 1e-6:
+                continue
+            out.append([round(ox + (lo_ * k - minx) * scale, 2),
+                        round(oy + (-la - miny) * scale, 2)])
+        return out
+
+    return {"you": to_xy(pts_a), "ref": to_xy(pts_b)}

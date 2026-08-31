@@ -287,6 +287,8 @@ class News(QWidget):
         self._rows = None
         self._section = ""
         self._loading = False
+        self._alive = True
+        self.destroyed.connect(lambda: setattr(self, "_alive", False))
         self.loaded.connect(self._draw)
         self.lay.addWidget(QLabel("Loading…", objectName="dim"))
 
@@ -302,7 +304,15 @@ class News(QWidget):
             except Exception:                                    # noqa: BLE001
                 rows = []
             self._rows = rows
-            self.loaded.emit()
+            # Окно могли закрыть, пока восемь лент ходили по сети. Сигнал
+            # в удалённый объект — это RuntimeError и падение приложения
+            # на выходе; ловим оба признака: свой флаг и саму ошибку Qt.
+            if not self._alive:
+                return
+            try:
+                self.loaded.emit()
+            except RuntimeError:
+                pass
 
         threading.Thread(target=work, daemon=True).start()
 
