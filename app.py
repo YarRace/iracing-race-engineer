@@ -224,22 +224,34 @@ class Home(QWidget):
         self._who_done = True
 
         def work():
+            # Сначала официальный iRacing — там настоящий iRating и лицензия.
             try:
                 from ire.collector import iracing_api as IR
-                if not IR.available():
-                    return
-                p = IR.profile()
+                if IR.available():
+                    p = IR.profile()
+                    if p.get("ok"):
+                        best = max((x for x in p.get("licenses") or []
+                                    if isinstance(x.get("irating"), int)),
+                                   key=lambda x: x["irating"], default=None)
+                        text = p.get("name") or ""
+                        if best:
+                            text += (f"  ·  {best['category']} {best['irating']} iR"
+                                     f"  ·  {best['licence']}")
+                        self._who_text = text
+                        return
             except Exception:                                    # noqa: BLE001
-                return
-            if not p.get("ok"):
-                return
-            best = max((x for x in p.get("licenses") or []
-                        if isinstance(x.get("irating"), int)),
-                       key=lambda x: x["irating"], default=None)
-            text = p.get("name") or ""
-            if best:
-                text += f"  ·  {best['category']} {best['irating']} iR  ·  {best['licence']}"
-            self._who_text = text
+                pass
+            # Не вышло (сейчас у них закрыт вход) — берём рейтинг из Garage 61.
+            # Это ДРУГОЕ число, не iRating, и подписано оно честно: назвать
+            # его iRating значило бы соврать в одну строчку.
+            try:
+                from ire.collector import garage61 as G
+                r = G.my_rating()
+            except Exception:                                    # noqa: BLE001
+                r = None
+            if r:
+                self._who_text = (f"{r['name']}  ·  {r['rating']} "
+                                  f"Garage 61 rating  ·  as of {r['when']}")
 
         threading.Thread(target=work, daemon=True).start()
 

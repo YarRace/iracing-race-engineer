@@ -172,3 +172,48 @@ def test_rate_limiting_is_told_apart_from_a_wrong_password(tmp_path, monkeypatch
     c.opener.open = boom
     assert c.login() is False
     assert "rate-limiting" in c.error
+
+
+def test_the_garage61_rating_is_never_called_irating(tmp_path, monkeypatch):
+    """Garage 61 отдаёт driverRating — число другой природы, чем iRating.
+    Подписать его словом «iRating» значило бы соврать в одну строчку ровно
+    там, где человек сравнивает себя с другими.
+
+    Проверяется ПОВЕДЕНИЕ, а не соседний текст в файле: первая версия этого
+    теста смотрела на окно исходника и ловила соседнюю ветку, где про
+    настоящий iRating написано законно.
+    """
+    import os
+    import time
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    import pytest
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+
+    sys.path.insert(0, str(ROOT))
+    import ire.paths as P
+    monkeypatch.setattr(P, "data_dir", lambda: tmp_path)
+    import app as A
+    from ire.collector import garage61 as G
+
+    monkeypatch.setattr(api, "available", lambda: False)      # официальный закрыт
+    monkeypatch.setattr(G, "my_rating", lambda *a, **k: {
+        "rating": 3287, "name": "Ярослав Чижов", "when": "2026-08-21",
+        "source": "Garage 61 driver rating"})
+    monkeypatch.setattr(A.Engineer, "start", lambda self: None)
+
+    w = A.App()
+    try:
+        w.home._draw_who()
+        for _ in range(200):
+            if getattr(w.home, "_who_text", ""):
+                break
+            time.sleep(0.02)
+        text = getattr(w.home, "_who_text", "")
+    finally:
+        w.close()
+
+    assert "3287" in text, f"рейтинг не показан вовсе: {text!r}"
+    assert "Garage 61" in text, f"не сказано, откуда число: {text!r}"
+    assert "iRating" not in text and " iR" not in text,         f"рейтинг Garage 61 подписан как iRating: {text!r}"

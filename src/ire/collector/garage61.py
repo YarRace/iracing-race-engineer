@@ -41,6 +41,7 @@ BASE = "https://garage61.net/api/v1"
 CATALOG_TTL = 7 * 24 * 3600        # справочник трасс и машин меняется раз в сезон
 LAP_TIMEOUT = 200                  # с: CSV сервер собирает на лету
 LIST_TIMEOUT = 40
+RATING_TTL = 24 * 3600            # рейтинг меняется после гонки, не при каждом открытии окна
 
 # Колонка CSV → наш канал. Совпадает с laps.CHANNELS, чтобы разбор по
 # поворотам работал с чужим кругом ровно так же, как со своим.
@@ -429,6 +430,11 @@ def leaderboard(track, car=None, season=None, limit=100, clean_only=True):
             "is_me": bool(mine) and d.get("id") == mine,
             "lap_time": lt,
             "car": (x.get("car") or {}).get("name"),
+            # driverRating — рейтинг пилота на момент круга. Не iRating
+            # (тот только у самого iRacing), но того же порядка и той же
+            # природы: пока официальный вход у них закрыт, это единственное
+            # число, которым можно подписать человека в таблице.
+            "rating": x.get("driverRating"),
             "season": se.get("shortName") or se.get("name") or "",
             "season_id": se.get("id"),
             "when": (x.get("startTime") or "")[:10],
@@ -507,3 +513,65 @@ def sector_table(track, car=None, season=None, limit=60):
             "ideal": round(sum(b["time"] for b in best), 3),
             "mine": my_ranks,
             "my_lap": me["lap_time"] if me else None}
+
+
+def my_rating(track=None, car=None, force=False):
+    """Мой рейтинг по последним кругам в Garage 61.
+
+    Официальный iRating закрыт: iRacing перевёл вход на форму в браузере
+    (см. `collector/iracing_api.py`). Здесь берётся `driverRating` из
+    моих же кругов — число другой природы, и подписывать его словом
+    «iRating» было бы враньём.
+
+    Берём САМЫЙ СВЕЖИЙ круг, а не лучший: рейтинг меняется со временем,
+    и «мой рейтинг» — это последний известный, а не рекордный.
+
+    Ответ кладётся на диск на сутки. Живьём это два запроса и пять секунд,
+    а строка рисуется при каждом открытии главной — без кэша окно каждый
+    раз пять секунд стоит с пустой строкой вместо имени.
+    """
+    cache = _dir() / "garage61_rating.json"
+    if not force:
+        try:
+            if time.time() - cache.stat().st_mtime < RATING_TTL:
+                return json.loads(cache.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+
+    who = (me() or {}).get("id")
+    if not who:
+        return None
+    # /laps ТРЕБУЕТ трассу: без неё сервер отвечает 400, а не пустым списком.
+    # Это записано в шапке модуля, и я же на этом споткнулся — поэтому
+    # трасса берётся из последнего своего круга, когда её не передали.
+    if not track:
+        try:
+            from ire.storage import laps as L
+            saved = L.list_laps(L.default_root())
+            if saved:
+                latest = max(saved, key=lambda m: m.get("ts") or "")
+                track, car = latest.get("track"), car or latest.get("car")
+        except Exception:                                    # noqa: BLE001
+            pass
+    t = find_track(track) if track else None
+    if not t:
+        return None
+    code, data = get("/laps", tracks=t["id"], limit=50)
+    if code != 200:
+        return None
+    mine = [x for x in _items(data)
+            if (x.get("driver") or {}).get("id") == who
+            and isinstance(x.get("driverRating"), int)]
+    if not mine:
+        return None
+    latest = max(mine, key=lambda x: x.get("startTime") or "")
+    out = {"rating": latest["driverRating"],
+           "name": f"{(me() or {}).get('firstName','')} "
+                   f"{(me() or {}).get('lastName','')}".strip(),
+           "when": (latest.get("startTime") or "")[:10],
+           "source": "Garage 61 driver rating"}
+    try:
+        cache.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+    return out
