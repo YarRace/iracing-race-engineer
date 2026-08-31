@@ -29,6 +29,9 @@ from ire.metrics.strategy import StrategyTracker
 from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        fuel_capacity, damage_status, session_identity,
                                        tire_wear_by_corner, session_info)
+from ire.setup.sto_reader import read_sto
+from ire.metrics.tire import tire_metrics
+from ire.metrics.tyres import report as tyre_report
 from ire.collector.race_state import (race_extras, SectorTimer, sector_starts,
                                       sector_view,
                                        build_relative)
@@ -309,6 +312,22 @@ def main():
                         _save_lap_bg(ident, cur_lap, lap_frames)
                     cur_lap = f.get("lap")
                     lap_frames = []
+                    # Свод по шинам пересчитываем РАЗ В КРУГ, а не каждый кадр:
+                    # это средние по всему стинту, за кадр они не меняются, а
+                    # считать их 60 раз в секунду значит отбирать процессор
+                    # у сима без всякой пользы.
+                    if frames:
+                        try:
+                            # Сетап берём прямо из сима: давления в нём
+                            # человек меняет в гараже посреди сессии, и
+                            # прочитанное один раз на старте устарело бы.
+                            fields = read_sto(ir["CarSetup"] or {})["fields"]
+                            STATE["tyres"] = tyre_report(
+                                tire_metrics(frames), fields, frames)
+                        except Exception as e:               # noqa: BLE001
+                            if not getattr(main, "_tyres_warned", False):
+                                print("Tyres: failed to build the report:", e)
+                                main._tyres_warned = True
                 lap_frames.append(f)
             elif state == "closed" and frames:
                 # разбор уходит В ФОН — живой цикл не зависает на время инференса LLM

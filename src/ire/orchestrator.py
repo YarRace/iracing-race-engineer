@@ -1,4 +1,5 @@
 from ire.metrics.symptoms import build_symptoms
+from ire.metrics.tyres import report as tyre_report
 from ire.setup.sto_reader import read_sto
 from ire.setup.sto_writer import build_manual_changes, build_setup_sheet, build_setup_tabs
 from ire.explainer.explainer import explain
@@ -24,6 +25,11 @@ def analyze_stint(frames, setup_path, conditions, identity=None):
         setup_sheet = build_setup_sheet(setup, delta, car=ident.get("car"))  # полный лист-шпаргалка (для скачивания)
     # вкладки — как экран настроек iRacing (показываем всегда, даже без правок)
     setup_tabs = build_setup_tabs(setup, delta)
+    # Свод по шинам считается ЗДЕСЬ, а не в модели: это арифметика по
+    # кромкам протектора, и ответ на неё не должен меняться от запуска к
+    # запуску. Модель объясняет словами, инструмент даёт числа.
+    tyres = tyre_report(symptoms.get("tire"), setup["fields"], frames)
     return {"symptoms": symptoms, "explanation": explanation,
+            "tyres": tyres,
             "manual_changes": manual_changes, "setup_sheet": setup_sheet,
             "setup_tabs": setup_tabs}

@@ -191,6 +191,24 @@ class DemoFeed:
                 "sectors": _demo_sectors(u, el),
             }
 
+        if ep == "tyres":
+            # Правые колёса греют внутреннюю кромку сильнее левых — ровно так
+            # это выглядит в его настоящей телеметрии с Road America.
+            temps = {"LF": (61.2, 60.8, 63.3), "RF": (60.4, 56.7, 53.6),
+                     "LR": (60.7, 61.3, 63.0), "RR": (62.0, 60.3, 54.8)}
+            from ire.metrics.tyres import report as _tyre_report
+            t = {}
+            for c, (l, m, r) in temps.items():
+                inner, outer = (r, l) if c[0] == "L" else (l, r)
+                t[c] = {"tl": l, "tm": m, "tr": r, "inner": inner, "outer": outer,
+                        "spread": round(max(l, m, r) - min(l, m, r), 1)}
+            t["front_rear_balance"] = -1.0
+            return _tyre_report(t, {
+                "TiresAero.LeftFront.StartingPressure": "152 kPa",
+                "TiresAero.RightFront.StartingPressure": "152 kPa",
+                "TiresAero.LeftRear.StartingPressure": "148 kPa",
+                "TiresAero.RightRear.StartingPressure": "148 kPa"})
+
         if ep == "standings":
             rows = []
             for i, (name, ir) in enumerate(DRIVERS):

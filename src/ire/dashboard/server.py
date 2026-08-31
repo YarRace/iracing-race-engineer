@@ -8,7 +8,7 @@ from . import site
 
 app = FastAPI()
 STATE = {"live": {}, "result": {}, "strategy": {}, "damage": {}, "race": {}, "standings": [],
-         "relative": {}, "wear": {}, "session": {}, "trackmap": {}}
+         "relative": {}, "wear": {}, "session": {}, "trackmap": {}, "tyres": {}}
 
 @app.get("/api/live")
 def live(): return STATE["live"]
@@ -73,6 +73,15 @@ def relative(): return STATE["relative"]
 
 @app.get("/api/wear")
 def wear(): return STATE["wear"]
+
+@app.get("/api/tyres")
+def tyres():
+    """Что кромки шин говорят про развал и давление — прямо сейчас.
+
+    Отдельно от /api/wear: износ отвечает «сколько осталось», а это —
+    «правильно ли стоит машина». Разные вопросы и разные карточки.
+    """
+    return STATE["tyres"] or {"ok": False, "reason": "no lap yet"}
 
 @app.get("/api/session")
 def session(): return STATE["session"]

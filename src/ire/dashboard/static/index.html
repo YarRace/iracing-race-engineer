@@ -363,6 +363,10 @@
         <h2>🌡️ Tire temps (for setup)</h2>
         <div id="s_tires"><div class="empty">Appear after a stint.</div></div>
       </div>
+      <div class="card" data-card="s_tyretool" data-title="🔧 Tyre tool">
+        <h2>🔧 Tyre tool — camber and pressure</h2>
+        <div id="s_tyretool"><div class="empty">Appears after a lap on track.</div></div>
+      </div>
       <div class="card" data-card="s_symptoms" data-title="🧩 Symptoms">
         <h2>🧩 Symptoms — understeer / oversteer</h2>
         <div id="s_symptoms"><div class="empty">Appear after the stint analysis.</div></div>
@@ -384,7 +388,9 @@
       </div>
       <div class="card" data-card="s_notes" data-title="📝 Setup notes">
         <h2>📝 Setup notes</h2>
-        <textarea id="s_notes_txt" placeholder="What I changed and how it felt:\n- front pressure −4 kPa → turns in better\n- rear ARB stiffer → less oversteer" style="width:100%;min-height:110px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+        <textarea id="s_notes_txt" placeholder="What I changed and how it felt:
+- front pressure −4 kPa → turns in better
+- rear ARB stiffer → less oversteer" style="width:100%;min-height:110px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
         <div class="why" style="margin-top:6px">Saved in your browser.</div>
       </div>
     </div>
@@ -706,6 +712,50 @@ function renderWear(w){
       <div class="bar" style="height:8px;margin-top:4px"><span style="width:${pct||0}%;background:${col};display:block;height:100%"></span></div></div>`; };
   $('wear').innerHTML = `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`;
 }
+// Tyre tool: что кромки протектора говорят про развал и давление.
+// Число ВСЕГДА рядом с вердиктом. Полосы измерены по 32 сессиям Ярослава на
+// двух машинах — это не универсальная истина, и если полоса ошибётся, число
+// всё равно останется верным.
+const TYRE_NAME = {LF:'Front left', RF:'Front right', LR:'Rear left', RR:'Rear right'};
+const TYRE_COL = {too_much:'var(--bad)', not_enough:'var(--bad)',
+                  working:'var(--good)', even:'var(--muted)', unknown:'var(--muted)',
+                  high:'var(--bad)', low:'var(--bad)'};
+
+function renderTyreTool(r){
+  const el = $('s_tyretool'); if(!el) return;
+  if(!r || !r.ok){
+    // Причина, а не молчание: «машина не выезжала» и «нет данных» — разные
+    // вещи, и во втором случае человек пойдёт искать поломку.
+    el.innerHTML = `<div class="empty">${r && r.reason ? r.reason : 'Appears after a lap on track.'}</div>`;
+    return;
+  }
+  const cells = ['LF','RF','LR','RR'].map(k=>{
+    const v = r.corners[k] || {};
+    const d = v.camber_delta;
+    const col = TYRE_COL[v.camber] || 'var(--muted)';
+    const press = v.pressure && v.pressure.shown ? v.pressure.shown : '';
+    return `<div class="tire">
+      <div class="cn">${TYRE_NAME[k]}</div>
+      <div style="font-size:19px;font-weight:700;color:${col}">${d==null?'—':(d>0?'+':'')+d.toFixed(1)}&deg;</div>
+      <div class="why">in ${fix(v.inner,1)} &middot; mid ${fix(v.middle,1)} &middot; out ${fix(v.outer,1)}</div>
+      ${press?`<div class="why">cold ${press}</div>`:''}
+    </div>`;
+  }).join('');
+
+  const todo = (r.todo||[]).map(t=>
+    `<li><b>${TYRE_NAME[t.corner]}</b> — ${t.why} (${t.delta>0?'+':''}${t.delta.toFixed(1)}&deg;)</li>`).join('');
+
+  el.innerHTML = `<div class="tires" style="max-width:none">${cells}</div>
+    <div class="why" style="margin-top:8px">
+      Inner minus outer edge. A little hotter on the inside is what negative
+      camber is for; a lot means there is too much of it.
+      Tyres averaged <b>${fix(r.mean_temp,1)}&deg;</b> — on cold rubber the
+      edges say very little.</div>
+    ${todo ? `<ul style="margin:8px 0 0 18px;padding:0;font-size:13px">${todo}</ul>`
+           : `<div style="margin-top:8px;color:var(--good);font-size:13px">${r.verdict||''}</div>`}
+    ${r.have_pressures ? '' :
+      '<div class="why" style="margin-top:6px">This car does not publish its pressures to the app.</div>'}`;
+}
 function renderSessionInfo(s){
   if(!s || !s.session_type) return;
   const laps=s.laps_remain!=null?`${s.laps_remain}${s.laps_total?'/'+s.laps_total:''}`:'—';
@@ -739,6 +789,7 @@ async function tickRelative(){
 }
 async function tickWearSession(){
   try{ const w=await (await fetch('/api/wear')).json(); _st.wear=w; renderWear(w); }catch{}
+  try{ const t=await (await fetch('/api/tyres')).json(); _st.tyres=t; safe(renderTyreTool, t); }catch{}
   try{ const s=await (await fetch('/api/session')).json(); _st.session=s; renderSessionInfo(s); renderRecordDelta(s); renderTrackRecord(); }catch{}
 }
 // интерполяция позиции по доле круга на форме трассы
