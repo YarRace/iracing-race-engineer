@@ -41,3 +41,18 @@ quietly opening an overlay with nothing behind it.
 Builds are now three folders and one desktop shortcut, and a tagged commit
 builds them in CI — including a check that the built engineer really answers
 before anything is published.
+
+---
+
+**Five more, on top.** Pick which lap to compare against which, instead of
+always the latest against the best. A speed trace under the corner table,
+shaded where you were slower — the number says how much, the line says where.
+The same analysis as an overlay widget, so you read the three worst corners on
+the next straight instead of after climbing out.
+
+The team plan learned who can drive when: hours are given per driver in
+minutes from the race start, and a driver who is asleep is skipped rather than
+scheduled. When nobody is free for a stint, the plan says so instead of
+quietly assigning someone — a plan that breaks at 3 a.m. is worse than one
+that admits the gap. And the whole thing downloads as plain text, to paste
+into the team chat in one message.

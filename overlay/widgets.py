@@ -2581,10 +2581,94 @@ class BlindSpotWidget(OverlayWidget):
                           "#0d0f12" if on else MUTED, 10, True)
 
 
+
+class CornerLossWidget(OverlayWidget):
+    """Где потеряно время в последнем круге — по поворотам.
+
+    Дельта к лучшему кругу говорит СКОЛЬКО, но не говорит ГДЕ. Узнать это
+    можно было только выйдя из машины и открыв вкладку разбора; на длинной
+    практике так никто не делает, и та же ошибка повторяется круг за кругом.
+
+    Здесь три худших поворота последнего круга висят поверх игры — прочесть
+    их можно на прямой, и следующий круг ехать уже иначе.
+
+    ВАЖНО: это ПРОШЛЫЙ круг, а не текущий. Разбор считается по сохранённому
+    кругу, то есть появляется после пересечения линии. Живой посегментной
+    дельты у нас нет, и делать вид, что есть, нельзя: пилот принял бы её
+    за подсказку прямо сейчас.
+
+    Своя отрисовка, а не StatWidget: причина потери — это фраза, и в колонку
+    значений она не помещается ни при каком кегле. Первая версия наследовала
+    StatWidget, и «slower through the middle» рисовалось тем же крупным
+    шрифтом, что и цифры, забивая собой весь виджет.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("cornerloss", "Corner losses",
+                                             (300, 150), "solo", ("corners",))
+    BLURB = "The three corners where the last lap lost the most time."
+    ROW = 30
+
+    def extra_settings(self, lay):
+        self.opt_slider(lay, "Corners shown", "rows", 1, 6, 3)
+        self.opt_check(lay, "Total lap delta", "show_total", True)
+        self.opt_check(lay, "What went wrong", "show_reason", True)
+
+    def draw(self, p):
+        self.title(p, "CORNER LOSSES")
+        r = self.store.get("corners") or {}
+        if not r.get("ok"):
+            self.text(p, 12, self.height() / 2, "after a lap", MUTED, 11)
+            return
+
+        W = self.width()
+        y = 34
+        if self._opt("show_total", True):
+            d = r.get("delta") or 0.0
+            self.text(p, 12, y, "LAP", MUTED, 9)
+            self.text_right(p, W - 12, y, f"{d:+.2f}s",
+                            RED if d > 0 else GREEN, 13, True, key="lap")
+            y += 22
+
+        worst = [s for s in (r.get("segments") or [])
+                 if (s.get("loss") or 0.0) > 0.01]
+        worst.sort(key=lambda s: -(s.get("loss") or 0.0))
+        if not worst:
+            self.text(p, 12, y + 6, "no corner lost time", GREEN, 12)
+            return
+
+        show_reason = self._opt("show_reason", True)
+        for s in worst[:int(self._opt("rows", 3))]:
+            if y > self.height() - 12:
+                break
+            self.text(p, 12, y, f"Corner {s['index']}", WHITE, 12, True)
+            self.text_right(p, W - 12, y, f"+{s['loss']:.2f}s", AMBER, 13, True,
+                            key=f"c{s['index']}", avail=W - 110)
+            y += 14
+            if show_reason:
+                # Причина — мелким и приглушённым: это пояснение к цифре,
+                # а не сама цифра.
+                self.text(p, 12, y, _short_reason(s.get("phase")), MUTED, 10)
+                y += 16
+            else:
+                y += 4
+
+    def parts(self):
+        return [("lap", "Lap delta")] + [(f"c{i}", f"Corner {i}") for i in range(1, 7)]
+
+
+def _short_reason(phase):
+    """Фаза словом. На оверлее нет места на предложение — только суть."""
+    return {"braking": "braked too early",
+            "apex": "slower through the middle",
+            "exit": "late back on power",
+            "flat": "arrived slower",
+            "entry": "lost on entry"}.get(phase, "lost time here")
+
+
 WIDGETS = [
     InputsWidget, PositionWidget, RelativeWidget, StandingsWidget, MyCarWidget, Head2HeadWidget,
     LaptimeGraphWidget, DeltaTraceWidget, LaptimeSpreadWidget, HStandingsWidget,
-    LapLogWidget, BlindSpotWidget,
+    LapLogWidget, BlindSpotWidget, CornerLossWidget,
     FuelWidget, TimingWidget, RaceBarWidget,
     DeltaWidget, ShiftWidget, GForceWidget, TopSpeedWidget, SlipWidget, PosTrendWidget,
     SummaryWidget, TireTempsWidget, WearWidget, SessionWidget, RecordDeltaWidget, ErsWidget,

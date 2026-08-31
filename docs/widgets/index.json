@@ -132,6 +132,17 @@
     "doc": "Two wide bars at the screen edges when a car sits alongside."
   },
   {
+    "key": "cornerloss",
+    "title": "Corner losses",
+    "group": "solo",
+    "size": [
+      300,
+      150
+    ],
+    "file": "cornerloss.png",
+    "doc": "The three corners where the last lap lost the most time."
+  },
+  {
     "key": "fuel",
     "title": "Fuel & pit",
     "group": "solo",

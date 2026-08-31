@@ -1,7 +1,7 @@
 # Race Engineer for iRacing
 
 A race engineer that runs on your own machine: a dashboard for the second
-screen, 44 configurable overlays on top of the game, lap history that survives
+screen, 45 configurable overlays on top of the game, lap history that survives
 between sessions, and an analysis of the stint in plain words.
 
 No subscription, no cloud, no keys to anyone else's service. The data stays
@@ -13,7 +13,7 @@ on the PC that produced it.
 
 | | |
 |---|---|
-| **Overlay** | 44 widgets over the game — fuel, delta, standings, relative, track map, tyre temps, spotter, blind spot, lap log. Each one is tuned on its own: colour, size and font of every number. |
+| **Overlay** | 45 widgets over the game — fuel, delta, standings, relative, track map, tyre temps, spotter, blind spot, lap log. Each one is tuned on its own: colour, size and font of every number. |
 | **Dashboard** | 63 cards across 6 tabs (Solo, Endurance, Setup, Records, Strategy, Race analysis) on the second screen. |
 | **History** | Every valid lap is resampled onto a distance grid and written to disk, with the conditions it was driven in. Progress shows across dates, not one drive. |
 | **Analysis** | Corner by corner: the lap is split at its own speed minima, each corner compared against your reference lap, and the loss explained — braked earlier, lower apex speed, later back to throttle. After a stint a local model adds the setup side. |
@@ -94,11 +94,11 @@ Seven modules under `src/ire/`, all local:
 4. **explainer** — symptoms plus setup → the written analysis.
 5. **setup** — reads the car setup from the SDK and writes a `.sto` file.
    The original is never touched.
-6. **dashboard** — FastAPI, 16 API endpoints, plus the project site
+6. **dashboard** — FastAPI, 17 API endpoints, plus the project site
    (`/about`, `/catalog`, `/download`, `/news`).
 7. **orchestrator** — ties the live loop together.
 
-The overlay itself lives in `overlay/` (PySide6): `widgets.py` holds all 44,
+The overlay itself lives in `overlay/` (PySide6): `widgets.py` holds all 45,
 `panel.py` is the three-column settings window, `preview.py` renders the live
 preview inside it.
 
@@ -128,7 +128,7 @@ with a newer build never touches your lap history or overlay layout.
 python -m pytest -q
 ```
 
-262 tests, no sim required. The Qt ones run offscreen, and CI runs the same
+271 tests, no sim required. The Qt ones run offscreen, and CI runs the same
 suite on Windows for every push.
 
 ## Tools

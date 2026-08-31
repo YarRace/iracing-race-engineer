@@ -49,8 +49,51 @@ def stint_laps(tank, fuel_per_lap, max_minutes=None, lap_time=None):
     return max(1, by_fuel)
 
 
+def parse_availability(text):
+    """Окна доступности из строки: «Semion 0-240, 480-1440; Yaroslav 240-720».
+
+    Задаётся в МИНУТАХ от старта гонки, а не по часам: часы у каждого свои,
+    и «с двух до восьми» на 24-часовой означает разное для разных людей.
+    Пилот без окон доступен всегда — так проще начать, ничего не заполняя.
+    """
+    out = {}
+    for part in str(text or "").split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        name, _, spans = part.partition(" ")
+        name = name.strip()
+        if not name:
+            continue
+        windows = []
+        for span in spans.replace(",", " ").split():
+            a, _, b = span.partition("-")
+            try:
+                lo, hi = float(a), float(b)
+            except ValueError:
+                continue
+            if hi > lo:
+                windows.append((lo * 60.0, hi * 60.0))
+        if windows:
+            out[name] = sorted(windows)
+    return out
+
+
+def _free(driver, start_s, end_s, availability):
+    """Свободен ли пилот на ВСЁМ отрезке стинта.
+
+    Целиком, а не «в момент начала»: посадить человека в машину и снять
+    его посреди стинта нельзя — смена происходит только на пит-стопе.
+    """
+    windows = availability.get(driver)
+    if not windows:
+        return True
+    return any(lo <= start_s and end_s <= hi for lo, hi in windows)
+
+
 def plan(race_seconds, drivers, lap_time, fuel_per_lap, tank,
-         pit_seconds=DEFAULT_PIT, start=None, max_stint_minutes=None):
+         pit_seconds=DEFAULT_PIT, start=None, max_stint_minutes=None,
+         availability=None):
     """Полный план гонки. Возвращает список стинтов и сводку.
 
     Последний стинт УКОРАЧИВАЕТСЯ до финиша, а не округляется вверх: план,
@@ -75,20 +118,36 @@ def plan(race_seconds, drivers, lap_time, fuel_per_lap, tank,
                 "stints": [], "summary": {}}
 
     pit = _num(pit_seconds, DEFAULT_PIT)
+    avail = availability or {}
     stints, t, laps_left, i = [], 0.0, total_laps, 0
     while laps_left > 0 and len(stints) < 400:      # 400 — защита от зацикливания
         laps = min(per_stint, laps_left)
         length = laps * lap_time
         last = laps_left - laps <= 0
+
+        # Очередь, но со сдвигом на того, кто в это время может ехать.
+        # Если не может НИКТО — ставим следующего по кругу и помечаем стинт:
+        # промолчать здесь значит подсунуть план, который развалится в три
+        # часа ночи, когда выяснится, что человек спит.
+        who, forced = names[i % len(names)], False
+        for k in range(len(names)):
+            cand = names[(i + k) % len(names)]
+            if _free(cand, t, t + length, avail):
+                who, i = cand, i + k
+                break
+        else:
+            forced = True
+
         stints.append({
             "n": len(stints) + 1,
-            "driver": names[i % len(names)],
+            "driver": who,
             "start": t,
             "end": t + length,
             "seconds": length,
             "laps": laps,
             "fuel": round(laps * _num(fuel_per_lap), 1),
             "pit_after": None if last else pit,
+            "nobody_available": forced,
         })
         t += length + (0.0 if last else pit)
         laps_left -= laps
@@ -133,6 +192,7 @@ def summary(stints, drivers, race_seconds=0.0, pit_seconds=DEFAULT_PIT):
         "fair_share": round(laps / len(drivers), 1) if drivers else 0.0,
         "balanced": fair,
         "back_to_back": back_to_back,
+        "uncovered": sum(1 for s in stints if s.get("nobody_available")),
         "race_seconds": race_seconds,
         "planned_seconds": stints[-1]["end"],
     }
@@ -167,7 +227,8 @@ def with_clock(stints, start_iso, offsets=None):
 
 
 def from_live(strategy, session, drivers, pit_seconds=DEFAULT_PIT,
-              start=None, offsets=None, max_stint_minutes=None):
+              start=None, offsets=None, max_stint_minutes=None,
+              availability=None):
     """План из живых данных: расход и темп берутся из того, как ты едешь.
 
     Именно из живых, а не из справочника: расход зависит от того, как
@@ -180,7 +241,49 @@ def from_live(strategy, session, drivers, pit_seconds=DEFAULT_PIT,
         left = session.get("time_total")
     res = plan(left, drivers,
                strategy.get("avg_lap_time"), strategy.get("avg_burn"),
-               strategy.get("tank"), pit_seconds, start, max_stint_minutes)
+               strategy.get("tank"), pit_seconds, start, max_stint_minutes,
+               availability=availability)
     if res["ok"] and start:
         res["stints"] = with_clock(res["stints"], start, offsets)
     return res
+
+
+def as_text(result, title=""):
+    """План простым текстом — кинуть команде в Discord одним сообщением.
+
+    Не CSV и не JSON: план читают люди с телефона за пять минут до старта,
+    и таблица из запятых там бесполезна. Моноширинный блок в Discord
+    выравнивается сам, поэтому колонки бьются пробелами.
+    """
+    if not result or not result.get("ok"):
+        return "No plan yet: " + str((result or {}).get("reason") or "no data")
+
+    s = result["summary"]
+    lines = [title or "TEAM STINT PLAN", ""]
+    lines.append(f"{s['stints']} stints · {s['laps']} laps · "
+                 f"{s['pit_stops']} pit stops · avg stint "
+                 f"{round(s['avg_stint'] / 60)}m")
+    lines.append("  " + " · ".join(f"{d['driver']} {d['laps']} laps ({d['share']}%)"
+                                   for d in s["drivers"]))
+    if s.get("back_to_back"):
+        lines.append(f"  ! {s['back_to_back']} back-to-back stints")
+    if s.get("uncovered"):
+        lines.append(f"  ! {s['uncovered']} stints with nobody available")
+    lines.append("")
+
+    clock = bool(result["stints"] and result["stints"][0].get("clock_start"))
+    head = f"{'#':>3}  {'DRIVER':<16} {'FROM':>7} {'TO':>7} {'LAPS':>5} {'FUEL':>7}"
+    if clock:
+        head += "  CLOCK              THEIR TIME"
+    lines.append(head)
+    lines.append("-" * len(head))
+    for x in result["stints"]:
+        row = (f"{x['n']:>3}  {x['driver'][:16]:<16} "
+               f"{round(x['start'] / 60):>6}m {round(x['end'] / 60):>6}m "
+               f"{x['laps']:>5} {x['fuel']:>6}L")
+        if clock:
+            row += f"  {x['clock_start']} → {x['clock_end']}  {x['local_start']}"
+        if x.get("nobody_available"):
+            row += "  <- nobody free"
+        lines.append(row)
+    return chr(10).join(lines)

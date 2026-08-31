@@ -79,6 +79,9 @@
   .err{background:#2a1414;border:1px solid #5a2020;color:#e8a0a0;padding:10px 12px;border-radius:10px;font-size:13px}
   .empty{color:var(--muted);font-style:italic;padding:8px 0}
   .mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .segbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  .segbtn:hover{border-color:var(--accent);color:var(--txt)}
+  .segbtn.on{background:var(--accent);color:#08111c;border-color:var(--accent);font-weight:700}
   .tpin{width:100%;margin-top:4px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-family:inherit}
 
   /* рекорды в стиле iRacing «Personal Bests»: секции по машине */
@@ -327,6 +330,9 @@
           <label class="tire"><div class="cn">Hours offset per driver</div>
             <input id="tp_off" class="tpin" placeholder="Semion:-4"></label>
         </div>
+        <label class="tire" style="display:block;margin-bottom:8px">
+          <div class="cn">Who can drive when — minutes from the race start</div>
+          <input id="tp_free" class="tpin" placeholder="Semion 0-240, 480-1440; Yaroslav 240-720"></label>
         <div id="e_teamplan"><div class="empty">Enter the drivers — the plan is built from your live pace, fuel burn and tank.</div></div></div>
       <div class="card" data-card="e_stintplan" data-title="📝 Stint plan"><h2>📝 Stint plan / swaps</h2>
         <textarea id="e_stintplan_txt" placeholder="Stint 1: me (0:00–1:00)\nStint 2: teammate…\nPit: lap 30, full tank + tires" style="width:100%;min-height:90px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
@@ -1464,14 +1470,92 @@ bindNotes('s_notes_txt', 'ire_setupnotes');      // заметки по сета
 // Три сектора iRacing — слишком крупно, чтобы что-то с этим делать. Здесь круг
 // режется по минимумам скорости, и у каждого поворота свой вердикт из
 // телеметрии: раньше затормозил / ниже апекс / позже газ.
-let _cornerSig = null;
+let _cornerSig = null, _cornerPick = {lap:'', ref:''}, _cornerLaps = null;
+let _cornerSeg = 0;               // какой поворот показан на графике
+
 async function tickCorners(){
   if($('an_corners') === null) return;
-  let r; try{ r = await (await fetch('/api/corners')).json(); }catch{ return; }
-  const sig = JSON.stringify([r.ok, r.lap_time, r.ref_time, (r.segments||[]).length]);
+  const q = new URLSearchParams();
+  if(_cornerPick.lap) q.set('lap', _cornerPick.lap);
+  if(_cornerPick.ref) q.set('ref', _cornerPick.ref);
+  let r; try{ r = await (await fetch('/api/corners?'+q)).json(); }catch{ return; }
+  // Список кругов нужен для выпадашек. Тянем его вместе с разбором, но
+  // редко: он меняется раз в круг, а не раз в шесть секунд.
+  let laps = _cornerLaps;
+  if(laps === null){
+    try{ laps = await (await fetch('/api/laps')).json(); }catch{ laps = []; }
+    _cornerLaps = laps;
+  }
+  const sig = JSON.stringify([r.ok, r.lap_time, r.ref_time, (r.segments||[]).length,
+                              _cornerPick.lap, _cornerPick.ref, _cornerSeg,
+                              laps.length]);
   if(sig === _cornerSig) return;                 // разбор меняется раз в круг
   _cornerSig = sig;
-  safe(renderCorners, r);
+  safe(renderCorners, r, laps);
+}
+
+// Выпадашки «какой круг против какого». Раньше сравнивался последний
+// с лучшим, и посмотреть «этот против того» было нельзя.
+function cornerPicker(laps, chose){
+  if(!laps || laps.length < 2) return '';
+  // Пока человек не выбрал сам, показываем то, что ВЗЯЛ сервер: последний
+  // круг против лучшего. Иначе выпадашка молча показывает первый в списке
+  // и расходится с временами в шапке.
+  const pick = {lap: _cornerPick.lap || (chose||{}).lap_file || '',
+                ref: _cornerPick.ref || (chose||{}).ref_file || ''};
+  const opt = (sel) => laps.map(l=>{
+    const t = lapTime(l.lap_time), when = (l.ts||'').slice(5,16).replace('T',' ');
+    return `<option value="${l.file}" ${l.file===sel?'selected':''}>${t} · ${when} · ${l.car||''}</option>`;
+  }).join('');
+  return `<div class="mini" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
+    <label class="tire"><div class="cn">This lap</div>
+      <select id="cp_lap" class="tpin">${opt(pick.lap)}</select></label>
+    <label class="tire"><div class="cn">Compare against</div>
+      <select id="cp_ref" class="tpin">${opt(pick.ref)}</select></label></div>`;
+}
+
+// График скорости: твоя линия против эталонной по дистанции выбранного
+// поворота. У Титана это половина ценности — по цифре «потерял 0.4»
+// непонятно, где именно линии разошлись.
+function cornerChart(r, i){
+  const seg = (r.segments||[])[i];
+  if(!seg || !r.speed || !r.speed.length) return '';
+  const a = r.speed.slice(seg.start, seg.end).map(v=>v*3.6);
+  const b = r.ref_speed.slice(seg.start, seg.end).map(v=>v*3.6);
+  if(a.length < 2) return '';
+  const W = 620, H = 150, pad = 26;
+  const lo = Math.min(...a, ...b), hi = Math.max(...a, ...b), span = (hi-lo)||1;
+  const x = k => pad + k * (W - pad*2) / (a.length - 1);
+  const y = v => H - pad - (v - lo) * (H - pad*1.6) / span;
+  const line = arr => arr.map((v,k)=> `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+
+  // Зона потери: где твоя скорость ниже эталонной. Именно её и надо
+  // разглядывать, всё остальное на графике — фон.
+  let bands = '', from = null;
+  for(let k=0; k<=a.length; k++){
+    const worse = k < a.length && a[k] < b[k] - 0.5;
+    if(worse && from === null) from = k;
+    if(!worse && from !== null){
+      bands += `<rect x="${x(from)}" y="${pad*0.4}" width="${Math.max(1,x(k-1)-x(from))}"
+        height="${H-pad-pad*0.4}" fill="var(--bad)" opacity="0.13"/>`;
+      from = null;
+    }
+  }
+  const tabs = (r.segments||[]).map((s,k)=>
+    `<button class="segbtn ${k===i?'on':''}" data-seg="${k}">${s.index}</button>`).join('');
+
+  return `<div style="margin-top:12px">
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${tabs}</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+      ${bands}
+      <polyline points="${line(b)}" fill="none" stroke="var(--muted)" stroke-width="2"/>
+      <polyline points="${line(a)}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <text x="${pad}" y="14" fill="var(--muted)" font-size="11">${Math.round(hi)} km/h</text>
+      <text x="${pad}" y="${H-6}" fill="var(--muted)" font-size="11">${Math.round(lo)} km/h</text>
+    </svg>
+    <div class="why">Corner ${seg.index}: <b style="color:var(--accent)">your lap</b>
+      vs <b style="color:var(--muted)">reference</b>. Shaded = where you were slower.</div>
+  </div>`;
 }
 
 function cornerBars(r){
@@ -1490,10 +1574,12 @@ function cornerBars(r){
   }).join('');
 }
 
-function renderCorners(r){
+function renderCorners(r, laps){
   const el = $('an_corners'); if(!el) return;
   if(!r || !r.ok){
-    el.innerHTML = `<div class="empty">${r && r.reason ? r.reason : 'No lap data yet.'}</div>`;
+    el.innerHTML = cornerPicker(laps, r) +
+      `<div class="empty">${r && r.reason ? r.reason : 'No lap data yet.'}</div>`;
+    bindCornerPicker();
     return;
   }
   const d = r.delta;
@@ -1510,14 +1596,37 @@ function renderCorners(r){
 
   const rows = (r.segments||[]).map(s=>{
     const col = s.loss > 0.005 ? 'var(--bad)' : (s.loss < -0.005 ? 'var(--good)' : 'var(--muted)');
-    return `<tr><td style="width:34px;color:var(--muted)">${s.index}</td>
+    return `<tr data-seg="${(r.segments||[]).indexOf(s)}">
+      <td style="width:34px;color:var(--muted)">${s.index}</td>
       <td style="width:70px;color:${col};font-weight:700;font-variant-numeric:tabular-nums">
         ${s.loss>0?'+':''}${s.loss.toFixed(3)}</td>
       <td>${s.text}</td></tr>`;
   }).join('');
 
-  el.innerHTML = head + bars +
-    `<table style="width:100%;border-collapse:collapse;font-size:13px">${rows}</table>`;
+  el.innerHTML = cornerPicker(laps, r) + head + bars +
+    `<table style="width:100%;border-collapse:collapse;font-size:13px">${rows}</table>` +
+    cornerChart(r, Math.min(_cornerSeg, (r.segments||[]).length - 1));
+  bindCornerPicker();
+  el.querySelectorAll('.segbtn').forEach(b=>{
+    b.onclick = ()=>{ _cornerSeg = +b.dataset.seg; _cornerSig = null; tickCorners(); };
+  });
+  // Строка таблицы тоже переключает график: тыкать в номер естественнее,
+  // чем искать ту же цифру в ряду кнопок.
+  el.querySelectorAll('tr[data-seg]').forEach(tr=>{
+    tr.style.cursor = 'pointer';
+    tr.onclick = ()=>{ _cornerSeg = +tr.dataset.seg; _cornerSig = null; tickCorners(); };
+  });
+}
+
+function bindCornerPicker(){
+  ['lap','ref'].forEach(which=>{
+    const sel = $('cp_'+which); if(!sel) return;
+    sel.onchange = ()=>{
+      _cornerPick[which] = sel.value;
+      _cornerSeg = 0; _cornerSig = null;
+      tickCorners();
+    };
+  });
 }
 
 // ===== Team stint plan (Endurance) =====
@@ -1529,7 +1638,8 @@ function tpRead(){
 }
 function tpSave(){
   const v = {drivers: $('tp_drivers').value, start: $('tp_start').value,
-             pit: $('tp_pit').value, off: $('tp_off').value};
+             pit: $('tp_pit').value, off: $('tp_off').value,
+             free: $('tp_free').value};
   try{ localStorage.setItem(TPKEY, JSON.stringify(v)); }catch{}
   _teamSig = null;                     // пересчитать сразу, не ждать тика
 }
@@ -1540,7 +1650,8 @@ function tpInit(){
   if(v.start!=null) $('tp_start').value = v.start;
   if(v.pit!=null) $('tp_pit').value = v.pit;
   if(v.off!=null) $('tp_off').value = v.off;
-  ['tp_drivers','tp_start','tp_pit','tp_off'].forEach(id=>{
+  if(v.free!=null) $('tp_free').value = v.free;
+  ['tp_drivers','tp_start','tp_pit','tp_off','tp_free'].forEach(id=>{
     const e = $(id); if(e) e.oninput = tpSave;
   });
 }
@@ -1554,11 +1665,12 @@ async function tickTeamPlan(){
     return;
   }
   const q = new URLSearchParams({drivers, start: $('tp_start').value||'',
-                                pit: $('tp_pit').value||60, offsets: $('tp_off').value||''});
+                                pit: $('tp_pit').value||60, offsets: $('tp_off').value||'',
+                                free: $('tp_free').value||''});
   // Темп и расход плывут по ходу гонки; сигнатура ловит настоящие изменения
   // и не даёт перерисовывать таблицу на сорок строк каждые полсекунды.
   const g = _st.strategy||{}, ss = _st.session||{};
-  const sig = [drivers, q.get('start'), q.get('pit'), q.get('offsets'),
+  const sig = [drivers, q.get('start'), q.get('pit'), q.get('offsets'), q.get('free'),
                Math.round(g.avg_lap_time||0), (g.avg_burn||0).toFixed(2),
                Math.round((ss.time_remain||0)/60)].join('|');
   if(sig === _teamSig) return;
@@ -1585,8 +1697,11 @@ function renderTeamPlan(r){
   const who = (s.drivers||[]).map(d=>
     `<span class="tag" style="margin-right:6px">${d.driver}: <b>${d.laps}</b> laps · ${d.share}%</span>`
   ).join('');
-  const warn = s.back_to_back ? `<div class="why" style="color:var(--warn);margin-top:6px">
+  let warn = s.back_to_back ? `<div class="why" style="color:var(--warn);margin-top:6px">
       ⚠ ${s.back_to_back} back-to-back stint${s.back_to_back>1?'s':''} — someone drives twice in a row.</div>` : '';
+  if(s.uncovered) warn += `<div class="why" style="color:var(--bad);margin-top:4px">
+      ⚠ ${s.uncovered} stint${s.uncovered>1?'s':''} with nobody available — the plan
+      breaks there unless somebody changes their hours.</div>`;
 
   const hasClock = r.stints.length && r.stints[0].clock_start;
   const rows = r.stints.map(x=>{
@@ -1609,7 +1724,18 @@ function renderTeamPlan(r){
        <table style="width:100%;border-collapse:collapse;font-size:12.5px">${th}${rows}</table></div>` +
     `<div class="why" style="margin-top:8px">Built from your live pace
        (${lapTime((_st.strategy||{}).avg_lap_time)}) and fuel burn
-       (${fix((_st.strategy||{}).avg_burn,2)} L/lap). Saved in your browser.</div>`;
+       (${fix((_st.strategy||{}).avg_burn,2)} L/lap). Saved in your browser.
+       <a id="tp_export" href="#" style="margin-left:8px">Download as text</a></div>`;
+  // Выгрузка тем же адресом, но с fmt=text: план уносят в Discord одним
+  // сообщением, а не пересказывают по строчкам.
+  const link = $('tp_export');
+  if(link) link.onclick = e => {
+    e.preventDefault();
+    const q = new URLSearchParams({drivers: $('tp_drivers').value,
+      start: $('tp_start').value||'', pit: $('tp_pit').value||60,
+      offsets: $('tp_off').value||'', free: $('tp_free').value||'', fmt: 'text'});
+    window.location = '/api/stintplan?' + q;
+  };
 }
 
 // переключение главных вкладок Соло / Endurance / Setup

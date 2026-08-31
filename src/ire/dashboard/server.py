@@ -112,7 +112,13 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
     if ref_meta is None:
         return {"ok": False, "reason": "no second lap on this track and car yet"}
 
-    return C.analyse(L.load_lap(lap_meta["path"]), L.load_lap(ref_meta["path"]))
+    res = C.analyse(L.load_lap(lap_meta["path"]), L.load_lap(ref_meta["path"]))
+    # Какие круги ВЗЯЛИ на самом деле. Без этого выпадашки на странице
+    # показывают первый круг списка, пока человек не выбрал сам, — и врут:
+    # в шапке одно время, в выборе другое.
+    res["lap_file"] = os.path.basename(lap_meta["path"])
+    res["ref_file"] = os.path.basename(ref_meta["path"])
+    return res
 
 
 @app.get("/api/laps")
@@ -129,7 +135,8 @@ def saved_laps(track: str = Query(""), car: str = Query("")):
 @app.get("/api/stintplan")
 def stint_plan_api(drivers: str = Query(""), start: str = Query(""),
                    pit: float = Query(60.0), offsets: str = Query(""),
-                   max_stint: float = Query(0.0)):
+                   max_stint: float = Query(0.0), free: str = Query(""),
+                   fmt: str = Query("")):
     """Командный план стинтов: кто, когда и сколько едет.
 
     Пилоты и время старта приходят от человека — их взять неоткуда;
@@ -146,9 +153,16 @@ def stint_plan_api(drivers: str = Query(""), start: str = Query(""),
                 off[who.strip()] = float(hours)
             except ValueError:
                 pass
-    return SP.from_live(STATE.get("strategy"), STATE.get("session"), names,
-                        pit_seconds=pit, start=start or None, offsets=off,
-                        max_stint_minutes=max_stint or None)
+    res = SP.from_live(STATE.get("strategy"), STATE.get("session"), names,
+                       pit_seconds=pit, start=start or None, offsets=off,
+                       max_stint_minutes=max_stint or None,
+                       availability=SP.parse_availability(free))
+    if fmt == "text":
+        # Отдаём файлом: план уносят в Discord, а не читают в адресной строке.
+        return Response(SP.as_text(res), media_type="text/plain; charset=utf-8",
+                        headers={"Content-Disposition":
+                                 'attachment; filename="stint-plan.txt"'})
+    return res
 
 @app.get("/wheels/{name}")
 def wheel_image(name: str):

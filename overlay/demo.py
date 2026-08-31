@@ -95,6 +95,29 @@ class DemoFeed:
         wear = max(0.28, 1.0 - ((lap - 8 + u) * 0.011))
         delta = 0.35 * math.sin(2 * math.pi * (u * 2.1 + 0.3)) - 0.12
 
+        if ep == "corners":
+            # Разбор круга для предпросмотра. Числа выдуманы, но форма — та же,
+            # что отдаёт /api/corners: настраивать виджет по прочеркам нельзя.
+            return {
+                "ok": True, "track": "Demo Circuit", "car": "Demo GTP",
+                "lap_time": LAP_TIME + 0.62, "ref_time": LAP_TIME,
+                "delta": 0.62, "points": 1000,
+                "segments": [
+                    {"index": 1, "start": 0, "end": 210, "apex": 120,
+                     "loss": 0.31, "phase": "braking",
+                     "text": "You braked earlier than the reference."},
+                    {"index": 2, "start": 210, "end": 430, "apex": 300,
+                     "loss": 0.0, "phase": "none",
+                     "text": "Matched the reference through here."},
+                    {"index": 3, "start": 430, "end": 700, "apex": 560,
+                     "loss": 0.19, "phase": "apex",
+                     "text": "Your minimum speed was 6 km/h lower."},
+                    {"index": 4, "start": 700, "end": 1000, "apex": 850,
+                     "loss": 0.12, "phase": "exit",
+                     "text": "You got back to full throttle later."},
+                ],
+            }
+
         if ep == "live":
             return {
                 "speed": speed, "gear": max(1, min(7, int(1 + v * 6))),

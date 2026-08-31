@@ -162,3 +162,56 @@ def test_no_live_data_yet_is_a_clean_refusal():
     assert not sp.from_live({}, {"time_remain": HOUR}, ["A"])["ok"]
     assert not sp.from_live({"avg_lap_time": LAP, "avg_burn": BURN,
                              "tank": TANK}, {}, ["A"])["ok"]
+
+
+# ── доступность пилотов ─────────────────────────────────────────────────────
+
+def test_availability_is_parsed_from_plain_text():
+    """Формат должен набираться руками в поле, а не заполняться формой
+    на двадцать полей: «кто — с какой по какую минуту»."""
+    got = sp.parse_availability("Semion 0-240, 480-1440; Yaroslav 240-720")
+    assert set(got) == {"Semion", "Yaroslav"}
+    assert got["Semion"] == [(0.0, 240 * 60), (480 * 60, 1440 * 60)]
+    assert got["Yaroslav"] == [(240 * 60, 720 * 60)]
+
+
+def test_broken_availability_text_is_ignored_not_fatal():
+    """Поле заполняет человек ночью перед гонкой. Опечатка не должна
+    ронять весь план."""
+    assert sp.parse_availability("") == {}
+    assert sp.parse_availability("Semion") == {}
+    assert sp.parse_availability("Semion потом-скажу") == {}
+    assert sp.parse_availability("Semion 500-100") == {}, "конец раньше начала"
+
+
+def test_a_sleeping_driver_is_skipped():
+    """Смысл всей затеи: не ставить человека за руль, когда он спит."""
+    avail = sp.parse_availability("B 0-60")          # B доступен только первый час
+    r = sp.plan(4 * HOUR, ["A", "B"], LAP, BURN, TANK, availability=avail)
+    late = [s for s in r["stints"] if s["start"] > 60 * 60]
+    assert late and all(s["driver"] == "A" for s in late)
+
+
+def test_the_driver_must_be_free_for_the_WHOLE_stint():
+    """Посадить человека и снять его посреди стинта нельзя — смена только
+    на пит-стопе."""
+    stint_s = sp.stint_laps(TANK, BURN) * LAP
+    avail = {"B": [(0.0, stint_s / 2)]}              # свободен только полстинта
+    r = sp.plan(2 * HOUR, ["A", "B"], LAP, BURN, TANK, availability=avail)
+    assert r["stints"][0]["driver"] == "A"
+
+
+def test_nobody_available_is_flagged_not_hidden():
+    """Промолчать значит подсунуть план, который развалится в три часа ночи."""
+    avail = {"A": [(0.0, 60.0)], "B": [(0.0, 60.0)]}   # оба только первую минуту
+    r = sp.plan(2 * HOUR, ["A", "B"], LAP, BURN, TANK, availability=avail)
+    assert r["summary"]["uncovered"] > 0
+    assert any(s["nobody_available"] for s in r["stints"])
+
+
+def test_without_availability_nothing_changes():
+    """Не заполнил поле — работает как раньше, ровной очередью."""
+    plain = make(hours=6, drivers=("A", "B"))
+    same = sp.plan(6 * HOUR, ["A", "B"], LAP, BURN, TANK, availability={})
+    assert [s["driver"] for s in plain["stints"]] == [s["driver"] for s in same["stints"]]
+    assert same["summary"]["uncovered"] == 0

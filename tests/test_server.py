@@ -511,3 +511,47 @@ def test_saved_laps_endpoint_hides_absolute_paths():
     for m in TestClient(app).get("/api/laps").json():
         assert "path" not in m
         assert "file" in m and "\\" not in m["file"] and "/" not in m["file"]
+
+
+def test_corner_endpoint_says_which_laps_it_picked():
+    """Без этого выпадашки на странице показывают первый круг списка и
+    расходятся с временами в шапке — интерфейс сам себе противоречит."""
+    r = TestClient(app).get("/api/corners").json()
+    if r.get("ok"):
+        assert r["lap_file"] and r["ref_file"]
+        assert r["lap_file"] != r["ref_file"], "круг сравнивается сам с собой"
+
+
+def test_stint_plan_can_be_downloaded_as_text():
+    """План уносят в Discord одним сообщением, а не пересказывают по строчкам."""
+    from ire.dashboard.server import STATE
+    STATE["strategy"] = {"avg_lap_time": 100.0, "avg_burn": 3.0, "tank": 60.0}
+    STATE["session"] = {"time_remain": 3600.0}
+    try:
+        r = TestClient(app).get("/api/stintplan", params={
+            "drivers": "A,B", "start": "2026-09-05T10:00:00", "fmt": "text"})
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("text/plain")
+        assert "attachment" in r.headers["content-disposition"]
+        assert "TEAM STINT PLAN" in r.text and "DRIVER" in r.text
+    finally:
+        STATE["strategy"], STATE["session"] = {}, {}
+
+
+def test_availability_reaches_the_planner_through_the_url():
+    """Окна доступности вводятся строкой в поле — проверяем, что они
+    доезжают до расчёта, а не теряются по дороге."""
+    from ire.dashboard.server import STATE
+    STATE["strategy"] = {"avg_lap_time": 100.0, "avg_burn": 3.0, "tank": 60.0}
+    STATE["session"] = {"time_remain": 7200.0}
+    try:
+        c = TestClient(app)
+        free = c.get("/api/stintplan", params={"drivers": "A,B"}).json()
+        limited = c.get("/api/stintplan", params={"drivers": "A,B",
+                                                  "free": "B 0-5"}).json()
+        assert free["ok"] and limited["ok"]
+        b_free = sum(1 for s in free["stints"] if s["driver"] == "B")
+        b_limited = sum(1 for s in limited["stints"] if s["driver"] == "B")
+        assert b_limited < b_free, "окна доступности не повлияли на план"
+    finally:
+        STATE["strategy"], STATE["session"] = {}, {}
