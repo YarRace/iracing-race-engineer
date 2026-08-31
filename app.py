@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src
 from ire import preflight                                        # noqa: E402
 preflight.check(extra=preflight.OVERLAY + [("irsdk", "pyirsdk")])
 
-from PySide6.QtCore import Qt, QTimer                             # noqa: E402
+from PySide6.QtCore import Qt, QTimer, Signal                     # noqa: E402
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel,  # noqa: E402
                                QPushButton, QScrollArea, QStackedWidget,
                                QVBoxLayout, QWidget)
@@ -111,6 +111,15 @@ class Engineer:
         return bool(self.thread and self.thread.is_alive())
 
 
+def _lap(sec):
+    """Время круга в привычном виде: 1:09.267, а не 69.267."""
+    try:
+        sec = float(sec)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{int(sec // 60)}:{sec % 60:06.3f}"
+
+
 def card(*widgets, pad=16):
     w = QWidget(objectName="card")
     lay = QVBoxLayout(w)
@@ -159,6 +168,11 @@ class Home(QWidget):
         row.addStretch(1)
         lay.addLayout(row)
 
+        lay.addWidget(QLabel("RECENT SESSIONS", objectName="h2"))
+        self.recent = QVBoxLayout()
+        self.recent.setSpacing(8)
+        lay.addLayout(self.recent)
+
         lay.addWidget(QLabel("NEXT", objectName="h2"))
         tips = QLabel(
             "1. Start iRacing in windowed or borderless mode — an overlay "
@@ -189,54 +203,159 @@ class Home(QWidget):
         self.s_over.value_label.setText(str(on))
         self.s_state.value_label.setText(
             "shown" if self.config.overlays_running() else "hidden")
+        self._draw_recent()
+
+    def _draw_recent(self):
+        """Последние выезды: где, на чём, лучший круг, инциденты.
+
+        Их и так видно на вкладке Records, но открывать браузер, чтобы
+        вспомнить вчерашний темп, никто не станет.
+        """
+        if self.recent.count():                       # рисуем один раз
+            return
+        try:
+            from ire.storage import history
+            conn = history.connect()
+            try:
+                rows = history.recent_stints(conn, 5)
+            finally:
+                conn.close()
+        except Exception:                                        # noqa: BLE001
+            rows = []
+        if not rows:
+            self.recent.addWidget(QLabel("Nothing driven yet.", objectName="dim"))
+            return
+        for r in rows:
+            line = QHBoxLayout()
+            when = (r.get("ts") or "")[:16].replace("T", " ")
+            left = QLabel(f"{r.get('track_display') or r.get('track', '')}"
+                          f"  ·  {r.get('car', '')}")
+            left.setStyleSheet("font-weight:600")
+            line.addWidget(left)
+            line.addStretch(1)
+            best = r.get("best_lap")
+            for text in (f"{r.get('laps', 0)} laps",
+                         _lap(best) if best else "—",
+                         f"{r.get('incidents', 0)}x inc",
+                         when):
+                lbl = QLabel(str(text), objectName="dim")
+                lbl.setMinimumWidth(70)
+                line.addWidget(lbl)
+            box = QWidget(objectName="card")
+            box.setLayout(line)
+            line.setContentsMargins(14, 9, 14, 9)
+            self.recent.addWidget(box)
 
 
 class News(QWidget):
-    """Свой чейнджлог внутри приложения.
+    # Готовая лента приезжает из фонового потока СИГНАЛОМ. Трогать виджеты
+    # из чужого потока нельзя, а QTimer.singleShot оттуда же требует своего
+    # цикла событий в том потоке — его там нет. Сигнал Qt доставит вызов
+    # в поток окна сам, это его работа.
+    loaded = Signal()
 
-    Он и так рендерится на /news, но открывать браузер ради «что нового»
-    никто не станет. Читаем те же файлы docs/news/*.md — один источник,
-    а не вторая копия, которая разойдётся с первой на первой же записи.
+    """Новости про гонки — и свой чейнджлог отдельной вкладкой.
+
+    Правило отбора Ярослава: только узнаваемое. Формула 1, Ле-Ман, IMSA,
+    симрейсинг и производители железа; «ралли, где победили лося в какой-то
+    Норвегии», в ленту не попадает (`collector/racenews.py`).
+
+    Загрузка идёт в ФОНОВОМ потоке: восемь лент по сети — это секунды,
+    и держать на них окно нельзя.
     """
 
     def __init__(self):
         super().__init__()
         outer = QVBoxLayout(self)
         outer.setContentsMargins(22, 18, 22, 8)
-        outer.setSpacing(12)
-        outer.addWidget(QLabel("What changed", objectName="h1"))
+        outer.setSpacing(10)
+        outer.addWidget(QLabel("Racing news", objectName="h1"))
+
+        self.filters = QHBoxLayout()
+        self.filters.setSpacing(6)
+        outer.addLayout(self.filters)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         inner = QWidget()
         self.lay = QVBoxLayout(inner)
         self.lay.setContentsMargins(0, 0, 8, 0)
-        self.lay.setSpacing(12)
+        self.lay.setSpacing(10)
         scroll.setWidget(inner)
         outer.addWidget(scroll, 1)
-        self._loaded = False
+
+        self._rows = None
+        self._section = ""
+        self._loading = False
+        self.loaded.connect(self._draw)
+        self.lay.addWidget(QLabel("Loading…", objectName="dim"))
 
     def refresh(self):
-        if self._loaded:
+        if self._rows is not None or self._loading:
             return
-        self._loaded = True
-        try:
-            from ire.dashboard import site
-            entries = site.read_news()
-        except Exception:                                        # noqa: BLE001
-            entries = []
-        if not entries:
-            self.lay.addWidget(QLabel("No entries yet.", objectName="dim"))
+        self._loading = True
+
+        def work():
+            try:
+                from ire.collector import racenews
+                rows = racenews.load()
+            except Exception:                                    # noqa: BLE001
+                rows = []
+            self._rows = rows
+            self.loaded.emit()
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _draw(self):
+        self._loading = False
+        while self.lay.count():
+            it = self.lay.takeAt(0)
+            if it.widget():
+                it.widget().deleteLater()
+        while self.filters.count():
+            it = self.filters.takeAt(0)
+            if it.widget():
+                it.widget().deleteLater()
+
+        rows = self._rows or []
+        if not rows:
+            self.lay.addWidget(QLabel("No news right now — check the connection.",
+                                      objectName="dim"))
             return
-        for e in entries[:20]:
-            when = QLabel(e.get("date", ""), objectName="dim")
-            title = QLabel(e.get("title", ""))
-            title.setStyleSheet("font-size:16px;font-weight:700")
-            body = QLabel(e.get("body", "").strip())
+
+        from ire.collector import racenews
+        for name in ["All"] + racenews.sections(rows):
+            b = QPushButton(name, objectName="tab")
+            b.setCheckable(True)
+            b.setChecked((name == "All") == (not self._section)
+                         and (name == self._section or name == "All"))
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, n=name: self._pick(n))
+            self.filters.addWidget(b)
+        self.filters.addStretch(1)
+
+        shown = [r for r in rows
+                 if not self._section or r.get("section") == self._section]
+        for r in shown[:60]:
+            top = QLabel(f"{r.get('section', '')} · {r.get('source', '')}",
+                         objectName="dim")
+            title = QLabel(r.get("title", ""))
+            title.setWordWrap(True)
+            title.setStyleSheet("font-size:15px;font-weight:700")
+            body = QLabel(r.get("summary", ""))
             body.setWordWrap(True)
             body.setObjectName("dim")
-            self.lay.addWidget(card(when, title, body))
+            c = card(top, title, body, pad=14)
+            link = r.get("link")
+            if link:
+                c.setCursor(Qt.PointingHandCursor)
+                c.mousePressEvent = lambda e, u=link: webbrowser.open(u)
+            self.lay.addWidget(c)
         self.lay.addStretch(1)
+
+    def _pick(self, name):
+        self._section = "" if name == "All" else name
+        self._draw()
 
 
 class Dashboard(QWidget):

@@ -251,7 +251,9 @@ def parse_csv(text):
             f[ch] = num(col)
         frames.append(f)
         if "Lat" in idx and "Lon" in idx:
-            shape.append((num("Lat"), num("Lon")))
+            # Вместе с ДОЛЕЙ ДИСТАНЦИИ: без неё по контуру нельзя поставить
+            # машинку — точка есть, а куда её класть на круге, неизвестно.
+            shape.append((f["lap_dist_pct"], num("Lat"), num("Lon")))
     return frames, shape
 
 
@@ -308,6 +310,8 @@ def download_lap(meta, force=False):
         "lap_time": m.get("lap_time"),
         "points": lap_store.POINTS,
         "channels": channels,
+        # Контур трассы по координатам. Прореживаем: 4000 точек рисовать
+        # незачем, форма от 600 не меняется, а вес карты падает всемеро.
         "shape": shape[::max(1, len(shape) // 600)] if shape else [],
     }
     try:
@@ -347,3 +351,105 @@ def best_reference(track, car=None, tries=4, slower_than=None):
         if lap:
             return lap, ""
     return None, "Garage 61 did not hand over any lap (403 or 504)"
+
+
+def me():
+    """Кто мы для Garage 61 — чтобы отметить свои круги в таблице.
+
+    Ответ кэшируется на диск: он не меняется вовсе, а без сети таблица
+    всё равно должна показать, где ты.
+    """
+    f = _dir() / "me.json"
+    code, data = get("/me")
+    if code == 200 and isinstance(data, dict):
+        try:
+            f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+        return data
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def leaderboard(track, car=None, season=None, limit=100, clean_only=True):
+    """Таблица времён: кто, за сколько, отставание от лидера.
+
+    Ровно тот вопрос, ради которого Garage 61 и нужен: не «где я хуже себя»,
+    а «на каком я месте и сколько до первого». Свой круг помечается — без
+    этого таблицу приходится глазами обыскивать на свою фамилию.
+
+    Сезон фильтруется НА НАШЕЙ стороне: параметр `seasons` сервер принимает,
+    но выдачу по нему не сужает — проверено 31.08.2026. Молча положиться
+    на него значило бы показывать прошлогодние времена как сегодняшние.
+
+    clean_only отбрасывает круги с вылетами и обрезанные: сравнивать свой
+    чистый круг с чужим, срезанным по траве, бессмысленно.
+    """
+    t = find_track(track) if isinstance(track, str) else track
+    if not t:
+        return {"ok": False, "reason": "track not found in Garage 61", "rows": []}
+    q = {"tracks": t["id"], "limit": max(1, min(int(limit), 200))}
+    c = find_car(car) if isinstance(car, str) else car
+    if c:
+        q["cars"] = c["id"]
+    code, data = get("/laps", **q)
+    if code != 200:
+        return {"ok": False, "reason": f"Garage 61 answered {code}", "rows": []}
+
+    mine = (me() or {}).get("id")
+    seasons, rows = {}, []
+    for x in _items(data):
+        lt = x.get("lapTime")
+        if not isinstance(lt, (int, float)) or lt <= 0:
+            continue
+        if x.get("incomplete") or x.get("missing"):
+            continue
+        if clean_only and (x.get("offtrack") or x.get("clean") is False):
+            continue
+        se = x.get("season") or {}
+        if se.get("id"):
+            seasons[se["id"]] = se.get("shortName") or se.get("name") or ""
+        if season and se.get("id") != season:
+            continue
+        d = x.get("driver") or {}
+        rows.append({
+            "lap_id": x.get("id"),
+            "driver": (f"{d.get('firstName', '')} {d.get('lastName', '')}".strip()
+                       or d.get("slug") or "?"),
+            "is_me": bool(mine) and d.get("id") == mine,
+            "lap_time": lt,
+            "car": (x.get("car") or {}).get("name"),
+            "season": se.get("shortName") or se.get("name") or "",
+            "season_id": se.get("id"),
+            "when": (x.get("startTime") or "")[:10],
+            "sectors": [s.get("sectorTime") for s in (x.get("sectors") or [])],
+            "telemetry": bool(x.get("canViewTelemetry")),
+        })
+
+    # Один пилот — один круг, лучший. Иначе таблица превращается в список
+    # заездов одного быстрого человека, и мест в ней не разглядеть.
+    best = {}
+    for r in rows:
+        cur = best.get(r["driver"])
+        if cur is None or r["lap_time"] < cur["lap_time"]:
+            best[r["driver"]] = r
+    rows = sorted(best.values(), key=lambda r: r["lap_time"])
+
+    leader = rows[0]["lap_time"] if rows else 0.0
+    for i, r in enumerate(rows, 1):
+        r["pos"] = i
+        r["gap"] = round(r["lap_time"] - leader, 3)
+
+    my_row = next((r for r in rows if r["is_me"]), None)
+    return {
+        "ok": True,
+        "track": t.get("name"), "config": t.get("variant"),
+        "car": (c or {}).get("name") if c else None,
+        "seasons": [{"id": k, "name": v} for k, v in sorted(seasons.items(), reverse=True)],
+        "season": season,
+        "rows": rows,
+        "my_pos": my_row["pos"] if my_row else None,
+        "my_gap": my_row["gap"] if my_row else None,
+    }

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+import math
 import os
 import re
 
@@ -124,4 +125,58 @@ def load_map(track):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
+        return None
+
+
+def from_latlon(shape):
+    """Контур трассы из настоящих координат (Garage 61) → путь для карты.
+
+    iRacing SDK координат не отдаёт вовсе, поэтому свою карту мы строили
+    интегрированием скорости и угловой скорости за круг. Работает, но копит
+    ошибку: к концу круга контур не сходится сам с собой, и его приходится
+    подрезать. Здесь координаты НАСТОЯЩИЕ, и форма получается такой, какая
+    трасса есть.
+
+    Проекция простая, равнопромежуточная: долгота умножается на косинус
+    широты. На пяти километрах трассы разница с честной проекцией — доли
+    метра, а нам нужна форма, а не геодезия.
+    """
+    pts = []
+    for row in shape or []:
+        try:
+            pct, lat, lon = float(row[0]), float(row[1]), float(row[2])
+        except (TypeError, ValueError, IndexError):
+            continue
+        if lat == 0.0 and lon == 0.0:          # пропуск в записи, не точка на карте
+            continue
+        pts.append((pct, lat, lon))
+    if len(pts) < 20:
+        return None
+
+    lat0 = sum(p[1] for p in pts) / len(pts)
+    k = math.cos(math.radians(lat0))
+    raw = [(pct, lon * k, -lat) for pct, lat, lon in pts]   # y вниз, как на экране
+    return normalize_path(resample(raw, 240))
+
+
+def from_garage61(track, car=None):
+    """Контур трассы по координатам чужого круга. None, если не вышло.
+
+    Порядок источников такой: официальная геометрия iRacing → координаты
+    Garage 61 → своя, построенная интегрированием. Своя идёт последней не
+    из вредности: она копит ошибку по кругу и к финишу не сходится сама
+    с собой, а координаты дают форму такой, какая трасса есть.
+
+    Сеть тут может отвалиться, и это нормально — вернём None, а инженер
+    пойдёт дальше по списку. Ронять живой цикл из-за карты нельзя.
+    """
+    try:
+        from ire.collector import garage61
+        if not garage61.available():
+            return None
+        lap, _ = garage61.best_reference(track, car, tries=3)
+        if not lap or not lap.get("shape"):
+            return None
+        return from_latlon(lap["shape"])
+    except Exception:                                  # noqa: BLE001
         return None

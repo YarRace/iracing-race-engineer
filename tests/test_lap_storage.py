@@ -230,3 +230,57 @@ def test_a_complete_lap_still_saves(tmp_path):
     got = laps.list_laps(tmp_path)
     assert len(got) == 1
     assert got[0]["covers"][0] < 0.01 and got[0]["covers"][1] > 0.99
+
+
+def test_broken_laps_are_found_by_the_flat_start(tmp_path):
+    """Старые файлы поля covers не имеют — их узнаём по самим данным.
+
+    Опасны такие круги не бесполезностью, а тем, что выглядят настоящими:
+    недостающая часть заполнена ровной полкой, и разбор насчитывает по ней
+    десятки секунд потерь в повороте, где ничего не произошло.
+    """
+    import gzip
+    import json as _json
+
+    good = _lap_frames(2, n=200, speed=lambda p: 40 + p * 60)
+    laps.save_lap(tmp_path, IDENT, 2, 93.5, good)
+
+    # круг, записанный старой версией: телеметрия с 9% дистанции
+    ch = laps.resample([{**f, "lap_dist_pct": 0.09 + f["lap_dist_pct"] * 0.91}
+                        for f in good])
+    d = tmp_path / "monza full"
+    d.mkdir(exist_ok=True)
+    with gzip.open(d / "old-broken.json.gz", "wt", encoding="utf-8") as fh:
+        _json.dump({"track": "monza full", "car": "Porsche 963 GTP",
+                    "lap_time": 94.0, "points": laps.POINTS,
+                    "ts": "2026-08-01T10:00:00", "channels": ch}, fh)
+
+    bad = laps.broken_laps(tmp_path)
+    assert len(bad) == 1
+    assert "flat line" in bad[0]["why"]
+    assert bad[0]["lap_time"] == 94.0
+
+
+def test_a_lap_with_the_covers_field_is_judged_by_it(tmp_path):
+    """Новые круги несут покрытие в метаданных — читать весь файл незачем."""
+    import gzip
+    import json as _json
+    d = tmp_path / "monza full"
+    d.mkdir(parents=True, exist_ok=True)
+    with gzip.open(d / "short.json.gz", "wt", encoding="utf-8") as fh:
+        _json.dump({"track": "monza full", "car": "c", "lap_time": 95.0,
+                    "points": 10, "covers": [0.2, 0.9], "ts": "2026-08-01T10:00:00",
+                    "channels": {"speed": [50.0] * 10}}, fh)
+    bad = laps.broken_laps(tmp_path)
+    assert len(bad) == 1 and "70%" in bad[0]["why"]
+
+
+def test_deleting_removes_only_what_was_asked(tmp_path):
+    """Решение о том, что удалять, принимает человек. Функция исполняет."""
+    p1 = laps.save_lap(tmp_path, IDENT, 2, 93.5, _lap_frames(2, n=120))
+    p2 = laps.save_lap(tmp_path, IDENT, 3, 94.5, _lap_frames(3, n=120))
+    assert laps.delete_laps([str(p1)]) == 1
+    left = laps.list_laps(tmp_path)
+    assert len(left) == 1 and left[0]["lap_time"] == 94.5
+    assert laps.delete_laps([str(p1)]) == 0        # уже нет — не падаем
+    assert laps.delete_laps([]) == 0

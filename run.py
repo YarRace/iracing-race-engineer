@@ -31,7 +31,8 @@ from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        tire_wear_by_corner, session_info)
 from ire.collector.race_state import (race_extras, SectorTimer, sector_starts,
                                        build_relative)
-from ire.collector.track_map import TrackMapBuilder, save_map, load_map
+from ire.collector.track_map import (TrackMapBuilder, save_map, load_map,
+                                     from_garage61 as track_map_from_g61)
 from ire.collector import track_svg
 from ire.collector.standings import build_standings, strength_of_field, cars_in_class
 from ire.collector.stint_recorder import StintDetector
@@ -187,11 +188,26 @@ def main():
                         print(f"Track map: OFFICIAL iRacing (track_id {tid}, {len(off)} points).")
                     else:
                         reason = track_svg.LAST_ERROR or "?"  # почему официальная не скачалась
-                        cached = load_map(ident["track"])     # иначе — из телеметрии (кэш прошлого круга)
+                        # Координаты Garage 61 — вторая попытка перед своей
+                        # картой: своя копит ошибку по кругу и к финишу не
+                        # сходится сама с собой, а Lat/Lon дают форму такой,
+                        # какая трасса есть. Тянем в фоне: сеть не должна
+                        # задерживать выезд на трассу.
+                        def _try_garage61(tr=ident["track"], ca=ident.get("car"),
+                                          ti=dict(tinfo)):
+                            pts = track_map_from_g61(tr, ca)
+                            if pts and STATE.get("trackmap", {}).get("source") != "official":
+                                STATE["trackmap"] = {"points": pts,
+                                                     "source": "Garage 61 (real coordinates)", **ti}
+                                save_map(tr + " g61", pts)
+                                print(f"Track map: Garage 61 coordinates ({len(pts)} points).")
+                        threading.Thread(target=_try_garage61, daemon=True).start()
+
+                        cached = load_map(ident["track"] + " g61") or load_map(ident["track"])
                         if cached:
                             tmb.load(cached)
                             STATE["trackmap"] = {"points": cached, "source": f"own (cached) · no official: {reason}", **tinfo}
-                        print(f"Track map: NO official one (track_id={tid}, {reason}) → telemetry.")
+                        print(f"Track map: NO official one (track_id={tid}, {reason}) → Garage 61 / telemetry.")
                 # прогрев LLM в фоне, пока едешь — первый разбор будет быстрым
                 threading.Thread(target=warm_up, daemon=True).start()
                 print("Warming up the model in the background…")

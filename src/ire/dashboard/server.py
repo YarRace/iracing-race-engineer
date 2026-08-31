@@ -167,6 +167,30 @@ def garage61_laps(track: str = Query(""), car: str = Query("")):
     return G.list_laps(track, car or None, limit=25)
 
 
+@app.get("/api/garage61/board")
+def garage61_board(track: str = Query(""), car: str = Query(""),
+                   season: int = Query(0), clean: int = Query(1)):
+    """Таблица времён: место, пилот, круг, отставание от лидера.
+
+    Тот вопрос, ради которого Garage 61 и нужен: не «где я хуже себя»,
+    а «на каком я месте среди всех и сколько до первого».
+    """
+    from ire.collector import garage61 as G
+
+    if not G.available():
+        return {"ok": False, "rows": [],
+                "reason": "no Garage 61 token — put it in data/garage61_token.txt"}
+    if not track:
+        from ire.storage import laps as L
+        saved = L.list_laps(L.default_root())
+        if saved:
+            latest = max(saved, key=lambda m: m.get("ts") or "")
+            track, car = latest.get("track") or "", car or latest.get("car") or ""
+    if not track:
+        return {"ok": False, "rows": [], "reason": "no track yet — drive a lap first"}
+    return G.leaderboard(track, car or None, season or None, clean_only=bool(clean))
+
+
 @app.get("/api/laps")
 def saved_laps(track: str = Query(""), car: str = Query("")):
     """Список сохранённых кругов — для выбора, что с чем сравнивать."""
@@ -176,6 +200,28 @@ def saved_laps(track: str = Query(""), car: str = Query("")):
         m["file"] = os.path.basename(m.pop("path", ""))
         out.append(m)
     return out
+
+
+@app.get("/api/laps/broken")
+def broken_laps_api():
+    """Круги, по которым нельзя сравнивать. Только СПИСОК, без удаления."""
+    from ire.storage import laps as L
+    out = []
+    for m in L.broken_laps(L.default_root()):
+        m["file"] = os.path.basename(m.pop("path", ""))
+        out.append(m)
+    return {"ok": True, "laps": out}
+
+
+@app.post("/api/laps/broken")
+def delete_broken_laps():
+    """Удалить их. POST, а не GET: GET не должен ничего стирать — по нему
+    ходят и предзагрузчики браузера, и случайное обновление страницы."""
+    from ire.storage import laps as L
+    root = L.default_root()
+    bad = L.broken_laps(root)
+    n = L.delete_laps([m["path"] for m in bad])
+    return {"ok": True, "deleted": n}
 
 
 @app.get("/api/stintplan")

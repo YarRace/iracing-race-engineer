@@ -82,6 +82,9 @@
   .segbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit}
   .segbtn:hover{border-color:var(--accent);color:var(--txt)}
   .segbtn.on{background:var(--accent);color:#08111c;border-color:var(--accent);font-weight:700}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit}
+  .btn:hover{border-color:var(--bad);color:var(--bad)}
+  .btn:disabled{opacity:.5;cursor:default}
   .tpin{width:100%;margin-top:4px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-family:inherit}
 
   /* рекорды в стиле iRacing «Personal Bests»: секции по машине */
@@ -417,6 +420,17 @@
 <div id="tab-analysis" class="mpane" style="display:none">
   <div class="grid">
     <div class="col">
+      <div class="card" data-card="an_cleanup" data-title="🧹 Broken laps"><h2>🧹 Broken laps</h2>
+        <div id="an_cleanup"><div class="empty">Checking the reference laps…</div></div></div>
+      <div class="card" data-card="g61_board" data-title="🌍 Lap times — everyone">
+        <h2>🌍 Lap times — everyone</h2>
+        <div class="mini" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+          <label class="tire"><div class="cn">Season</div>
+            <select id="g61_season" class="tpin"><option value="0">all seasons</option></select></label>
+          <label class="tire"><div class="cn">Only clean laps</div>
+            <select id="g61_clean" class="tpin"><option value="1">yes</option><option value="0">no</option></select></label>
+        </div>
+        <div id="g61_board"><div class="empty">Lap times from Garage 61 for this track and car.</div></div></div>
       <div class="card" data-card="an_corners" data-title="🎯 Corner by corner"><h2>🎯 Corner by corner</h2>
         <div id="an_corners"><div class="empty">Drive two laps on the same track and car — the corner-by-corner comparison appears here.</div></div></div>
       <div class="card" data-card="an_sectors" data-title="⏱️ Time lost (sectors)"><h2>⏱️ Time lost (sectors)</h2><div id="an_sectors"><div class="empty">Optimal minus actual — where you lost time per sector.</div></div></div>
@@ -1466,6 +1480,108 @@ $('fuelLaps').oninput = renderFuelCalc;   // топливный калькуля
 bindNotes('e_stintplan_txt', 'ire_stintplan');   // план стинтов (Endurance)
 bindNotes('s_notes_txt', 'ire_setupnotes');      // заметки по сетапу (Setup)
 
+// ===== Broken laps (Race analysis) =====
+// Круг с обрезанной телеметрией выглядит настоящим: недостающее заполнено
+// ровной полкой. Разбор насчитывает по ней десятки секунд потерь там, где
+// ничего не произошло. Такие круги надо видеть и уметь убрать.
+let _cleanSig = null;
+async function tickCleanup(){
+  if(!$('an_cleanup')) return;
+  let r; try{ r = await (await fetch('/api/laps/broken')).json(); }catch{ return; }
+  const sig = JSON.stringify((r.laps||[]).map(x=>x.file));
+  if(sig === _cleanSig) return;
+  _cleanSig = sig;
+  safe(renderCleanup, r);
+}
+
+function renderCleanup(r){
+  const el = $('an_cleanup'); if(!el) return;
+  const bad = (r && r.laps) || [];
+  if(!bad.length){
+    el.innerHTML = `<div class="empty">All saved laps cover the full distance.</div>`;
+    return;
+  }
+  const rows = bad.map(x=>`<tr>
+    <td>${x.track_display||x.track||''}</td><td class="why">${x.car||''}</td>
+    <td style="text-align:right">${lapTime(x.lap_time)}</td>
+    <td class="why" style="text-align:right">${x.why||''}</td></tr>`).join('');
+  el.innerHTML = `<div class="why" style="margin-bottom:8px">
+      ${bad.length} lap${bad.length>1?'s':''} cannot be used for comparison —
+      the telemetry does not cover the whole lap, and the missing part reads as
+      a flat line. Nothing is deleted until you say so.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">${rows}</table>
+    <button id="clean_btn" class="btn" style="margin-top:10px">Delete them</button>`;
+  const b = $('clean_btn');
+  if(b) b.onclick = async ()=>{
+    b.disabled = true; b.textContent = 'Deleting…';
+    try{ await fetch('/api/laps/broken', {method:'POST'}); }catch{}
+    _cleanSig = null; _cornerSig = null;      // разбор пересчитается на живых
+    tickCleanup();
+  };
+}
+
+// ===== Lap times — everyone (Garage 61) =====
+// Свой лучший круг отвечает «где я хуже себя». Эта таблица отвечает
+// «на каком я месте среди всех и сколько до первого» — другой вопрос.
+let _g61Sig = null, _g61Seasons = null;
+async function tickG61Board(){
+  const el = $('g61_board'); if(!el) return;
+  const season = $('g61_season') ? $('g61_season').value : '0';
+  const clean = $('g61_clean') ? $('g61_clean').value : '1';
+  const sig = season + '|' + clean;
+  if(sig === _g61Sig) return;              // таблица меняется раз в круг, не чаще
+  _g61Sig = sig;
+  let r;
+  try{ r = await (await fetch(`/api/garage61/board?season=${season}&clean=${clean}`)).json(); }
+  catch{ return; }
+  safe(renderG61Board, r);
+}
+
+function renderG61Board(r){
+  const el = $('g61_board'); if(!el) return;
+  if(!r || !r.ok || !(r.rows||[]).length){
+    el.innerHTML = `<div class="empty">${r && r.reason ? r.reason : 'No lap times yet.'}</div>`;
+    return;
+  }
+  // Сезоны наполняем один раз: пересобирать выпадашку на каждом тике
+  // значит сбрасывать выбор человека прямо под курсором.
+  const sel = $('g61_season');
+  if(sel && _g61Seasons === null){
+    _g61Seasons = r.seasons || [];
+    sel.innerHTML = '<option value="0">all seasons</option>' +
+      _g61Seasons.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    sel.onchange = ()=>{ _g61Sig = null; tickG61Board(); };
+    if($('g61_clean')) $('g61_clean').onchange = ()=>{ _g61Sig = null; tickG61Board(); };
+  }
+
+  const head = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">
+    ${card('Your position', r.my_pos ? 'P'+r.my_pos : '—', `of ${r.rows.length} drivers`)}
+    ${card('To the leader', r.my_gap!=null ? '+'+r.my_gap.toFixed(3) : '—', 'seconds')}
+    ${card('Track', r.track||'—', [r.config, r.car].filter(Boolean).join(' · '))}</div>`;
+
+  const rows = r.rows.slice(0, 25).map(x=>{
+    const mine = x.is_me;
+    const bg = mine ? 'background:#14301f' : '';
+    return `<tr style="${bg}">
+      <td style="width:34px;color:var(--muted)">${x.pos}</td>
+      <td>${mine ? '<b>'+x.driver+'</b>' : x.driver}</td>
+      <td class="why">${x.car||''}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums">${lapTime(x.lap_time)}</td>
+      <td style="text-align:right;color:${x.gap>0?'var(--muted)':'var(--best)'};
+          font-variant-numeric:tabular-nums">${x.gap>0?'+'+x.gap.toFixed(3):'—'}</td>
+      <td class="why" style="text-align:right">${x.season||''}</td></tr>`;
+  }).join('');
+
+  el.innerHTML = head +
+    `<div style="max-height:360px;overflow:auto;margin-top:10px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><th></th><th>Driver</th><th>Car</th><th style="text-align:right">Lap</th>
+      <th style="text-align:right">Gap</th><th style="text-align:right">Season</th></tr>
+      ${rows}</table></div>
+    <div class="why" style="margin-top:8px">From Garage 61 — one best lap per driver.
+      Times come from everyone who shares data, not just your team.</div>`;
+}
+
 // ===== Corner by corner (Race analysis) =====
 // Три сектора iRacing — слишком крупно, чтобы что-то с этим делать. Здесь круг
 // режется по минимумам скорости, и у каждого поворота свой вердикт из
@@ -1906,6 +2022,8 @@ setInterval(tickSetupExtra, 1500);
 // весь скрипт вместе с регистрацией тиков.
 tpInit();
 setInterval(tickCorners, 6000);
+setInterval(tickG61Board, 20000);
+setInterval(tickCleanup, 15000);   // чужие круги меняются раз в день, не в секунду
 setInterval(tickTeamPlan, 3000);
 </script>
 </body>

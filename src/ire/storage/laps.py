@@ -279,3 +279,55 @@ def list_laps(root, track=None, car=None):
         out.append(m)
     out.sort(key=lambda m: (m.get("lap_time") is None, m.get("lap_time")))
     return out
+
+
+def broken_laps(root):
+    """Круги, по которым нельзя сравнивать: телеметрия покрывает не весь круг.
+
+    Такие лежат с тех пор, когда `save_lap` проверял только ВРЕМЯ круга.
+    Опасны они не тем, что бесполезны, а тем, что выглядят настоящими:
+    недостающая часть заполняется ровной полкой на постоянной скорости,
+    и разбор насчитывает по ней десятки секунд потерь в повороте, где
+    ничего не произошло.
+
+    Старые файлы поля `covers` не имеют — для них смотрим на сами данные:
+    длинная полка одинаковой скорости в начале это ровно тот признак.
+    """
+    out = []
+    for m in list_laps(root):
+        covers = m.get("covers")
+        if isinstance(covers, (list, tuple)) and len(covers) == 2:
+            if covers[1] - covers[0] < MIN_COVERAGE:
+                out.append({**m, "why": f"covers {int((covers[1]-covers[0])*100)}% of the lap"})
+            continue
+        try:
+            full = load_lap(m["path"])
+        except Exception:                                 # noqa: BLE001
+            continue
+        sp = (full.get("channels") or {}).get("speed") or []
+        if len(sp) < 100:
+            out.append({**m, "why": "not enough telemetry"})
+            continue
+        flat = 1
+        while flat < len(sp) and abs(sp[flat] - sp[0]) < 1e-9:
+            flat += 1
+        if flat / len(sp) > (1 - MIN_COVERAGE):
+            out.append({**m, "why": f"first {int(flat/len(sp)*100)}% is a flat line"})
+    return out
+
+
+def delete_laps(paths_):
+    """Удалить круги по путям. Возвращает, сколько получилось.
+
+    Принимает пути, а не «удали всё плохое»: решение о том, что удалять,
+    принимает человек, а функция только исполняет. Ошибку записи глотаем —
+    один запертый файл не должен обрывать уборку остальных.
+    """
+    n = 0
+    for p in paths_ or []:
+        try:
+            pathlib.Path(p).unlink()
+            n += 1
+        except OSError:
+            pass
+    return n
