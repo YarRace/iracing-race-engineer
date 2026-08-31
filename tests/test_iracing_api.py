@@ -1,0 +1,136 @@
+"""Официальный iRacing Data API: iRating и лицензия.
+
+Сети здесь нет: тесты проверяют то, что можно сломать молча — формулу
+хеша пароля, двухступенчатый ответ через ссылку и поведение при капче.
+
+Пароль в тестах выдуманный. Настоящий лежит в data/iracing_auth.json,
+который заполняет человек, и в код не попадает никогда.
+"""
+import base64
+import hashlib
+import json
+import pathlib
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from ire.collector import iracing_api as api                     # noqa: E402
+
+
+def test_password_is_hashed_the_way_iracing_expects():
+    """base64(sha256(пароль + почта в НИЖНЕМ регистре)). Ошибись в регистре —
+    и вход отвечает «неверный пароль», хотя пароль верный."""
+    want = base64.b64encode(
+        hashlib.sha256(b"secret123me@example.com").digest()).decode()
+    assert api._hash("Me@Example.COM", "secret123") == want
+
+
+def test_the_plain_password_never_leaves_the_hash_function():
+    h = api._hash("me@example.com", "secret123")
+    assert "secret123" not in h
+
+
+def test_no_credentials_is_a_clean_answer_not_an_exception(tmp_path, monkeypatch):
+    """Инженер зовёт это на живом цикле. Ловить исключения ради одной
+    строки в интерфейсе никто не должен."""
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+    assert api.available() is False
+    p = api.profile(force=True)
+    assert p["ok"] is False and "credentials" in p["reason"]
+    assert api.irating() is None
+
+
+def test_credentials_are_read_from_the_file_the_person_fills(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+    (tmp_path / "iracing_auth.json").write_text(
+        json.dumps({"email": " Me@Example.com ", "password": "pw"}),
+        encoding="utf-8")
+    email, pw = api.credentials()
+    assert email == "Me@Example.com" and pw == "pw"
+    assert api.available() is True
+
+
+def test_a_broken_credentials_file_does_not_crash(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+    (tmp_path / "iracing_auth.json").write_text("не json", encoding="utf-8")
+    assert api.credentials() == ("", "")
+    assert api.available() is False
+
+
+def test_captcha_is_reported_not_worked_around(tmp_path, monkeypatch):
+    """Капча стоит для того, чтобы её не обходили. Наше дело — сказать
+    человеку, что надо один раз зайти на сайт руками."""
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+    (tmp_path / "iracing_auth.json").write_text(
+        json.dumps({"email": "a@b.c", "password": "pw"}), encoding="utf-8")
+
+    class FakeResp:
+        def __init__(self, payload):
+            self._p = json.dumps(payload).encode()
+        def read(self):
+            return self._p
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    c = api.Client()
+    c.opener.open = lambda *a, **k: FakeResp({"verificationRequired": True})
+    assert c.login() is False
+    assert "CAPTCHA" in c.error
+    assert "browser" in c.error
+
+
+def test_the_two_step_link_answer_is_followed(tmp_path, monkeypatch):
+    """Почти все эндпоинты отвечают не данными, а ссылкой на S3. Наивный
+    клиент вернул бы ссылку как результат и «работал» бы до первого вопроса,
+    где числа."""
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+
+    class FakeResp:
+        def __init__(self, payload):
+            self._p = json.dumps(payload).encode()
+        def read(self):
+            return self._p
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    calls = []
+
+    def fake_open(req, timeout=0):
+        url = req if isinstance(req, str) else req.full_url
+        calls.append(url)
+        if "members-ng" in url:
+            return FakeResp({"link": "https://s3.example/data.json"})
+        return FakeResp({"display_name": "Yaroslav", "cust_id": 1,
+                         "licenses": [{"category_name": "Sports Car",
+                                       "irating": 2450, "group_name": "A",
+                                       "safety_rating": 3.5}]})
+
+    c = api.Client()
+    c.opener.open = fake_open
+    got = c.get("/data/member/info")
+    assert len(calls) == 2, "по ссылке не сходили"
+    assert got["display_name"] == "Yaroslav"
+
+
+def test_profile_shapes_licences_for_the_interface(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+    (tmp_path / "iracing_auth.json").write_text(
+        json.dumps({"email": "a@b.c", "password": "pw"}), encoding="utf-8")
+
+    monkeypatch.setattr(api.Client, "get", lambda self, path, **kw: {
+        "display_name": "Iaroslav Chizhov", "cust_id": 42, "club_name": "Russia",
+        "licenses": [{"category_name": "Sports Car", "irating": 2450,
+                      "group_name": "A", "safety_rating": 3.51},
+                     {"category_name": "Formula Car", "irating": 1800,
+                      "group_name": "B", "safety_rating": 2.9}]})
+    p = api.profile(force=True)
+    assert p["ok"] and p["name"] == "Iaroslav Chizhov"
+    assert {x["category"] for x in p["licenses"]} == {"Sports Car", "Formula Car"}
+    assert p["licenses"][0]["licence"] == "A 3.51"
+    assert api.irating("sports_car") == 2450
+    assert api.irating("oval") is None

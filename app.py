@@ -168,6 +168,10 @@ class Home(QWidget):
         row.addStretch(1)
         lay.addLayout(row)
 
+        self.who = QLabel("", objectName="dim")
+        self.who.setWordWrap(True)
+        lay.addWidget(self.who)
+
         lay.addWidget(QLabel("RECENT SESSIONS", objectName="h2"))
         self.recent = QVBoxLayout()
         self.recent.setSpacing(8)
@@ -185,6 +189,8 @@ class Home(QWidget):
         lay.addStretch(1)
 
     def refresh(self):
+        if getattr(self, "_who_text", ""):
+            self.who.setText(self._who_text)
         if self.engineer.error:
             self.sub.setText("The engineer stopped: " + self.engineer.error)
         elif self.engineer.alive:
@@ -204,6 +210,38 @@ class Home(QWidget):
         self.s_state.value_label.setText(
             "shown" if self.config.overlays_running() else "hidden")
         self._draw_recent()
+        self._draw_who()
+
+    def _draw_who(self):
+        """Кто ты по данным iRacing: имя, iRating, лицензия.
+
+        Спрашиваем ОДИН раз за запуск и только если человек положил свои
+        данные для входа. Нет их — строки просто нет; уговаривать завести
+        аккаунт посреди главной незачем.
+        """
+        if getattr(self, "_who_done", False):
+            return
+        self._who_done = True
+
+        def work():
+            try:
+                from ire.collector import iracing_api as IR
+                if not IR.available():
+                    return
+                p = IR.profile()
+            except Exception:                                    # noqa: BLE001
+                return
+            if not p.get("ok"):
+                return
+            best = max((x for x in p.get("licenses") or []
+                        if isinstance(x.get("irating"), int)),
+                       key=lambda x: x["irating"], default=None)
+            text = p.get("name") or ""
+            if best:
+                text += f"  ·  {best['category']} {best['irating']} iR  ·  {best['licence']}"
+            self._who_text = text
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _draw_recent(self):
         """Последние выезды: где, на чём, лучший круг, инциденты.

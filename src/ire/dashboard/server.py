@@ -243,6 +243,18 @@ def garage61_laps(track: str = Query(""), car: str = Query("")):
     return G.list_laps(track, car or None, limit=25)
 
 
+@app.get("/api/iracing/profile")
+def iracing_profile():
+    """Имя, iRating и лицензия из официального API iRacing.
+
+    Garage 61 отдаёт имя и круги, но рейтинг — данные самого iRacing.
+    Вход требует логина и пароля, которые кладёт САМ человек в
+    data/iracing_auth.json; сюда они не попадают и в логи не пишутся.
+    """
+    from ire.collector import iracing_api as IR
+    return IR.profile()
+
+
 @app.get("/api/garage61/board")
 def garage61_board(track: str = Query(""), car: str = Query(""),
                    season: int = Query(0), clean: int = Query(1)):
