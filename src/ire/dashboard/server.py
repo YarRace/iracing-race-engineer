@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 import os
 
 from ire import paths
+from ire.metrics import sector_history as SH
 from ire.storage import history
 from . import site
 
@@ -88,6 +89,49 @@ def session(): return STATE["session"]
 
 @app.get("/api/trackmap")
 def trackmap(): return STATE["trackmap"]
+
+
+def _run_label(run):
+    first = run[0]
+    return {"track": first.get("track_display") or first.get("track"),
+            "config": first.get("config"), "car": first.get("car"),
+            "when": (first.get("ts") or "")[:16].replace("T", " "),
+            "laps": len(run)}
+
+
+@app.get("/api/sectors")
+def sectors_analysis(run: int = Query(-1)):
+    """Разбор ЗАЕЗДА по секторам: что теряется каждый круг, а что разово.
+
+    Не путать с виджетом оверлея `sectors` — тот показывает живой круг
+    прямо сейчас и читает /api/race. Здесь посмертный разбор по истории:
+    другие данные и другой вопрос.
+
+    По умолчанию берём самый свежий заезд — то, что человек только что
+    проехал. Но свежий бывает и в два круга, а сказать по двум кругам
+    нечего, поэтому рядом отдаётся список всех заездов: выбрать длинный
+    и посмотреть его — это один клик, а не новый запрос к базе.
+    """
+    conn = history.connect()
+    try:
+        laps = history.lap_sectors(conn)
+    finally:
+        conn.close()
+    if not laps:
+        return {"ok": False, "reason": "no laps with sector times in the history yet"}
+
+    runs = SH.split_runs(SH.dedupe(laps))
+    runs = [r for r in runs if len(r) >= 2][-40:]        # заезды в один круг не разбираются
+    if not runs:
+        return {"ok": False, "reason": "no run in the history has more than one lap"}
+    runs.reverse()                                       # свежие сверху, как в истории
+
+    i = 0 if run < 0 else min(run, len(runs) - 1)
+    out = SH.report(runs[i])
+    out["run"] = _run_label(runs[i])
+    out["runs"] = [_run_label(r) for r in runs]
+    out["picked"] = i
+    return out
 
 
 @app.get("/api/corners")

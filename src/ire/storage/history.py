@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS laps (
     s1            REAL,
     s2            REAL,
     s3            REAL,
+    sectors       TEXT,
     valid         INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS idx_laps_track_car ON laps (track, car);
@@ -62,7 +63,13 @@ CREATE TABLE IF NOT EXISTS stints (
 """
 
 # Колонки, добавленные после первого релиза — досоздаём в старых базах (миграция).
-_MIGRATIONS = {"laps": [("car_class", "TEXT")],
+_MIGRATIONS = {"laps": [("car_class", "TEXT"),
+                        # ПОЛНЫЙ список секторов. Трёх колонок не хватало, и
+                        # это была настоящая потеря: на Спа секторов четыре
+                        # (32 секунды из 123 не попадали в базу — 26% круга),
+                        # на Монце 33%, на Road America 52%. Всё, что дальше
+                        # третьего, пропадало молча, и разбирать было нечего.
+                        ("sectors", "TEXT")],
                "stints": [("car_class", "TEXT"),
                           # Давления и температуры шин со стинта. Без них
                           # Tyre Tool не может сказать «целься как в свой
@@ -107,7 +114,13 @@ def _migrate(conn):
         have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
         for name, coltype in cols:
             if name not in have:
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {coltype}")
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {coltype}")
+                except sqlite3.OperationalError:
+                    # База занята живым циклом — колонку добавит он сам при
+                    # своём connect(). Уронить из-за этого запрос дашборда
+                    # нельзя: человек увидит белый экран посреди гонки.
+                    pass
 
 
 def is_valid_lap(lap_time):
@@ -124,14 +137,19 @@ def save_lap(conn, identity, lap_num, lap_time, sectors=None, valid=None):
         valid = is_valid_lap(lap_time)
     s = list(sectors or [])
     s1, s2, s3 = (s + [None, None, None])[:3]
+    # s1..s3 остаются ради прежних читателей (рекорды, график прогресса), но
+    # правда о круге теперь в sectors. Список пишем, только если в нём есть
+    # хоть одно число: [None, None, None] в JSON читался бы как «записано
+    # пусто», а это другое утверждение, чем «не записано».
+    full = _json(s) if any(isinstance(x, (int, float)) for x in s) else None
     conn.execute(
         "INSERT INTO laps (ts, track, track_display, config, car, car_path, car_class, "
-        "session_type, lap_num, lap_time, s1, s2, s3, valid) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "session_type, lap_num, lap_time, s1, s2, s3, sectors, valid) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (_now(), identity.get("track"), identity.get("track_display"),
          identity.get("config"), identity.get("car"), identity.get("car_path"),
          identity.get("car_class"), identity.get("session_type"), lap_num, lap_time,
-         s1, s2, s3, int(bool(valid))),
+         s1, s2, s3, full, int(bool(valid))),
     )
     conn.commit()
 
@@ -210,4 +228,42 @@ def recent_stints(conn, limit=20):
         d["pressures"] = _unjson(d.get("pressures"))
         d["tyre_temps"] = _unjson(d.get("tyre_temps"))
         out.append(d)
+    return out
+
+
+def lap_sectors(conn, track=None, car=None, session_type=None, limit=2000):
+    """Завершённые круги с посекторными временами — сырьё для разбора заезда.
+
+    Отдаётся ПОЛНЫЙ список секторов и признак `recorded_all`. У кругов,
+    записанных до 31.08.2026, списка нет, и он собирается из s1..s3 — но это
+    не весь круг: на Спа четвёртый сектор длиной 32 секунды в базу не попал.
+    Врать здесь нельзя, тот кто читает обязан знать, что смотрит на кусок.
+
+    Порядок берём по id, а не по ts: два круга подряд ложатся в одну секунду,
+    и сортировка по времени переставляла бы их местами — «разовая потеря»
+    привязалась бы к чужому номеру круга.
+
+    Отбор — по id DESC, то есть СВЕЖИЕ круги. Сортировка по трассе с обрезкой
+    отрезала бы алфавитно последние трассы вместо старых кругов, и свежий
+    заезд на Спа однажды молча не попал бы в выборку.
+    """
+    q = ("SELECT id, ts, track, track_display, config, car, car_class, session_type, "
+         "lap_num, lap_time, s1, s2, s3, sectors FROM laps "
+         "WHERE valid=1 AND s1 IS NOT NULL")
+    args = []
+    for col, val in (("track", track), ("car", car), ("session_type", session_type)):
+        if val:
+            q += f" AND {col}=?"
+            args.append(val)
+    q += " ORDER BY id DESC LIMIT ?"
+    args.append(limit)
+
+    out = []
+    for r in conn.execute(q, args):
+        d = dict(r)
+        full = _unjson(d.pop("sectors"))
+        d["recorded_all"] = bool(full)
+        d["sectors"] = full if full else [d["s1"], d["s2"], d["s3"]]
+        out.append(d)
+    out.reverse()                       # обратно в порядок заездов: старые первыми
     return out

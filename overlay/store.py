@@ -38,6 +38,14 @@ class Store:
             self._active = set(endpoints)
 
     def start(self):
+        # Живую телеметрию поднимаем здесь, а не в виджете при первом
+        # обращении: start() зовут только настоящие точки входа оверлея, и
+        # значит тесты к общей памяти сима не полезут.
+        try:
+            from overlay import telemetry
+            telemetry.start_feed()
+        except Exception:                                    # noqa: BLE001
+            pass
         threading.Thread(target=self._loop, daemon=True).start()
 
     def stop(self):

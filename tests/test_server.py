@@ -555,3 +555,26 @@ def test_availability_reaches_the_planner_through_the_url():
         assert b_limited < b_free, "окна доступности не повлияли на план"
     finally:
         STATE["strategy"], STATE["session"] = {}, {}
+
+
+def test_a_widget_never_starts_reading_the_live_sim_by_itself():
+    """Раньше fastval() лениво поднимал фоновый поток к общей памяти iRacing
+    при первом же обращении. Из-за этого тесты отвечали по-разному в
+    зависимости от того, открыт ли сейчас сим: на машине с запущенной игрой
+    набор падал, на пустой проходил. Поймать такое почти невозможно, а
+    программа готовится к продаже — у покупателя игра будет открыта.
+
+    Поднимать живую телеметрию должен тот, кому она нужна, — оверлей в
+    store.start(). Виджет обязан обойтись тем, что пришло по HTTP.
+    """
+    from overlay import telemetry, widgets
+
+    before = telemetry._FEED
+    telemetry._FEED = None
+    try:
+        w = _mk("Slip", _Store(live={"yaw_rate": 0.1, "steer": 0.9, "speed": 3.0}))
+        assert {r[0]: r[1] for r in w.rows()}["Balance"] == "—"
+        assert telemetry._FEED is None, "виджет сам полез в живой сим"
+        assert widgets.fastval("speed", 42.0) == 42.0, "взял не то, что дали"
+    finally:
+        telemetry._FEED = before
