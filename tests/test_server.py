@@ -578,3 +578,38 @@ def test_a_widget_never_starts_reading_the_live_sim_by_itself():
         assert widgets.fastval("speed", 42.0) == 42.0, "взял не то, что дали"
     finally:
         telemetry._FEED = before
+
+
+def test_every_plain_api_endpoint_answers_without_parameters():
+    """Дешёвый пояс на все карточки сразу. Setup Optimiser в первой редакции
+    падал с KeyError на двух фазах из трёх и отдавал бы 500 ровно на самых
+    частых вопросах — такой тест поймал бы это за секунду."""
+    from fastapi.testclient import TestClient
+
+    from ire.dashboard.server import app
+
+    c = TestClient(app)
+    bad = []
+    for r in app.routes:
+        path = getattr(r, "path", "")
+        if not path.startswith("/api/") or "{" in path:
+            continue
+        try:
+            if c.get(path).status_code != 200:
+                bad.append(path)
+        except Exception as e:                               # noqa: BLE001
+            bad.append(f"{path}: {type(e).__name__}")
+    assert not bad, bad
+
+
+def test_the_optimiser_answers_in_every_phase():
+    """Именно те три запроса, на которых падала первая редакция."""
+    from fastapi.testclient import TestClient
+
+    from ire.dashboard.server import app
+
+    c = TestClient(app)
+    for phase in ("entry", "mid", "exit"):
+        r = c.get(f"/api/setup/advise?phase={phase}&symptom=understeer")
+        assert r.status_code == 200, phase
+        assert r.json()["moves"], phase

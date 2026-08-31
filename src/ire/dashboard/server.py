@@ -4,6 +4,8 @@ import os
 
 from ire import paths
 from ire.metrics import sector_history as SH
+from ire.setup import optimiser as OPT
+from ire.setup.sto_reader import read_sto
 from ire.storage import history
 from . import site
 
@@ -83,6 +85,34 @@ def tyres():
     «правильно ли стоит машина». Разные вопросы и разные карточки.
     """
     return STATE["tyres"] or {"ok": False, "reason": "no lap yet"}
+
+@app.get("/api/setup/questions")
+def setup_questions():
+    """Анкета Setup Optimiser. Отдаётся с сервера, а не вшита в страницу:
+    иначе список вопросов разъедется с таблицей правок, и человек будет
+    отвечать на вопрос, которого в разборе уже нет."""
+    return {"questions": OPT.QUESTIONS}
+
+
+@app.get("/api/setup/advise")
+def setup_advise(phase: str = Query(""), symptom: str = Query(""),
+                 brake: str = Query("any"), speed: str = Query("any")):
+    """Что покрутить по ощущениям человека. Без модели и без телеметрии.
+
+    Сетап берётся из живой сессии, если она есть: тогда рядом с советом
+    стоит текущее значение. Нет сессии — советы те же, просто без цифр;
+    инструмент для того и сделан, чтобы работать, когда сима нет.
+    """
+    fields = {}
+    setup = (STATE.get("live") or {}).get("setup") or STATE.get("setup")
+    if setup:
+        try:
+            fields = read_sto(setup)["fields"]
+        except Exception:                                    # noqa: BLE001
+            fields = {}
+    return OPT.advise(phase, symptom, brake, speed,
+                      fields=fields, tyres=STATE.get("tyres"))
+
 
 @app.get("/api/session")
 def session(): return STATE["session"]

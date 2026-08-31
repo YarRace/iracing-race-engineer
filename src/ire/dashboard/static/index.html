@@ -363,6 +363,10 @@
         <h2>🌡️ Tire temps (for setup)</h2>
         <div id="s_tires"><div class="empty">Appear after a stint.</div></div>
       </div>
+      <div class="card" data-card="s_optimiser" data-title="🧭 Setup optimiser">
+        <h2>🧭 Setup optimiser — tell me what the car does</h2>
+        <div id="s_optimiser"><div class="empty">Answer the two questions above.</div></div>
+      </div>
       <div class="card" data-card="s_tyretool" data-title="🔧 Tyre tool">
         <h2>🔧 Tyre tool — camber and pressure</h2>
         <div id="s_tyretool"><div class="empty">Appears after a lap on track.</div></div>
@@ -761,6 +765,86 @@ function renderTyreTool(r){
     ${r.have_pressures ? '' :
       '<div class="why" style="margin-top:6px">This car does not publish its pressures to the app.</div>'}`;
 }
+// Setup Optimiser: анкета из двух-четырёх вопросов → что покрутить в гараже.
+//
+// Отдельно от карточки «Setup changes»: та показывает, что предложила МОДЕЛЬ
+// по телеметрии стинта, и её ответ меняется от запуска к запуску. Здесь
+// ответ детерминированный и строится по ощущениям — он нужен там, где
+// телеметрии нет вовсе: первый заезд, чужая машина, запись не велась.
+let _optQ = null, _optA = {phase:'', symptom:'', brake:'any', speed:'any'};
+
+async function optLoadQuestions(){
+  if(_optQ) return _optQ;
+  try{ _optQ = (await (await fetch('/api/setup/questions')).json()).questions; }
+  catch{ _optQ = []; }
+  return _optQ;
+}
+
+function _optForm(){
+  return (_optQ||[]).filter(q => !q.only_phase || q.only_phase === _optA.phase)
+    .map(q => {
+      const opts = (q.required ? [['','—']] : []).concat(q.options)
+        .map(o => `<option value="${esc(o[0])}"${o[0]===_optA[q.id]?' selected':''}>${esc(o[1])}</option>`).join('');
+      return `<label class="tire"><div class="cn">${esc(q.ask)}</div>
+        <select class="tpin" data-opt="${esc(q.id)}">${opts}</select></label>`;
+    }).join('');
+}
+
+function renderOptimiser(r){
+  const el = $('s_optimiser'); if(!el) return;
+  const form = `<div class="mini" style="grid-template-columns:1fr 1fr;margin-bottom:10px">${_optForm()}</div>`;
+
+  if(!r || !r.ok){
+    el.innerHTML = form + `<div class="empty">${esc((r&&r.reason) || 'Answer the two questions above.')}</div>`;
+    bindOptimiser(); return;
+  }
+
+  const moves = (r.moves||[]).map((m,i)=>{
+    const now = m.now ? ` <span style="color:var(--muted)">(now ${esc(m.now)})</span>` : '';
+    const stuck = m.at_limit ? ' style="opacity:.75"' : '';
+    return `<div${stuck} style="padding:7px 0;border-top:1px solid var(--line)">
+      <div><b>${i+1}. ${esc(m.lever)}</b> — <b style="color:var(--accent)">${esc(m.move)}</b>${now}</div>
+      <div class="why">${esc(m.why)}</div>
+      ${m.caution?`<div class="why" style="color:var(--warn)">${esc(m.caution)}</div>`:''}
+      ${m.field?`<div class="why" style="font-size:11px">${esc(m.field)}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Список «не советуем» свёрнут: он длиннее самих советов, а нужен реже.
+  // Но он ЕСТЬ — молчание про рычаг читается как «мы про него не знаем».
+  const skipped = (r.skipped||[]).map(s=>
+    `<li><b>${esc(s.lever)}</b> — ${esc(s.why)}</li>`).join('');
+  const unavail = (r.unavailable||[]).map(u=>
+    `<li><b>${esc(u.lever)}</b> — ${esc(u.why)}</li>`).join('');
+
+  el.innerHTML = form +
+    `<div class="why" style="margin-bottom:4px">${esc(r.headline||'')}</div>
+     ${moves}
+     ${unavail?`<div class="why" style="margin-top:8px">Not on this car: <ul style="margin:4px 0 0 16px">${unavail}</ul></div>`:''}
+     <details style="margin-top:10px">
+       <summary class="why" style="cursor:pointer">What I am deliberately not telling you (${(r.skipped||[]).length})</summary>
+       <ul style="margin:6px 0 0 16px;font-size:12px;color:var(--muted)">${skipped}</ul>
+     </details>
+     ${r.have_setup?'':'<div class="why" style="margin-top:8px">No live setup — the advice is the same, just without the current values.</div>'}`;
+  bindOptimiser();
+}
+
+function bindOptimiser(){
+  document.querySelectorAll('#s_optimiser select[data-opt]').forEach(sel=>{
+    sel.onchange = ()=>{ _optA[sel.dataset.opt] = sel.value; tickOptimiser(); };
+  });
+}
+
+async function tickOptimiser(){
+  await optLoadQuestions();
+  if(!_optA.phase || !_optA.symptom){ safe(renderOptimiser, null); return; }
+  const q = new URLSearchParams(_optA);
+  try{
+    const r = await (await fetch('/api/setup/advise?'+q)).json();
+    _st.optimiser = r; safe(renderOptimiser, r);
+  }catch{}
+}
+
 function renderSessionInfo(s){
   if(!s || !s.session_type) return;
   const laps=s.laps_remain!=null?`${s.laps_remain}${s.laps_total?'/'+s.laps_total:''}`:'—';
@@ -2286,6 +2370,8 @@ tpInit();
 setInterval(tickCorners, 6000);
 // Раз в 10 секунд: круги ложатся в базу по одному, чаще смотреть незачем.
 tickSectorHistory(); setInterval(tickSectorHistory, 10000);
+// Анкета отвечает на действия человека, а не по таймеру.
+tickOptimiser();
 setInterval(tickG61Board, 20000);
 setInterval(tickG61Sectors, 25000);
 setInterval(tickCleanup, 15000);   // чужие круги меняются раз в день, не в секунду
