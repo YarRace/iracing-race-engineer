@@ -4,20 +4,26 @@
       "tl": 94.8,
       "tm": 100.6,
       "tr": 103.4,
+      "inner": 103.4,
+      "outer": 94.8,
       "spread": 8.6,
-      "bias": "outer_hot"
+      "bias": "inner_hot"
     },
     "RF": {
       "tl": 98.0,
       "tm": 95.2,
       "tr": 85.8,
+      "inner": 98.0,
+      "outer": 85.8,
       "spread": 12.2,
-      "bias": "outer_hot"
+      "bias": "inner_hot"
     },
     "LR": {
       "tl": 95.8,
       "tm": 100.8,
       "tr": 102.3,
+      "inner": 102.3,
+      "outer": 95.8,
       "spread": 6.4,
       "bias": "even"
     },
@@ -25,8 +31,10 @@
       "tl": 98.6,
       "tm": 96.9,
       "tr": 89.3,
+      "inner": 98.6,
+      "outer": 89.3,
       "spread": 9.3,
-      "bias": "outer_hot"
+      "bias": "inner_hot"
     },
     "front_rear_balance": -1.0
   },
