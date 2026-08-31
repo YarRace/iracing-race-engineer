@@ -80,6 +80,76 @@ def session(): return STATE["session"]
 @app.get("/api/trackmap")
 def trackmap(): return STATE["trackmap"]
 
+
+@app.get("/api/corners")
+def corners_analysis(lap: str = Query(""), ref: str = Query("")):
+    """Разбор круга по поворотам: где потеряно время и почему.
+
+    Без параметров берём последний сохранённый круг и лучший на той же
+    трассе и машине. Явные пути нужны, чтобы сравнить любые два круга
+    из истории, а не только свежий с рекордом.
+    """
+    from ire.metrics import corners as C
+    from ire.storage import laps as L
+
+    root = L.default_root()
+    meta = L.list_laps(root)
+    if not meta:
+        return {"ok": False, "reason": "no saved laps yet"}
+
+    def pick(path, fallback):
+        if not path:
+            return fallback
+        safe = os.path.basename(path)
+        hit = next((m for m in meta if os.path.basename(m["path"]) == safe), None)
+        return hit                       # чужой путь сюда не пройдёт: только имя
+
+    latest = max(meta, key=lambda m: m.get("ts") or "")
+    lap_meta = pick(lap, latest)
+    if lap_meta is None:
+        return {"ok": False, "reason": "lap not found"}
+    ref_meta = pick(ref, C.pick_reference(meta, lap_meta))
+    if ref_meta is None:
+        return {"ok": False, "reason": "no second lap on this track and car yet"}
+
+    return C.analyse(L.load_lap(lap_meta["path"]), L.load_lap(ref_meta["path"]))
+
+
+@app.get("/api/laps")
+def saved_laps(track: str = Query(""), car: str = Query("")):
+    """Список сохранённых кругов — для выбора, что с чем сравнивать."""
+    from ire.storage import laps as L
+    out = []
+    for m in L.list_laps(L.default_root(), track or None, car or None):
+        m["file"] = os.path.basename(m.pop("path", ""))
+        out.append(m)
+    return out
+
+
+@app.get("/api/stintplan")
+def stint_plan_api(drivers: str = Query(""), start: str = Query(""),
+                   pit: float = Query(60.0), offsets: str = Query(""),
+                   max_stint: float = Query(0.0)):
+    """Командный план стинтов: кто, когда и сколько едет.
+
+    Пилоты и время старта приходят от человека — их взять неоткуда;
+    темп, расход и объём бака берутся из живой гонки.
+    """
+    from ire.metrics import stint_plan as SP
+
+    names = [d.strip() for d in drivers.split(",") if d.strip()]
+    off = {}
+    for pair in offsets.split(","):
+        if ":" in pair:
+            who, _, hours = pair.partition(":")
+            try:
+                off[who.strip()] = float(hours)
+            except ValueError:
+                pass
+    return SP.from_live(STATE.get("strategy"), STATE.get("session"), names,
+                        pit_seconds=pit, start=start or None, offsets=off,
+                        max_stint_minutes=max_stint or None)
+
 @app.get("/wheels/{name}")
 def wheel_image(name: str):
     # фото рулей (MOZA KS/ES/RS/FSR/GS) для виджета «Руль» — статик из static/wheels/

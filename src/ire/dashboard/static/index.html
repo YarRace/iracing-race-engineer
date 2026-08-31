@@ -79,6 +79,7 @@
   .err{background:#2a1414;border:1px solid #5a2020;color:#e8a0a0;padding:10px 12px;border-radius:10px;font-size:13px}
   .empty{color:var(--muted);font-style:italic;padding:8px 0}
   .mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .tpin{width:100%;margin-top:4px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-family:inherit}
 
   /* рекорды в стиле iRacing «Personal Bests»: секции по машине */
   .pbcar{display:flex;justify-content:space-between;align-items:center;background:var(--panel2);
@@ -315,6 +316,18 @@
       <div class="card" data-card="e_strategy" data-title="⛽ Fuel & pit"><h2>⛽ Fuel & pit</h2><div id="e_strategy"><div class="empty">Appears once on track.</div></div></div>
       <div class="card" data-card="e_pace" data-title="🏎️ Car pace"><h2>🏎️ Car pace</h2><div id="e_pace"><div class="empty">Appears once on track.</div></div></div>
       <div class="card" data-card="e_incidents" data-title="⚠️ Incidents"><h2>⚠️ Incidents</h2><div id="e_incidents"><div class="empty">Appears once on track.</div></div></div>
+      <div class="card" data-card="e_teamplan" data-title="👥 Team stint plan"><h2>👥 Team stint plan</h2>
+        <div class="mini" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+          <label class="tire"><div class="cn">Drivers (comma separated)</div>
+            <input id="tp_drivers" class="tpin" placeholder="Yaroslav, Semion"></label>
+          <label class="tire"><div class="cn">Race start (your clock)</div>
+            <input id="tp_start" class="tpin" type="datetime-local"></label>
+          <label class="tire"><div class="cn">Pit stop, seconds</div>
+            <input id="tp_pit" class="tpin" type="number" min="10" max="300" value="60"></label>
+          <label class="tire"><div class="cn">Hours offset per driver</div>
+            <input id="tp_off" class="tpin" placeholder="Semion:-4"></label>
+        </div>
+        <div id="e_teamplan"><div class="empty">Enter the drivers — the plan is built from your live pace, fuel burn and tank.</div></div></div>
       <div class="card" data-card="e_stintplan" data-title="📝 Stint plan"><h2>📝 Stint plan / swaps</h2>
         <textarea id="e_stintplan_txt" placeholder="Stint 1: me (0:00–1:00)\nStint 2: teammate…\nPit: lap 30, full tank + tires" style="width:100%;min-height:90px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
         <div class="why" style="margin-top:6px">Notes are saved in your browser.</div></div>
@@ -398,6 +411,8 @@
 <div id="tab-analysis" class="mpane" style="display:none">
   <div class="grid">
     <div class="col">
+      <div class="card" data-card="an_corners" data-title="🎯 Corner by corner"><h2>🎯 Corner by corner</h2>
+        <div id="an_corners"><div class="empty">Drive two laps on the same track and car — the corner-by-corner comparison appears here.</div></div></div>
       <div class="card" data-card="an_sectors" data-title="⏱️ Time lost (sectors)"><h2>⏱️ Time lost (sectors)</h2><div id="an_sectors"><div class="empty">Optimal minus actual — where you lost time per sector.</div></div></div>
       <div class="card" data-card="driving" data-title="🧠 AI review"><h2>🧠 AI review</h2><div id="driving"><div class="empty">Drive a stint and come into the box — the AI analysis appears here.</div></div></div>
     </div>
@@ -1445,6 +1460,158 @@ $('fuelLaps').oninput = renderFuelCalc;   // топливный калькуля
 bindNotes('e_stintplan_txt', 'ire_stintplan');   // план стинтов (Endurance)
 bindNotes('s_notes_txt', 'ire_setupnotes');      // заметки по сетапу (Setup)
 
+// ===== Corner by corner (Race analysis) =====
+// Три сектора iRacing — слишком крупно, чтобы что-то с этим делать. Здесь круг
+// режется по минимумам скорости, и у каждого поворота свой вердикт из
+// телеметрии: раньше затормозил / ниже апекс / позже газ.
+let _cornerSig = null;
+async function tickCorners(){
+  if($('an_corners') === null) return;
+  let r; try{ r = await (await fetch('/api/corners')).json(); }catch{ return; }
+  const sig = JSON.stringify([r.ok, r.lap_time, r.ref_time, (r.segments||[]).length]);
+  if(sig === _cornerSig) return;                 // разбор меняется раз в круг
+  _cornerSig = sig;
+  safe(renderCorners, r);
+}
+
+function cornerBars(r){
+  // Полоса потерь по дистанции круга: сразу видно, где именно уходит время.
+  const segs = r.segments || [];
+  const worst = Math.max(0.05, ...segs.map(s=> Math.abs(s.loss)));
+  return segs.map(s=>{
+    const w = (s.end - s.start) * 100 / r.points;
+    const f = Math.min(1, Math.abs(s.loss)/worst);
+    const col = s.loss > 0.005 ? `rgba(231,76,60,${0.25+0.6*f})`
+              : (s.loss < -0.005 ? `rgba(46,204,113,${0.25+0.6*f})` : 'var(--panel2)');
+    return `<div title="Corner ${s.index}: ${s.loss>0?'+':''}${s.loss.toFixed(2)}s"
+      style="width:${w}%;background:${col};border-right:1px solid var(--bg);
+      display:flex;align-items:center;justify-content:center;font-size:10px;
+      color:var(--muted)">${s.index}</div>`;
+  }).join('');
+}
+
+function renderCorners(r){
+  const el = $('an_corners'); if(!el) return;
+  if(!r || !r.ok){
+    el.innerHTML = `<div class="empty">${r && r.reason ? r.reason : 'No lap data yet.'}</div>`;
+    return;
+  }
+  const d = r.delta;
+  const dCol = d > 0 ? 'var(--bad)' : 'var(--good)';
+  const head = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr">
+    ${card('This lap', lapTime(r.lap_time), r.track||'')}
+    ${card('Reference', lapTime(r.ref_time), r.car||'')}
+    ${card('Delta', `<span style="color:${dCol}">${d>0?'+':''}${d.toFixed(3)}</span>`,
+           `${(r.segments||[]).length} corners`)}</div>`;
+
+  const bars = `<div style="display:flex;height:20px;margin:12px 0 4px;border-radius:6px;
+    overflow:hidden;border:1px solid var(--line)">${cornerBars(r)}</div>
+    <div class="why" style="margin-bottom:10px">Lap start → finish. Red = time lost, green = gained.</div>`;
+
+  const rows = (r.segments||[]).map(s=>{
+    const col = s.loss > 0.005 ? 'var(--bad)' : (s.loss < -0.005 ? 'var(--good)' : 'var(--muted)');
+    return `<tr><td style="width:34px;color:var(--muted)">${s.index}</td>
+      <td style="width:70px;color:${col};font-weight:700;font-variant-numeric:tabular-nums">
+        ${s.loss>0?'+':''}${s.loss.toFixed(3)}</td>
+      <td>${s.text}</td></tr>`;
+  }).join('');
+
+  el.innerHTML = head + bars +
+    `<table style="width:100%;border-collapse:collapse;font-size:13px">${rows}</table>`;
+}
+
+// ===== Team stint plan (Endurance) =====
+// «Стинт 14 через 9 часов 40 минут» будильником не ставится, а «03:41 по
+// твоему времени» — ставится. Поэтому у плана есть настоящие часы.
+const TPKEY = 'ire_teamplan';
+function tpRead(){
+  try{ return JSON.parse(localStorage.getItem(TPKEY)) || {}; }catch{ return {}; }
+}
+function tpSave(){
+  const v = {drivers: $('tp_drivers').value, start: $('tp_start').value,
+             pit: $('tp_pit').value, off: $('tp_off').value};
+  try{ localStorage.setItem(TPKEY, JSON.stringify(v)); }catch{}
+  _teamSig = null;                     // пересчитать сразу, не ждать тика
+}
+function tpInit(){
+  if(!$('tp_drivers')) return;
+  const v = tpRead();
+  if(v.drivers!=null) $('tp_drivers').value = v.drivers;
+  if(v.start!=null) $('tp_start').value = v.start;
+  if(v.pit!=null) $('tp_pit').value = v.pit;
+  if(v.off!=null) $('tp_off').value = v.off;
+  ['tp_drivers','tp_start','tp_pit','tp_off'].forEach(id=>{
+    const e = $(id); if(e) e.oninput = tpSave;
+  });
+}
+
+let _teamSig = null;
+async function tickTeamPlan(){
+  const el = $('e_teamplan'); if(!el || !$('tp_drivers')) return;
+  const drivers = $('tp_drivers').value.trim();
+  if(!drivers){
+    el.innerHTML = `<div class="empty">Enter the drivers — the plan is built from your live pace, fuel burn and tank.</div>`;
+    return;
+  }
+  const q = new URLSearchParams({drivers, start: $('tp_start').value||'',
+                                pit: $('tp_pit').value||60, offsets: $('tp_off').value||''});
+  // Темп и расход плывут по ходу гонки; сигнатура ловит настоящие изменения
+  // и не даёт перерисовывать таблицу на сорок строк каждые полсекунды.
+  const g = _st.strategy||{}, ss = _st.session||{};
+  const sig = [drivers, q.get('start'), q.get('pit'), q.get('offsets'),
+               Math.round(g.avg_lap_time||0), (g.avg_burn||0).toFixed(2),
+               Math.round((ss.time_remain||0)/60)].join('|');
+  if(sig === _teamSig) return;
+  _teamSig = sig;
+  let r; try{ r = await (await fetch('/api/stintplan?'+q)).json(); }catch{ return; }
+  safe(renderTeamPlan, r);
+}
+
+function renderTeamPlan(r){
+  const el = $('e_teamplan'); if(!el) return;
+  if(!r || !r.ok){
+    el.innerHTML = `<div class="empty">${r && r.reason ? r.reason : 'Not enough data yet.'}</div>`;
+    return;
+  }
+  const s = r.summary || {};
+  const hrs = x => `${Math.floor(x/3600)}h ${Math.round((x%3600)/60)}m`;
+  const head = `<div class="mini" style="grid-template-columns:1fr 1fr 1fr 1fr">
+    ${card('Stints', s.stints, `${s.laps} laps`)}
+    ${card('Pit stops', s.pit_stops, `${Math.round((s.pit_seconds||0)/60)}m in the pits`)}
+    ${card('Avg stint', `${Math.round((s.avg_stint||0)/60)}m`,
+           `longest ${Math.round((s.longest?.seconds||0)/60)}m`)}
+    ${card('Fair share', s.fair_share, s.balanced ? 'balanced' : 'uneven')}</div>`;
+
+  const who = (s.drivers||[]).map(d=>
+    `<span class="tag" style="margin-right:6px">${d.driver}: <b>${d.laps}</b> laps · ${d.share}%</span>`
+  ).join('');
+  const warn = s.back_to_back ? `<div class="why" style="color:var(--warn);margin-top:6px">
+      ⚠ ${s.back_to_back} back-to-back stint${s.back_to_back>1?'s':''} — someone drives twice in a row.</div>` : '';
+
+  const hasClock = r.stints.length && r.stints[0].clock_start;
+  const rows = r.stints.map(x=>{
+    const from = Math.round(x.start/60), to = Math.round(x.end/60);
+    return `<tr>
+      <td style="color:var(--muted);width:34px">${x.n}</td>
+      <td><b>${x.driver}</b></td>
+      <td class="why">+${from}m → +${to}m</td>
+      ${hasClock ? `<td class="why">${x.clock_start} → ${x.clock_end}</td>
+                    <td class="why" style="color:var(--accent)">${x.local_start}</td>` : ''}
+      <td style="text-align:right">${x.laps} laps</td>
+      <td style="text-align:right">${x.fuel} L</td></tr>`;
+  }).join('');
+  const th = `<tr><th></th><th>Driver</th><th>From race start</th>
+    ${hasClock ? '<th>Clock</th><th>Their local time</th>' : ''}
+    <th style="text-align:right">Laps</th><th style="text-align:right">Fuel</th></tr>`;
+
+  el.innerHTML = head + `<div style="margin:10px 0">${who}</div>` + warn +
+    `<div style="max-height:340px;overflow:auto;margin-top:8px">
+       <table style="width:100%;border-collapse:collapse;font-size:12.5px">${th}${rows}</table></div>` +
+    `<div class="why" style="margin-top:8px">Built from your live pace
+       (${lapTime((_st.strategy||{}).avg_lap_time)}) and fuel burn
+       (${fix((_st.strategy||{}).avg_burn,2)} L/lap). Saved in your browser.</div>`;
+}
+
 // переключение главных вкладок Соло / Endurance / Setup
 function showTab(name){
   const btns = [...document.querySelectorAll('.mtab')];
@@ -1606,6 +1773,14 @@ setInterval(tickWearSession, 2000);
 setInterval(tickTrackmap, 3000);
 setInterval(tickEndurance, 500);
 setInterval(tickSetupExtra, 1500);
+// Разбор круга меняется раз в круг, план команды — от ввода и темпа.
+// Дёргать их часто незачем: оба читают с диска и считают по всей гонке.
+// tpInit ПОСЛЕ объявлений: он читает TPKEY, а const до своей строки
+// лежит в мёртвой зоне — вызов выше по файлу упал бы и оборвал
+// весь скрипт вместе с регистрацией тиков.
+tpInit();
+setInterval(tickCorners, 6000);
+setInterval(tickTeamPlan, 3000);
 </script>
 </body>
 </html>

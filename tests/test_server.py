@@ -463,3 +463,51 @@ def test_panel_shot_route_serves_png_and_refuses_traversal():
     # до роута (обычный «..» схлопывает ещё сервер), и basename его режет.
     assert c.get("/panel/%2e%2e%2f%2e%2e%2fhero.png").status_code == 404
     assert c.get("/panel/notes.txt").status_code == 404
+
+
+def test_corner_analysis_endpoint_answers_without_laps():
+    """До первых кругов разбор невозможен — но отвечать он обязан внятно,
+    а не 500-й ошибкой."""
+    r = TestClient(app).get("/api/corners")
+    assert r.status_code == 200
+    body = r.json()
+    assert "ok" in body
+    if not body["ok"]:
+        assert body["reason"]
+
+
+def test_corner_endpoint_takes_only_a_file_name():
+    """Путь приходит из адреса. basename режет попытку уйти из папки кругов."""
+    r = TestClient(app).get("/api/corners", params={"lap": "../../secret.json.gz"})
+    assert r.status_code == 200
+    assert r.json().get("ok") is False
+
+
+def test_stint_plan_endpoint_reads_drivers_and_offsets():
+    """Пилоты и часовые пояса приходят от человека, темп и расход — из гонки."""
+    from ire.dashboard.server import STATE
+    STATE["strategy"] = {"avg_lap_time": 100.0, "avg_burn": 3.0, "tank": 60.0}
+    STATE["session"] = {"time_remain": 3600.0}
+    try:
+        r = TestClient(app).get("/api/stintplan", params={
+            "drivers": "A, B", "start": "2026-09-05T10:00:00",
+            "pit": 55, "offsets": "B:-4"}).json()
+        assert r["ok"]
+        assert {s["driver"] for s in r["stints"]} == {"A", "B"}
+        b = next(s for s in r["stints"] if s["driver"] == "B")
+        assert b["local_start"] != b["clock_start"], "смещение часового пояса потеряно"
+    finally:
+        STATE["strategy"], STATE["session"] = {}, {}
+
+
+def test_stint_plan_without_drivers_is_a_clean_refusal():
+    r = TestClient(app).get("/api/stintplan").json()
+    assert r["ok"] is False and r["reason"]
+
+
+def test_saved_laps_endpoint_hides_absolute_paths():
+    """Отдавать наружу полный путь по диску незачем: имени файла хватает,
+    а путь — это лишние сведения о чужой машине."""
+    for m in TestClient(app).get("/api/laps").json():
+        assert "path" not in m
+        assert "file" in m and "\\" not in m["file"] and "/" not in m["file"]

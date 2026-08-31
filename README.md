@@ -14,9 +14,10 @@ on the PC that produced it.
 | | |
 |---|---|
 | **Overlay** | 44 widgets over the game — fuel, delta, standings, relative, track map, tyre temps, spotter, blind spot, lap log. Each one is tuned on its own: colour, size and font of every number. |
-| **Dashboard** | 61 cards across 6 tabs (Solo, Endurance, Setup, Records, Strategy, Race analysis) on the second screen. |
+| **Dashboard** | 63 cards across 6 tabs (Solo, Endurance, Setup, Records, Strategy, Race analysis) on the second screen. |
 | **History** | Every valid lap is resampled onto a distance grid and written to disk, with the conditions it was driven in. Progress shows across dates, not one drive. |
-| **Analysis** | After a stint a local model explains what the car was doing and suggests setup changes, with the reasoning attached. |
+| **Analysis** | Corner by corner: the lap is split at its own speed minima, each corner compared against your reference lap, and the loss explained — braked earlier, lower apex speed, later back to throttle. After a stint a local model adds the setup side. |
+| **Endurance** | A full team stint plan: who drives when, in race time and in each driver's own clock, with laps and fuel per stint. |
 
 Nothing is smoothed. Raw values at a high refresh rate — smoothing hides
 exactly what you open the numbers for.
@@ -83,7 +84,7 @@ Seven modules under `src/ire/`, all local:
 4. **explainer** — symptoms plus setup → the written analysis.
 5. **setup** — reads the car setup from the SDK and writes a `.sto` file.
    The original is never touched.
-6. **dashboard** — FastAPI, 13 API endpoints, plus the project site
+6. **dashboard** — FastAPI, 16 API endpoints, plus the project site
    (`/about`, `/catalog`, `/download`, `/news`).
 7. **orchestrator** — ties the live loop together.
 
@@ -115,7 +116,7 @@ with a newer build never touches your lap history or overlay layout.
 python -m pytest -q
 ```
 
-211 tests, no sim required. The Qt ones run offscreen, and CI runs the same
+251 tests, no sim required. The Qt ones run offscreen, and CI runs the same
 suite on Windows for every push.
 
 ## Tools
