@@ -10,7 +10,7 @@ tl у левого колеса — внутренняя кромка, и сов
      и греет ВНУТРЕННЮЮ кромку. Во всех 14 сессиях, где разница выше шума,
      горячее оказалась сторона к центру машины. Обратных случаев ноль.
 """
-from ire.metrics.tire import EDGE_NOISE, edges, tire_metrics
+from ire.metrics.tire import CAMBER_NOISE, camber, edges, tire_metrics
 
 
 def _frame(temps):
@@ -56,7 +56,7 @@ def test_a_small_difference_is_noise_not_a_verdict():
     """В его сессиях без перекоса кромки расходятся на градус. Объявлять это
     ошибкой развала — значит гонять человека по гаражу за шумом."""
     t = _even()
-    t["LF"] = (90, 90, 90 + EDGE_NOISE - 1)
+    t["LF"] = (90, 90, 90 + CAMBER_NOISE - 0.5)
     m = tire_metrics([_frame(t)])
     assert m["LF"]["bias"] == "even"
 
@@ -74,3 +74,25 @@ def test_a_missing_channel_does_not_take_the_whole_lap_down():
     m = tire_metrics([_frame(t), {"tires": {c: {"tl": None, "tm": None, "tr": None}
                                             for c in ("LF", "RF", "LR", "RR")}}])
     assert m["LF"]["spread"] == 0.0
+
+
+def test_the_two_modules_can_no_longer_disagree_about_the_same_wheel():
+    """Пороги были в двух местах: EDGE_NOISE = 8 здесь и CAMBER_MUCH = 6.0 в
+    tyres.py. Числа разошлись, и 15 колёс из 96 получали «even» от одного
+    модуля и «too much camber» от другого — причём человек видел оба: первое
+    уходит в разбор ИИ, второе стоит в карточке Tyre Tool.
+    """
+    from ire.metrics import tyres
+
+    assert tyres.camber is camber, "у Tyre Tool снова свой вердикт"
+    t = _even()
+    t["LF"] = (80, 95, 87)                      # внутренняя горячее на 7°
+    m = tire_metrics([_frame(t)])
+    assert m["LF"]["bias"] == "inner_hot"
+    assert camber(m["LF"]["inner"], m["LF"]["outer"])[0] == "too_much"
+
+
+def test_the_verdict_carries_the_number_that_produced_it():
+    """Порог не универсален (2% колёс Ferrari против 39% Super Formula
+    Lights). Если полоса ошибается, число обязано остаться верным."""
+    assert camber(60.4, 53.6) == ("too_much", 6.8)

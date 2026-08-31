@@ -15,9 +15,42 @@
 Обратных случаев не нашлось ни одного.
 """
 
-# Порог, ниже которого разница кромок — шум, а не признак. По его данным
-# сессии без выраженного перекоса дают разброс до ±1°, выраженные — 4–7°.
-EDGE_NOISE = 8
+# Пороги разницы кромок живут ЗДЕСЬ и только здесь. Раньше их было два:
+# EDGE_NOISE = 8 в этом файле и CAMBER_NOISE/CAMBER_MUCH в metrics/tyres.py.
+# Числа разошлись, и 15 колёс из 96 получали «even» от одного модуля и
+# «too much camber» от другого — причём оба видны человеку: первое уходит
+# в разбор ИИ, второе стоит в карточке Tyre Tool.
+CAMBER_NOISE = 2.0         # ниже — шум, а не признак
+CAMBER_MUCH = 6.0          # выше — внутренняя кромка греется заметно сильнее
+
+
+def camber(inner, outer):
+    """Вердикт по разнице кромок. (вердикт, разница) — число всегда рядом.
+
+    ОГОВОРКА, измеренная и важная: порог CAMBER_MUCH не универсален. На
+    Ferrari 499P он срабатывает на 2% колёс, на Super Formula Lights — на
+    39%. Это разница в двадцать раз, то есть число описывает не «слишком
+    большой развал вообще», а привычку конкретной машины. Менять его пока
+    не на что: телеметрии больше двух машин нет, а машина и трасса в этих
+    записях не разделены (Ferrari только Road Atlanta, SF только Road
+    America). Перемерить помогает tools/measure_tyres.py.
+    """
+    if inner is None or outer is None:
+        return "unknown", None
+    d = round(inner - outer, 1)
+    if d < -CAMBER_NOISE:
+        # Внешняя кромка горячее — развала не хватает. ВНИМАНИЕ: эта ветка
+        # не подтверждена ни одним наблюдением: из 96 колёс она не
+        # сработала ни разу, минимум по всем данным −0.85.
+        return "not_enough", d
+    if d > CAMBER_MUCH:
+        return "too_much", d
+    if d > CAMBER_NOISE:
+        # Внутренняя кромка слегка горячее — так и должно быть при
+        # отрицательном развале. Это НЕ ошибка, и говорить о ней как об
+        # ошибке значит гонять человека по гаражу без причины.
+        return "working", d
+    return "even", d
 
 
 def _avg(xs):
@@ -39,11 +72,10 @@ def tire_metrics(frames):
         tr = _avg([f["tires"][c]["tr"] for f in frames])
         inner, outer = edges(c, tl, tr)
         spread = round(max(tl, tm, tr) - min(tl, tm, tr), 1)
-        bias = "even"
-        if inner - outer > EDGE_NOISE:
-            bias = "inner_hot"
-        elif outer - inner > EDGE_NOISE:
-            bias = "outer_hot"
+        # bias выводится ИЗ ТОГО ЖЕ вердикта, что показывает Tyre Tool:
+        # разъехаться им теперь нечем.
+        verdict, _ = camber(inner, outer)
+        bias = {"too_much": "inner_hot", "not_enough": "outer_hot"}.get(verdict, "even")
         out[c] = {"tl": round(tl, 1), "tm": round(tm, 1), "tr": round(tr, 1),
                   "inner": round(inner, 1), "outer": round(outer, 1),
                   "spread": spread, "bias": bias}

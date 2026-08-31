@@ -25,7 +25,7 @@
       "inner": 102.3,
       "outer": 95.8,
       "spread": 6.4,
-      "bias": "even"
+      "bias": "inner_hot"
     },
     "RR": {
       "tl": 98.6,
