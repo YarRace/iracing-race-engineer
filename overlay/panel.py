@@ -41,7 +41,7 @@ STARTERS = [
                      "fuel", "radar", "flags"]),
     ("Endurance", ["inputs", "fuel", "e_driver", "e_time", "e_incidents",
                    "relative", "standings", "wear", "weather", "trackmap"]),
-    ("Practice / hotlap", ["inputs", "shift", "deltatrace", "laptimegraph",
+    ("Practice / hotlap", ["inputs", "shift", "deltatrace", "sectors",
                            "timing", "topspeed", "cornerloss", "trackmap"]),
 ]
 

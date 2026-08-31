@@ -130,10 +130,54 @@ class SectorTimer:
     def lap_sectors(self):
         return [self._times.get(i) for i in range(len(self.starts))]
 
+    def live(self, t):
+        """Где я сейчас и сколько уже еду в этом секторе: (индекс, секунды).
+
+        Без этого виджет секторов оживал бы только на границе сектора и
+        стоял мёртвым всю прямую — ровно там, где на него и смотрят.
+        """
+        if self._cur is None or self._entry_t is None:
+            return None, None
+        dt = t - self._entry_t
+        return self._cur, (round(dt, 2) if 0 <= dt < 600 else None)
+
     def reset(self):
         self._cur = None
         self._entry_t = None
         self._times = {}
+
+
+def sector_view(timer, t, lap_log):
+    """Что показать в виджете секторов прямо сейчас.
+
+    Опорой служит ЛУЧШИЙ КРУГ сессии, а не лучшие сектора по отдельности:
+    отставание к сумме кусков от разных кругов ни к чему не приводит —
+    такого круга никто не ехал. Лучший сектор при этом тоже считается, но
+    только чтобы подсветить личный рекорд сектора, как на табло.
+
+    Круги без полного набора секторов пропускаются: у выезда из боксов
+    первый сектор отсутствует, и он выглядел бы как рекорд.
+    """
+    if not timer or not timer.starts:
+        return {}
+    n = len(timer.starts)
+    full = [l for l in (lap_log or [])
+            if l.get("time") and len(l.get("sectors") or []) == n
+            and all(isinstance(x, (int, float)) and x > 0 for x in l["sectors"])]
+
+    ref = min(full, key=lambda l: l["time"])["sectors"] if full else [None] * n
+    best = [min((l["sectors"][i] for l in full), default=None) for i in range(n)]
+
+    cur = timer.lap_sectors()
+    here, elapsed = timer.live(t)
+    delta = [round(c - r, 2) if isinstance(c, (int, float)) and isinstance(r, (int, float))
+             else None for c, r in zip(cur, ref)]
+    record = [bool(isinstance(c, (int, float)) and isinstance(b, (int, float)) and c <= b)
+              for c, b in zip(cur, best)]
+    return {"count": n, "now": here, "elapsed": elapsed,
+            "cur": cur, "ref": ref, "best": best,
+            "delta": delta, "record": record,
+            "have_ref": bool(full)}
 
 
 def _standing_gaps(ir):

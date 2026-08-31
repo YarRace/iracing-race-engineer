@@ -23,6 +23,33 @@ import math
 import time
 
 LAP_TIME = 92.0                      # секунд на круг — как GTP на средней трассе
+
+# Три сектора на круг: доли 0 / 0.36 / 0.71 — как на обычной трассе.
+_S_START = (0.0, 0.36, 0.71)
+_S_REF = (33.1, 32.2, 26.7)          # лучший круг демо-сессии, сумма ≈ 92.0
+_S_BEST = (32.9, 32.2, 26.7)         # первый сектор когда-то вышел лучше
+
+
+def _demo_sectors(u, el):
+    """Живые сектора для витрины: пройденные с дельтой, текущий с временем."""
+    now = max(i for i, s in enumerate(_S_START) if u >= s)
+    cur, delta, record = [], [], []
+    for i in range(3):
+        if i < now:
+            # Немного гуляющая дельта, чтобы было видно и зелёное, и красное.
+            d = round(0.28 * math.sin(el / 7.0 + i * 2.1) - 0.06, 2)
+            cur.append(round(_S_REF[i] + d, 2))
+            delta.append(d)
+            record.append(cur[i] <= _S_BEST[i])
+        else:
+            cur.append(None)
+            delta.append(None)
+            record.append(False)
+    elapsed = round((u - _S_START[now]) * LAP_TIME, 2)
+    return {"count": 3, "now": now, "elapsed": elapsed,
+            "cur": cur, "ref": list(_S_REF), "best": list(_S_BEST),
+            "delta": delta, "record": record, "have_ref": True}
+
 TANK = 89.0
 BURN_PER_LAP = 3.1
 
@@ -158,6 +185,10 @@ class DemoFeed:
                              "track_temp": 31.5 + (i % 3) * 0.7,
                              "fuel": round(fuel + i * BURN_PER_LAP, 1)}
                             for i in range(1, 9)],
+                # Сектора живут по ходу круга: пройденные стоят на месте,
+                # текущий тикает. Без этого виджет секторов в галерее
+                # показывал бы «нет секторов» и читался как сломанный.
+                "sectors": _demo_sectors(u, el),
             }
 
         if ep == "standings":

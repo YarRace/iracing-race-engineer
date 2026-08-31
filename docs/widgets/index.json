@@ -143,6 +143,17 @@
     "doc": "The three corners where the last lap lost the most time."
   },
   {
+    "key": "sectors",
+    "title": "Sectors",
+    "group": "solo",
+    "size": [
+      240,
+      132
+    ],
+    "file": "sectors.png",
+    "doc": "Where this lap is up or down, sector by sector."
+  },
+  {
     "key": "fuel",
     "title": "Fuel & pit",
     "group": "solo",

@@ -91,6 +91,10 @@ def render(cls, store, config, scale):
     return pm
 
 
+# Виджеты, которым общий момент круга не подходит: ключ → секунда круга.
+AT = {"sectors": 78.0}       # два сектора позади, третий идёт
+
+
 def main():
     ap = argparse.ArgumentParser(description="Снимки виджетов на демо-данных")
     ap.add_argument("--out", default=str(ROOT / "docs" / "widgets"))
@@ -110,14 +114,23 @@ def main():
     # Момент круга задаём смещением «начала» назад: поток считает время сам,
     # и без фиксации каждый запуск давал бы другую картинку.
     import time
-    store = DemoFeed(t0=time.monotonic() - a.at)
     config = Cfg()
+
+    def feed(at):
+        return DemoFeed(t0=time.monotonic() - at)
+
+    store = feed(a.at)
 
     index, failed = [], []
     for cls in WIDGETS:
         name = getattr(cls, "KEY", cls.__name__)
         try:
-            pm = render(cls, store, config, a.scale)
+            # Виджету секторов на 18-й секунде круга сказать нечего: первый
+            # сектор ещё не закончен, и в галерее он выглядел бы пустым, хотя
+            # исправен. Снимаем его позже по кругу — данные те же, демо то же,
+            # просто момент, в который виджет что-то показывает.
+            pm = render(cls, feed(AT.get(name, a.at)) if name in AT else store,
+                        config, a.scale)
             path = out / f"{name}.png"
             pm.save(str(path))
             index.append({

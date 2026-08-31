@@ -2593,9 +2593,10 @@ class CornerLossWidget(OverlayWidget):
     их можно на прямой, и следующий круг ехать уже иначе.
 
     ВАЖНО: это ПРОШЛЫЙ круг, а не текущий. Разбор считается по сохранённому
-    кругу, то есть появляется после пересечения линии. Живой посегментной
-    дельты у нас нет, и делать вид, что есть, нельзя: пилот принял бы её
-    за подсказку прямо сейчас.
+    кругу, то есть появляется после пересечения линии. Живой дельты ПО
+    ПОВОРОТАМ у нас нет, и делать вид, что есть, нельзя: пилот принял бы
+    её за подсказку прямо сейчас. Живая дельта по СЕКТОРАМ есть отдельно —
+    см. SectorWidget; сектор крупнее поворота, и его границы даёт сам сим.
 
     Своя отрисовка, а не StatWidget: причина потери — это фраза, и в колонку
     значений она не помещается ни при каком кегле. Первая версия наследовала
@@ -2665,10 +2666,83 @@ def _short_reason(phase):
             "entry": "lost on entry"}.get(phase, "lost time here")
 
 
+class SectorWidget(OverlayWidget):
+    """Отставание по секторам — прямо в круге, а не в итогах заезда.
+
+    Дельта к лучшему кругу — одно число, и она всё время шевелится: по ней
+    не понять, потерял ты в первом секторе или отыгрываешь в третьем. Узнать
+    это можно было, только доехав круг и открыв разбор, — а на длинной
+    практике так никто не делает.
+
+    Здесь законченные сектора стоят на месте: цифра появилась на границе
+    сектора и висит до конца круга. Прочесть её можно на прямой, и в
+    следующий сектор въехать уже иначе.
+
+    Опора — лучший КРУГ сессии, а не сумма лучших секторов из разных кругов:
+    такого круга никто не ехал, и гнаться за ним не за чем. Личный рекорд
+    сектора при этом подсвечен отдельно, как на табло.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("sectors", "Sectors",
+                                             (240, 132), "solo", ("race",))
+    BLURB = "Where this lap is up or down, sector by sector."
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Sector times", "show_times", True)
+        self.opt_check(lay, "Mark personal bests", "show_records", True)
+
+    def draw(self, p):
+        self.title(p, "SECTORS")
+        v = (self.store.get("race") or {}).get("sectors") or {}
+        if not v.get("count"):
+            # Не «нет данных»: трасса без разметки секторов — это не поломка,
+            # и человек должен понимать, что ждать тут нечего.
+            self.text(p, 12, self.height() / 2, "no sectors on this track", MUTED, 11)
+            return
+
+        W = self.width()
+        show_times = self._opt("show_times", True)
+        show_rec = self._opt("show_records", True)
+        y = 34
+        for i in range(int(v["count"])):
+            if y > self.height() - 10:
+                break
+            here = (v.get("now") == i)
+            cur = (v.get("cur") or [None] * v["count"])[i]
+            d = (v.get("delta") or [None] * v["count"])[i]
+
+            self.text(p, 12, y, f"S{i + 1}", WHITE if here else MUTED, 12, here)
+
+            if show_times:
+                # Пока едешь — бегущее время сектора; проехал — окончательное.
+                t = v.get("elapsed") if here and cur is None else cur
+                if isinstance(t, (int, float)):
+                    self.text(p, 40, y, f"{t:.2f}", MUTED, 11)
+
+            if isinstance(d, (int, float)):
+                rec = show_rec and (v.get("record") or [False] * v["count"])[i]
+                col = PURPLE if rec else (GREEN if d <= 0 else RED)
+                self.text_right(p, W - 12, y, f"{d:+.2f}", col, 13, True,
+                                key=f"s{i + 1}", avail=W - 92)
+            elif here:
+                self.text_right(p, W - 12, y, "on it", self._cb(BLUE), 11, False,
+                                key=f"s{i + 1}", avail=W - 92)
+            y += 22
+
+        if not v.get("have_ref"):
+            # Первый круг сессии: сравнивать не с чем. Молчание тут читалось
+            # бы как поломка виджета.
+            self.text(p, 12, min(y + 2, self.height() - 6),
+                      "no full lap yet", MUTED, 10)
+
+    def parts(self):
+        return [(f"s{i}", f"Sector {i}") for i in range(1, 7)]
+
+
 WIDGETS = [
     InputsWidget, PositionWidget, RelativeWidget, StandingsWidget, MyCarWidget, Head2HeadWidget,
     LaptimeGraphWidget, DeltaTraceWidget, LaptimeSpreadWidget, HStandingsWidget,
-    LapLogWidget, BlindSpotWidget, CornerLossWidget,
+    LapLogWidget, BlindSpotWidget, CornerLossWidget, SectorWidget,
     FuelWidget, TimingWidget, RaceBarWidget,
     DeltaWidget, ShiftWidget, GForceWidget, TopSpeedWidget, SlipWidget, PosTrendWidget,
     SummaryWidget, TireTempsWidget, WearWidget, SessionWidget, RecordDeltaWidget, ErsWidget,

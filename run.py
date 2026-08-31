@@ -30,6 +30,7 @@ from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        fuel_capacity, damage_status, session_identity,
                                        tire_wear_by_corner, session_info)
 from ire.collector.race_state import (race_extras, SectorTimer, sector_starts,
+                                      sector_view,
                                        build_relative)
 from ire.collector.track_map import (TrackMapBuilder, save_map, load_map,
                                      from_garage61 as track_map_from_g61)
@@ -222,7 +223,8 @@ def main():
                 STATE["live"] = live_frame(ir)
                 STATE["live"]["on_track"] = is_on_track(ir)   # для «прятать оверлеи вне трассы»
                 race = race_extras(ir)
-                sector_timer.update(ir["LapDistPct"], ir["SessionTime"])
+                sess_t = ir["SessionTime"]
+                sector_timer.update(ir["LapDistPct"], sess_t)
                 # карта трассы из телеметрии — ТОЛЬКО если нет официальной (полной/точной)
                 if not official_map:
                     if is_on_track(ir):
@@ -259,6 +261,9 @@ def main():
                     sector_timer.reset()
                     last_logged_lap = race["lap"]
                 race["lap_log"] = lap_log[-20:]              # последние 20 кругов
+                # Сектора — ЖИВЫЕ, каждый кадр: смысл виджета в том, чтобы
+                # отставание было видно на прямой, а не в итогах заезда.
+                race["sectors"] = sector_view(sector_timer, sess_t, lap_log)
                 STATE["race"] = race
                 frame_n += 1
                 # рекорд из БД — дорого, поэтому КЭШ: берём один раз и обновляем ~1/2сек
