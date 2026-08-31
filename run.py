@@ -336,10 +336,24 @@ def main():
                 if ident.get("track"):
                     try:
                         cm = consistency_metrics(frames)
+                        # Давления и температуры кладём ВМЕСТЕ со стинтом.
+                        # Без них Tyre Tool не может сказать «целься как в
+                        # своём лучшем стинте»: сравнивать не с чем, а
+                        # подставить число неизвестного происхождения хуже,
+                        # чем не ответить.
+                        tyres = STATE.get("tyres") or {}
+                        press = {c: (v.get("pressure") or {}).get("shown")
+                                 for c, v in (tyres.get("corners") or {}).items()
+                                 if (v.get("pressure") or {}).get("shown")}
+                        temps = {c: {"inner": v.get("inner"), "middle": v.get("middle"),
+                                     "outer": v.get("outer")}
+                                 for c, v in (tyres.get("corners") or {}).items()}
                         history.save_stint(hist, ident, {
                             "laps": cm["lap_count"], "best_lap": cm["best_lap"],
                             "mean_lap": cm["mean"], "spread": cm["spread"],
                             "incidents": (STATE.get("damage") or {}).get("incidents"),
+                            "pressures": press or None,
+                            "tyre_temps": temps or None,
                         })
                     except Exception as e:
                         print("History: failed to save stint:", e)

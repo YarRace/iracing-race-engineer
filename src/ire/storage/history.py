@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import sqlite3
 
@@ -54,12 +55,19 @@ CREATE TABLE IF NOT EXISTS stints (
     best_lap      REAL,
     mean_lap      REAL,
     spread        REAL,
-    incidents     INTEGER
+    incidents     INTEGER,
+    pressures     TEXT,
+    tyre_temps    TEXT
 );
 """
 
 # Колонки, добавленные после первого релиза — досоздаём в старых базах (миграция).
-_MIGRATIONS = {"laps": [("car_class", "TEXT")], "stints": [("car_class", "TEXT")]}
+_MIGRATIONS = {"laps": [("car_class", "TEXT")],
+               "stints": [("car_class", "TEXT"),
+                          # Давления и температуры шин со стинта. Без них
+                          # Tyre Tool не может сказать «целься как в свой
+                          # лучший стинт» — сравнивать не с чем.
+                          ("pressures", "TEXT"), ("tyre_temps", "TEXT")]}
 
 
 def default_path():
@@ -128,17 +136,32 @@ def save_lap(conn, identity, lap_num, lap_time, sectors=None, valid=None):
     conn.commit()
 
 
+def _json(v):
+    """Словарь → строка для SQLite. None остаётся None: пустая строка потом
+    читалась бы как «записано пусто», а это разные вещи."""
+    return json.dumps(v, ensure_ascii=False) if v else None
+
+
+def _unjson(v):
+    try:
+        return json.loads(v) if v else None
+    except (TypeError, ValueError):
+        return None
+
+
 def save_stint(conn, identity, summary):
     """Пишет сводку стинта. summary — dict с laps/best_lap/mean_lap/spread/incidents."""
     conn.execute(
         "INSERT INTO stints (ts, track, track_display, config, car, car_path, car_class, "
-        "session_type, laps, best_lap, mean_lap, spread, incidents) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "session_type, laps, best_lap, mean_lap, spread, incidents, "
+        "pressures, tyre_temps) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (_now(), identity.get("track"), identity.get("track_display"),
          identity.get("config"), identity.get("car"), identity.get("car_path"),
          identity.get("car_class"), identity.get("session_type"), summary.get("laps"),
          summary.get("best_lap"), summary.get("mean_lap"), summary.get("spread"),
-         summary.get("incidents")),
+         summary.get("incidents"), _json(summary.get("pressures")),
+         _json(summary.get("tyre_temps"))),
     )
     conn.commit()
 
@@ -179,4 +202,12 @@ def recent_stints(conn, limit=20):
     rows = conn.execute(
         "SELECT * FROM stints ORDER BY id DESC LIMIT ?", (limit,)
     ).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        # Наружу отдаём словари, а не строки JSON: иначе каждый читатель
+        # разбирал бы их сам, и рано или поздно кто-нибудь забыл бы.
+        d["pressures"] = _unjson(d.get("pressures"))
+        d["tyre_temps"] = _unjson(d.get("tyre_temps"))
+        out.append(d)
+    return out

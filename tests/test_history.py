@@ -88,3 +88,60 @@ def test_save_stint_and_recent():
     assert st[0]["laps"] == 10
     assert st[0]["best_lap"] == 90.5
     assert st[0]["spread"] == 1.4
+
+
+# ── шины вместе со стинтом ──────────────────────────────────────────────────
+
+def test_a_stint_carries_its_tyre_pressures_and_temperatures():
+    """Без этого Tyre Tool не может сказать «целься как в своём лучшем
+    стинте»: сравнивать не с чем, а подставить число неизвестного
+    происхождения хуже, чем не ответить."""
+    conn = history.connect(":memory:")
+    history.save_stint(conn, {"track": "roadatlanta", "car": "ferrari499p"},
+                       {"laps": 12, "best_lap": 91.2, "mean_lap": 91.9,
+                        "pressures": {"LF": "152 kPa"},
+                        "tyre_temps": {"LF": {"inner": 63.3, "outer": 61.2}}})
+    s = history.recent_stints(conn, 1)[0]
+    # Наружу — словари, а не строки JSON: иначе каждый читатель разбирал бы
+    # их сам, и рано или поздно кто-нибудь забыл бы.
+    assert s["pressures"] == {"LF": "152 kPa"}
+    assert s["tyre_temps"]["LF"]["inner"] == 63.3
+    conn.close()
+
+
+def test_a_stint_without_tyre_data_stores_nothing_rather_than_empty_strings():
+    """None и «записано пусто» — разные вещи. Пустая строка потом читалась бы
+    как «давления были и они пустые»."""
+    conn = history.connect(":memory:")
+    history.save_stint(conn, {"track": "spa", "car": "ferrari499p"},
+                       {"laps": 3, "mean_lap": 130.0})
+    s = history.recent_stints(conn, 1)[0]
+    assert s["pressures"] is None and s["tyre_temps"] is None
+    conn.close()
+
+
+def test_an_old_database_gets_the_new_columns_without_losing_its_rows():
+    """Проверено на копии его настоящей базы: 637 кругов и 219 стинтов на
+    месте. Здесь то же самое, но воспроизводимо."""
+    import sqlite3
+    import tempfile
+    import os
+    path = os.path.join(tempfile.mkdtemp(), "old.db")
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE stints (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, "
+                "track TEXT, track_display TEXT, config TEXT, car TEXT, car_path TEXT, "
+                "session_type TEXT, laps INTEGER, best_lap REAL, mean_lap REAL, "
+                "spread REAL, incidents INTEGER)")
+    old.execute("INSERT INTO stints (ts, track, car, laps, mean_lap) "
+                "VALUES ('2026-01-01', 'spa', 'ferrari499p', 7, 130.0)")
+    old.commit()
+    old.close()
+
+    conn = history.connect(path)
+    rows = history.recent_stints(conn, 10)
+    assert len(rows) == 1 and rows[0]["laps"] == 7, "старый стинт пропал"
+    assert rows[0]["pressures"] is None
+    history.save_stint(conn, {"track": "spa", "car": "ferrari499p"},
+                       {"laps": 5, "mean_lap": 129.0, "pressures": {"LF": "150 kPa"}})
+    assert history.recent_stints(conn, 1)[0]["pressures"] == {"LF": "150 kPa"}
+    conn.close()
