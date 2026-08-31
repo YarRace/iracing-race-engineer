@@ -504,5 +504,16 @@
     ],
     "file": "s_weartrend.png",
     "doc": "How fast the tyres are going away, and how much is left."
+  },
+  {
+    "key": "s_tyres",
+    "title": "Tyre tool",
+    "group": "setup",
+    "size": [
+      250,
+      148
+    ],
+    "file": "s_tyres.png",
+    "doc": "What the tread edges say about camber and pressure."
   }
 ]

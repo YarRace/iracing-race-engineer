@@ -13,12 +13,16 @@ import httpx
 
 DASH = "http://localhost:8000"
 ENDPOINTS = ("live", "race", "strategy", "standings", "relative",
-             "wear", "session", "damage", "trackmap", "result", "corners")
+             "wear", "session", "damage", "trackmap", "result", "corners",
+             "tyres")
 
 # Эндпоинты, которые НЕЛЬЗЯ дёргать двадцать раз в секунду. `corners` читает
 # с диска и разбирает два сжатых круга — на общей частоте это съело бы
 # процессор ради данных, которые меняются раз в круг.
-SLOW = {"corners": 8.0}                                   # секунд между опросами
+SLOW = {"corners": 8.0,
+        # `tyres` пересчитывается раз в круг: это средние по стинту,
+        # и за кадр они не меняются.
+        "tyres": 5.0}                                     # секунд между опросами
 
 
 class Store:

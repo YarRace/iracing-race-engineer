@@ -2739,6 +2739,152 @@ class SectorWidget(OverlayWidget):
         return [(f"s{i}", f"Sector {i}") for i in range(1, 7)]
 
 
+_CAMBER_COL = {"too_much": RED, "not_enough": RED, "working": GREEN,
+               "even": MUTED, "unknown": MUTED}
+
+# Правка одним словом: на оверлее нет места на предложение из tyres.WHY.
+# Ключ — (что менять, перекос положительный?), как их и отдаёт report()["todo"].
+_TYRE_SHORT = {("camber", True): "too much camber",
+               ("camber", False): "not enough camber",
+               ("pressure", True): "pressure high",
+               ("pressure", False): "pressure low"}
+
+
+def _tyre_todo_line(todo):
+    """Список правок одной строкой: «RF/RR: too much camber».
+
+    Пишем самую массовую правку и число остальных, а не первую попавшуюся:
+    два одинаковых угла — это про ось, и решать их надо вместе.
+    """
+    groups = {}
+    for t in todo or []:
+        d = t.get("delta")
+        if not isinstance(d, (int, float)):
+            continue
+        phrase = _TYRE_SHORT.get((t.get("what"), d > 0))
+        if phrase:
+            groups.setdefault(phrase, []).append(str(t.get("corner")))
+    if not groups:
+        return None
+    phrase, corners = max(groups.items(), key=lambda kv: len(kv[1]))
+    rest = len(groups) - 1
+    return "/".join(corners) + ": " + phrase + (f"  +{rest} more" if rest else "")
+
+
+def _wrap(fm, s, width):
+    """Строку — по словам в ширину виджета. Причину надо ПРОЧИТАТЬ целиком."""
+    lines, cur = [], ""
+    for word in str(s).split():
+        probe = (cur + " " + word).strip()
+        if cur and fm.horizontalAdvance(probe) > width:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = probe
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+class TyreToolWidget(OverlayWidget):
+    """Развал по кромкам протектора — не выходя из машины.
+
+    Tyre Tool живёт на втором мониторе, а нужен ровно там, где его не видно:
+    на выезде из боксов после правки развала. Проверить правку значит доехать
+    круг, вылезти из машины и открыть вкладку Setup — на практике так не
+    делают, и машина ездит криво весь стинт.
+
+    ЧЕГО ЗДЕСЬ НЕТ И ПОЧЕМУ. Трёх температур на колесо не будет: их уже
+    показывает Tire temps, а двенадцать чисел на виджете размером с ладонь
+    на скорости не читаются. Фраз из tyres.WHY тоже нет — «inner edge much
+    hotter — too much negative camber» не влезает ни при каком кегле, поэтому
+    правка сказана одной строкой внизу.
+
+    Средняя температура стоит рядом НАМЕРЕННО, по той же причине, что и на
+    дашборде: на холодной резине кромки сходятся в ноль, и «менять нечего»
+    тогда читается как «сетап хорош».
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("s_tyres", "Tyre tool",
+                                             (250, 148), "setup", ("tyres",))
+    BLURB = "What the tread edges say about camber and pressure."
+
+    def extra_settings(self, lay):
+        self.opt_check(lay, "Cold pressures", "show_pressure", True)
+        self.opt_check(lay, "Average temperature", "show_mean", True)
+        self.opt_check(lay, "What to change", "show_verdict", True)
+
+    def draw(self, p):
+        self.title(p, "TYRE TOOL")
+        r = self.store.get("tyres") or {}
+        W, H = self.width(), self.height()
+
+        if not r.get("ok"):
+            # Причина словами, а не пустота: «машина не выезжала» и «нет
+            # температур» — разные вещи, и во втором случае человек пойдёт
+            # искать поломку там, где её нет.
+            p.setFont(self._font(11, False))
+            y = 46
+            for line in _wrap(p.fontMetrics(),
+                              r.get("reason") or "no tyre report yet", W - 24):
+                self.text(p, 12, y, line, MUTED, 11)
+                y += 16
+            return
+
+        if self._opt("show_mean", True):
+            m = r.get("mean_temp")
+            self.text_right(p, W - 12, 20,
+                            "—" if not isinstance(m, (int, float)) else f"{m:.0f}° avg",
+                            MUTED, 9, True, key="mean")
+
+        half = W / 2
+        # Шаг строки от высоты: ужатый виджет должен терять давления, а не
+        # заднюю ось. Потерянная ось выглядит как поломка, потерянные
+        # давления — как компактный режим.
+        pitch = max(26, min(50, (H - 48) / 2))
+        show_p = self._opt("show_pressure", True) and pitch >= 40
+
+        for i, c in enumerate(("LF", "RF", "LR", "RR")):
+            v = (r.get("corners") or {}).get(c) or {}
+            x = 12 if i % 2 == 0 else half + 4
+            y = 42 + (i // 2) * pitch
+            self.text(p, x, y, c, MUTED, 9, True)
+            d = v.get("camber_delta")
+            self.text(p, x + 26, y,
+                      "—" if not isinstance(d, (int, float)) else f"{d:+.1f}°",
+                      self._cb(_CAMBER_COL.get(v.get("camber"), MUTED)), 17, True,
+                      key=c)
+            self.hit(c, x - 4, y - 16, half - 12, pitch - 8)
+            if not show_p:
+                continue
+            shown = (v.get("pressure") or {}).get("shown")
+            crown = v.get("crown")
+            if shown and crown in ("high", "low"):
+                # Цветом сказать мало: «high» написано словом ещё и потому,
+                # что красный от зелёного различают не все.
+                self.text(p, x, y + 18, f"{shown} · {crown}", self._cb(RED), 9)
+            elif shown:
+                self.text(p, x, y + 18, str(shown), MUTED, 9)
+            elif crown in ("high", "low"):
+                self.text(p, x, y + 18, f"pressure {crown}", self._cb(RED), 9)
+            elif i == 0 and not r.get("have_pressures"):
+                # Половина машин не отдаёт давления в CarSetup. Пустое место
+                # под цифрой выглядит как недогруженные данные.
+                self.text(p, x, y + 18, "no pressures from this car", MUTED, 9)
+
+        if self._opt("show_verdict", True):
+            line = _tyre_todo_line(r.get("todo"))
+            # «Менять нечего» надо сказать вслух — молчание читается как
+            # поломка виджета.
+            self.text(p, 12, H - 10, line or r.get("verdict") or "",
+                      AMBER if line else self._cb(GREEN), 10, False, key="verdict")
+
+    def parts(self):
+        return [("LF", "Front left"), ("RF", "Front right"),
+                ("LR", "Rear left"), ("RR", "Rear right"),
+                ("mean", "Average temp"), ("verdict", "What to change")]
+
+
 WIDGETS = [
     InputsWidget, PositionWidget, RelativeWidget, StandingsWidget, MyCarWidget, Head2HeadWidget,
     LaptimeGraphWidget, DeltaTraceWidget, LaptimeSpreadWidget, HStandingsWidget,
@@ -2749,5 +2895,5 @@ WIDGETS = [
     WeatherWidget, FlagsWidget, RadarWidget, TrackMapWidget, OptimalWidget, PitHelperWidget, MetricsWidget,
     DeltaBarWidget, WearGraphWidget, SpotterWidget, WeatherRadarWidget,
     DriverStintWidget, TimeLeftWidget, TeamIncidentsWidget,
-    SymptomsWidget, BalanceWidget, WearTrendWidget,
+    SymptomsWidget, BalanceWidget, WearTrendWidget, TyreToolWidget,
 ]
