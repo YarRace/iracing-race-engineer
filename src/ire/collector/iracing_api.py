@@ -17,10 +17,24 @@ iRacing его аккаунта — как его зовут и рейтинг»
     частоту входов и на частые попытки отвечает 429, а иногда требует
     капчу — и тогда вход возможен ТОЛЬКО руками через сайт.
 
-Капча — причина, по которой этот модуль может не заработать с первого раза,
-и это не наша поломка. При 429 или требовании капчи он честно говорит, что
-надо один раз зайти на members.iracing.com в браузере, и не пытается
-обойти проверку.
+ВАЖНО, проверено 31.08.2026 на живом сервере: документированный вход
+`POST /auth` БОЛЬШЕ НЕ РАБОТАЕТ. nginx отвечает 405 ещё до приложения —
+на этом пути теперь лежит страница входа на JavaScript, и POST там
+запрещён. Проверено, что дело не в нас и не в сети:
+
+    GET  /data/doc  -> 401 от приложения (значит хост тот и живой)
+    POST /data/doc  -> 401 от приложения (значит POST проходит насквозь)
+    GET  /auth      -> 200 nginx, HTML-страница
+    POST /auth      -> 405 nginx
+
+То есть iRacing перевёл вход на форму в браузере. Разбирать их JS-бандл,
+чтобы найти новый адрес и обойти изменившийся вход, мы не будем: это
+именно обход механизма, который они намеренно поменяли.
+
+Модуль оставлен рабочим целиком — кроме шага входа. Как только станет
+известен новый адрес (из их документации или от них самих), меняется одна
+константа AUTH_PATH, и всё остальное поедет. Пока же имя пилота и его
+рейтинг у Garage 61 всё равно есть — на главной строка не пустая.
 
 Файл `data/iracing_auth.json`:
     {"email": "you@example.com", "password": "…"}
@@ -39,6 +53,7 @@ import urllib.request
 from ire import paths
 
 BASE = "https://members-ng.iracing.com"
+AUTH_PATH = "/auth"                # см. предупреждение выше: сейчас отвечает 405
 TIMEOUT = 20
 CACHE_TTL = 3600            # iRating меняется после гонки, не каждую минуту
 
@@ -106,14 +121,24 @@ class Client:
             return False
         body = json.dumps({"email": email,
                            "password": _hash(email, password)}).encode("utf-8")
-        req = urllib.request.Request(BASE + "/auth", data=body,
+        req = urllib.request.Request(BASE + AUTH_PATH, data=body,
                                      headers={"Content-Type": "application/json"})
         try:
             with self.opener.open(req, timeout=TIMEOUT) as r:
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
-            self.error = ("iRacing is rate-limiting the login (429) — wait a few "
-                          "minutes" if e.code == 429 else f"iRacing answered {e.code}")
+            if e.code == 429:
+                self.error = ("iRacing is rate-limiting the login — wait a few "
+                              "minutes")
+            elif e.code == 405:
+                # Не «что-то пошло не так»: путь входа у них изменился, и об
+                # этом надо сказать прямо, иначе человек будет искать ошибку
+                # в своём пароле, которого проблема не касается вовсе.
+                self.error = ("iRacing no longer accepts the documented login "
+                              "endpoint (405) — they moved sign-in to a "
+                              "browser form. Nothing to fix on your side.")
+            else:
+                self.error = f"iRacing answered {e.code}"
             return False
         except Exception as e:                                # noqa: BLE001
             self.error = str(e)

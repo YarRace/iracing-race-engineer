@@ -134,3 +134,41 @@ def test_profile_shapes_licences_for_the_interface(tmp_path, monkeypatch):
     assert p["licenses"][0]["licence"] == "A 3.51"
     assert api.irating("sports_car") == 2450
     assert api.irating("oval") is None
+
+
+def test_a_changed_login_endpoint_is_named_not_blamed_on_the_password(tmp_path, monkeypatch):
+    """31.08.2026 iRacing перевёл вход на форму в браузере: POST /auth даёт
+    405 от nginx, ещё до приложения. Написать в такой ситуации «что-то пошло
+    не так» — отправить человека искать ошибку в своём пароле, которого
+    проблема не касается вовсе.
+    """
+    import urllib.error
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+    (tmp_path / "iracing_auth.json").write_text(
+        json.dumps({"email": "a@b.c", "password": "pw"}), encoding="utf-8")
+
+    c = api.Client()
+
+    def boom(*a, **k):
+        raise urllib.error.HTTPError("u", 405, "Not Allowed", {}, None)
+
+    c.opener.open = boom
+    assert c.login() is False
+    assert "405" in c.error
+    assert "Nothing to fix on your side" in c.error
+    assert "password" not in c.error.lower()
+
+
+def test_rate_limiting_is_told_apart_from_a_wrong_password(tmp_path, monkeypatch):
+    import urllib.error
+    monkeypatch.setattr(api, "_dir", lambda: tmp_path)
+    (tmp_path / "iracing_auth.json").write_text(
+        json.dumps({"email": "a@b.c", "password": "pw"}), encoding="utf-8")
+    c = api.Client()
+
+    def boom(*a, **k):
+        raise urllib.error.HTTPError("u", 429, "Too Many", {}, None)
+
+    c.opener.open = boom
+    assert c.login() is False
+    assert "rate-limiting" in c.error
