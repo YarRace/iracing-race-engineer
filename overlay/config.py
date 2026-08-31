@@ -116,6 +116,18 @@ class Config:
         self.data["opacity"] = max(0.3, min(1.0, float(val)))
         self.save()
 
+    # ---- «включены» и «запущены» — разные вещи ----
+    # У Kapps галочка сразу выбрасывает виджет на экран, и настроить раскладку
+    # спокойно нельзя: половина экрана уже занята. У RaceLab сначала собирают
+    # набор, потом жмут «Start». Разводим одно и другое: галочка = «входит
+    # в раскладку», кнопка = «показать всё это поверх игры».
+    def overlays_running(self) -> bool:
+        return bool(self.data.get("running", False))
+
+    def set_overlays_running(self, val: bool):
+        self.data["running"] = bool(val)
+        self.save()
+
     def hide_offtrack(self) -> bool:
         return bool(self.data.get("hide_offtrack", False))
 

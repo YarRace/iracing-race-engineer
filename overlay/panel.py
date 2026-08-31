@@ -107,8 +107,11 @@ class _PreviewStore:
 
 
 class ControlPanel(QWidget):
-    def __init__(self, store, config, widget_classes):
+    def __init__(self, store, config, widget_classes, embedded=False):
         super().__init__()
+        # Внутри общего окна своя шапка не нужна: логотип и индикатор связи
+        # уже стоят наверху приложения, и вторая пара выглядит как ошибка.
+        self.embedded = embedded
         self.setWindowTitle("Race Engineer — Overlays")
         self.resize(1180, 720)
         self.setStyleSheet(QSS)
@@ -147,10 +150,13 @@ class ControlPanel(QWidget):
     # ───────────────────────────── шапка ────────────────────────────────────
     def _build_header(self):
         h = QHBoxLayout()
-        h.addWidget(QLabel("🏁 Race Engineer", objectName="title"))
-        h.addSpacing(12)
         self.status = QLabel("● …")
-        h.addWidget(self.status)
+        if not self.embedded:
+            h.addWidget(QLabel("🏁 Race Engineer", objectName="title"))
+            h.addSpacing(12)
+            h.addWidget(self.status)
+        else:
+            self.status.hide()
         h.addStretch(1)
         h.addWidget(QLabel("Layout", objectName="hint"))
         self.prof = QComboBox()
@@ -255,7 +261,7 @@ class ControlPanel(QWidget):
 
         cb = QCheckBox()
         cb.setChecked(self.config.is_enabled(cls.KEY))
-        cb.setToolTip("Show over the game")
+        cb.setToolTip("Include in the layout — Start overlays shows it")
         cb.toggled.connect(lambda v, c=cls: self.toggle(c, v))
         self._boxes[cls.KEY] = cb
         self._cls_by_key[cls.KEY] = cls
@@ -403,7 +409,7 @@ class ControlPanel(QWidget):
 
         # Крупная кнопка вместо галочки: у RaceLab это главное действие
         # карточки, и оно должно читаться с одного взгляда.
-        self.open_btn = QPushButton("Open overlay", objectName="open")
+        self.open_btn = QPushButton("Add to layout", objectName="open")
         self.open_btn.setCheckable(True)
         self.open_btn.setCursor(Qt.PointingHandCursor)
         self.open_btn.toggled.connect(self._toggle_selected)
@@ -518,7 +524,7 @@ class ControlPanel(QWidget):
         on = self.config.is_enabled(key)
         self.open_btn.blockSignals(True)
         self.open_btn.setChecked(on)
-        self.open_btn.setText("Shown over the game" if on else "Open overlay")
+        self.open_btn.setText("In the layout" if on else "Add to layout")
         self.open_btn.blockSignals(False)
         self._refresh_widget_presets()
 
@@ -775,6 +781,16 @@ class ControlPanel(QWidget):
         for k in target:
             self._boxes[k].setChecked(not any_on)
 
+    def set_overlays_running(self, on):
+        """Показать или убрать всю раскладку разом."""
+        self.config.set_overlays_running(on)
+        self._refresh_visibility()
+        if on:
+            for w in self.widgets.values():
+                if w.isVisible():
+                    w.apply_input_mode()
+                    w.apply_opacity()
+
     def toggle(self, cls, show):
         self.config.set_enabled(cls.KEY, show)
         if show and cls.KEY not in self.widgets:
@@ -782,7 +798,7 @@ class ControlPanel(QWidget):
         if self._selected == cls.KEY and hasattr(self, "open_btn"):
             self.open_btn.blockSignals(True)
             self.open_btn.setChecked(show)
-            self.open_btn.setText("Shown over the game" if show else "Open overlay")
+            self.open_btn.setText("In the layout" if show else "Add to layout")
             self.open_btn.blockSignals(False)
         self._refresh_visibility()
 
@@ -791,13 +807,21 @@ class ControlPanel(QWidget):
         self._refresh_visibility()
 
     def _refresh_visibility(self):
-        """Видимость = включён И (правка ИЛИ не прячем вне трассы ИЛИ на трассе)."""
+        """Видимость = ЗАПУЩЕНЫ И включён И (правка ИЛИ не прячем ИЛИ на трассе).
+
+        Первое условие новое. Раньше галочка выбрасывала виджет на экран
+        немедленно, и собрать раскладку спокойно было нельзя: половина экрана
+        занята ещё до того, как выбрал остальное. Теперь галочка означает
+        «входит в раскладку», а показывает всё кнопка «Start overlays».
+        """
         hide = self.config.hide_offtrack()
         on = bool((self.store.get("live") or {}).get("on_track"))
         edit = self.config.edit_mode()
+        live = self.config.overlays_running()
         changed = False
         for key, w in self.widgets.items():
-            should = self.config.is_enabled(key) and (edit or not hide or on)
+            should = (live and self.config.is_enabled(key)
+                      and (edit or not hide or on))
             if w.isVisible() != should:
                 w.setVisible(should)
                 if should:

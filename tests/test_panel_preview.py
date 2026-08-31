@@ -205,11 +205,11 @@ def test_open_button_reflects_and_controls_state(panel):
     panel.select("weather")
     panel.toggle(panel._cls_by_key["weather"], False)
     assert not panel.open_btn.isChecked()
-    assert "Open" in panel.open_btn.text()
+    assert "Add to layout" == panel.open_btn.text()
 
     panel.open_btn.setChecked(True)                    # нажали кнопку
     assert panel.config.is_enabled("weather")
-    assert "Shown" in panel.open_btn.text()
+    assert "In the layout" == panel.open_btn.text()
 
 
 def test_widget_preset_moves_look_without_touching_layout(panel):

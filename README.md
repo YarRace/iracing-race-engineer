@@ -45,23 +45,26 @@ pip install -r requirements.txt
 Then one command:
 
 ```bash
-python launcher.py --start
+python app.py
 ```
 
-It starts the engineer, waits until it actually answers, and only then opens
-the overlay. The order matters: an overlay opened before the server shows a
-red dot and empty widgets, which is exactly what makes people think the thing
-is broken.
+One window with four pages — Home, Overlays, Dashboard, News. The engineer
+runs as a background thread inside it, so there is no second process to start
+and no order to get wrong.
 
-To run the two halves yourself:
+Ticking an overlay puts it **in the layout**; nothing appears over the game
+until you press **Start overlays**. That is deliberate: you cannot lay out a
+screen while half of it is already covered by what you switched on first.
+
+The two halves still run separately if you want them to:
 
 ```bash
 python run.py              # reads the sim, serves the dashboard on :8000
-python overlay_app.py      # the settings window with the live preview
+python overlay_app.py      # the overlay panel on its own
 ```
 
-On Windows `start.bat` does the launcher with one double-click.
-`start-demo.bat` runs the dashboard on demo data with no sim at all.
+On Windows `start.bat` opens the app with one double-click. `start-demo.bat`
+runs the dashboard on demo data with no sim at all.
 
 If the overlay panel shows a red dot and every widget is empty, `run.py` is
 not running. That is the first thing to check.
@@ -111,13 +114,10 @@ pip install pyinstaller
 python tools/build_exe.py --zip --shortcuts
 ```
 
-You get three folders in `dist/` — the engineer, the overlay and the
-launcher. Keep them next to each other: the launcher looks for the other two
-as siblings. They are a folder each,
-not a single file. One-file builds unpack 120 MB into a temp directory on
-every launch and trip antivirus heuristics doing it. `--zip` packs each
-folder into one archive to hand around; `--shortcuts` puts both on your
-desktop so you never go looking in `dist/` again.
+You get one folder in `dist/` — a folder, not a single file. One-file builds unpack 120 MB into a temp directory on
+every launch and trip antivirus heuristics doing it. `--zip` packs it
+into one archive to hand around; `--shortcuts` puts it on your desktop so you
+never go looking in `dist/` again.
 
 Your `data/` lives next to the app, never inside it, so replacing the folder
 with a newer build never touches your lap history or overlay layout.
@@ -128,7 +128,7 @@ with a newer build never touches your lap history or overlay layout.
 python -m pytest -q
 ```
 
-271 tests, no sim required. The Qt ones run offscreen, and CI runs the same
+285 tests, no sim required. The Qt ones run offscreen, and CI runs the same
 suite on Windows for every push.
 
 ## Tools

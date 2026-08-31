@@ -6,13 +6,9 @@
 самораспаковку. Папка стартует мгновенно; для раздачи её всё равно
 кладут в архив.
 
-Собираются ТРИ приложения:
-    RaceEngineer.exe         — инженер: читает сим, отдаёт дашборд на :8000
-    RaceEngineerOverlay.exe  — панель оверлея поверх игры
-    RaceEngineerLauncher.exe — одна кнопка «Старт»: поднимает оба по порядку
-
-Лаунчер ищет соседей по путям вида ../RaceEngineer/RaceEngineer.exe,
-поэтому в dist/ все три папки должны лежать рядом — так они и лежат.
+Собирается ОДНО приложение: RaceEngineer.exe. Внутри и инженер (фоновым
+потоком), и панель оверлея, и страницы Home / Dashboard / News — раньше
+это были два процесса, которые надо было запускать по очереди.
 
 Данные пользователя (data/) внутрь НЕ кладутся: история кругов, карты трасс
 и раскладка оверлея принадлежат тому, у кого стоит программа, а не сборке.
@@ -40,9 +36,11 @@ ICON = ROOT / "docs" / "icon.ico"
 # Инженер — консольный намеренно: он печатает, что видит в симе, и когда
 # что-то не так, это единственное окно, куда можно посмотреть.
 APPS = [
-    ("RaceEngineer", "run.py", False),
-    ("RaceEngineerOverlay", "overlay_app.py", True),
-    ("RaceEngineerLauncher", "launcher.py", True),
+    # Одно приложение: инженер крутится фоновым потоком внутри окна.
+    # Прежние три (инженер / оверлей / лаунчер) остались в репозитории
+    # как отдельные точки входа, но собирать их незачем — они делают
+    # то же самое, только тремя окнами.
+    ("RaceEngineer", "app.py", True),
 ]
 
 # Данные, без которых приложение не работает. Пути внутри сборки повторяют
@@ -185,13 +183,12 @@ def main():
     if args.shortcuts:
         # Ярлык ОДИН — на лаунчер. Три значка на столе, из которых два нельзя
         # нажимать в неправильном порядке, — это не удобство, а ловушка.
-        target = next((o for n, o in built if n == "RaceEngineerLauncher"), None)
+        target = next((o for n, o in built if n == "RaceEngineer"), None)
         if target is None:
             print("  ярлык не создан: лаунчер не собран")
         else:
-            link = make_shortcut("Race Engineer",
-                                 target / "RaceEngineerLauncher.exe",
-                                 args.desktop or None, args="--start")
+            link = make_shortcut("Race Engineer", target / "RaceEngineer.exe",
+                                 args.desktop or None)
             print(f"  ярлык {link}" if link else "  ярлык НЕ создан")
 
     if built and not failed:
