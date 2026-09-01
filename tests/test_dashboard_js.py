@@ -63,3 +63,15 @@ def test_render_calls_inside_ticks_are_guarded():
         # этим шаблоном, вызвано напрямую.
         bare = sorted({m.group(1) for m in BARE_CALL.finditer(body)})
         assert not bare, f"{name}: незащищённые вызовы {bare}"
+
+
+def test_the_sector_card_accounts_for_every_lap_of_the_run():
+    """Круги другой длины набора (заезд, начатый до правки хранилища и
+    продолженный после) считались в `dropped`, но на экран не выводились:
+    человек проехал 24, видел «22 clean laps · 1 lap left out» — и один круг
+    пропадал без объяснения. Ровно та беда, ради которой поле и заводили."""
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "src" / "ire" / "dashboard" / "static" / "index.html"
+           ).read_text(encoding="utf-8")
+    assert "r.dropped" in src, "поле dropped не доходит до карточки"
+    assert "${drop}" in src, "строка про dropped собрана, но не вставлена"

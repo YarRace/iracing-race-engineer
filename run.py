@@ -222,9 +222,23 @@ def main():
                 STATE["damage"] = damage_status(ir)
                 STATE["wear"] = tire_wear_by_corner(ir)      # износ по углам
                 # live-кадр ПОСТОЯННО (не только когда сам за рулём) — чтобы в эндурансе
-                # гаражный вид был живым, пока машину ведёт напарник
-                STATE["live"] = live_frame(ir)
-                STATE["live"]["on_track"] = is_on_track(ir)   # для «прятать оверлеи вне трассы»
+                # гаражный вид был живым, пока машину ведёт напарник.
+                #
+                # Кадр НАЗВАН, а не спрятан в STATE, намеренно. Лог кругов ниже
+                # брал температуру и топливо из `f`, а `f` связывается только в
+                # ветке «за рулём я». Пока первую смену ведёт напарник, этого
+                # имени не существует вовсе: на первом же завершённом круге
+                # выходил NameError, его глотал общий except — и вместе с логом
+                # замирали race, standings, relative и session, а круги
+                # переставали попадать в историю. Одна строка печаталась в
+                # консоль, которой у оконного приложения нет.
+                #
+                # Брать `f` и «просто не падать» тоже нельзя: после смены пилота
+                # он хранит кадр прошлой смены, и первый круг новой трассы унёс
+                # бы температуру предыдущей.
+                live = live_frame(ir)
+                live["on_track"] = is_on_track(ir)   # для «прятать оверлеи вне трассы»
+                STATE["live"] = live
                 race = race_extras(ir)
                 sess_t = ir["SessionTime"]
                 sector_timer.update(ir["LapDistPct"], sess_t)
@@ -252,8 +266,8 @@ def main():
                         # числом её уже не восстановить
                         lap_log.append({"lap": last_logged_lap, "time": lap_time,
                                         "sectors": sectors,
-                                        "track_temp": f.get("track_temp"),
-                                        "fuel": f.get("fuel")})
+                                        "track_temp": live.get("track_temp"),
+                                        "fuel": live.get("fuel")})
                         if ident.get("track"):               # сохраняем круг в историю (Фаза 1)
                             try:
                                 history.save_lap(hist, ident, last_logged_lap, lap_time, sectors)

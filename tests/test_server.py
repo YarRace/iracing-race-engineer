@@ -613,3 +613,47 @@ def test_the_optimiser_answers_in_every_phase():
         r = c.get(f"/api/setup/advise?phase={phase}&symptom=understeer")
         assert r.status_code == 200, phase
         assert r.json()["moves"], phase
+
+
+def test_the_chosen_run_does_not_move_when_new_laps_arrive(tmp_path, monkeypatch):
+    """Заезд выбирался НОМЕРОМ ПО ПОРЯДКУ, а список пересобирается каждые
+    десять секунд. Любой круг, дописанный в это время, сдвигал все номера на
+    единицу: человек читал таблицу, а под тем же пунктом оказывались числа
+    другой сессии — и ничто на экране этого не показывало.
+
+    В живой сессии это происходило после КАЖДОГО круга.
+    """
+    import pathlib
+    import shutil
+
+    from fastapi.testclient import TestClient
+
+    from ire.storage import history
+
+    real = pathlib.Path(__file__).resolve().parents[1] / "data" / "history.db"
+    if not real.exists():
+        pytest.skip("истории нет")
+    db = tmp_path / "copy.db"
+    shutil.copy(real, db)
+    monkeypatch.setenv("IRE_DB_PATH", str(db))
+
+    from ire.dashboard.server import app
+    c = TestClient(app)
+
+    runs = c.get("/api/sectors").json().get("runs") or []
+    if len(runs) < 6:
+        pytest.skip("мало заездов в истории")
+    pick = runs[5]
+    before = c.get(f"/api/sectors?run={pick['id']}").json()["run"]
+
+    conn = history.connect(str(db))
+    for n in (1, 2):
+        history.save_lap(conn, {"track": "brandnew", "car": "Ferrari 499P",
+                                "session_type": "Practice"}, n, 95.0,
+                         [30.0, 32.0, 33.0])
+    conn.close()
+
+    after = c.get(f"/api/sectors?run={pick['id']}").json()["run"]
+    assert after["when"] == before["when"], "выбранный заезд уехал"
+    assert after["track"] == before["track"]
+    assert after["laps"] == before["laps"]

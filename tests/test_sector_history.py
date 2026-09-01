@@ -269,3 +269,38 @@ def test_an_optimal_lap_faster_than_the_real_best_is_suppressed():
     r = SH.report(laps)
     assert r["optimal"] is None
     assert r["best_lap"] == 120.0
+
+
+def test_the_one_off_number_is_the_sum_of_the_laps_it_names():
+    """Раньше печаталось превышение по ВСЕМ кругам сектора, а номеров стояло
+    три-четыре. На Спа выходило «+6.91s на 4 кругах», а те четыре круга
+    стоили 3.98s — человек шёл искать семь секунд там, где их четыре."""
+    laps = run_of(30, spread=0.08)
+    for i, extra in ((3, 1.2), (7, 0.9), (11, 0.7)):
+        laps[i]["sectors"][0] += extra
+        laps[i]["lap_time"] = round(sum(laps[i]["sectors"]), 2)
+
+    s = SH.report(laps)["sectors"][0]
+    named = sum(x["plus"] for x in s["one_off_laps"])
+    assert s["one_off_named"] == pytest.approx(named, abs=0.01)
+    assert s["one_off_named"] <= s["one_off_total"] + 0.01
+
+
+def test_the_rest_of_the_one_off_loss_is_counted_not_hidden():
+    """Молча вычесть остаток значит потерять секунды. «Размазано по двадцати
+    кругам» — это и есть ответ «разового здесь нет»."""
+    laps = run_of(30, spread=0.3)
+    s = SH.report(laps)["sectors"][0]
+    assert s["one_off_spread"] >= len(s["one_off_laps"])
+    assert s["one_off_total"] >= s["one_off_named"] - 0.01
+
+
+def test_a_single_bad_lap_is_named_with_its_own_number():
+    laps = run_of(30, spread=0.06)
+    laps[9]["sectors"][1] += 2.5
+    laps[9]["lap_time"] = round(sum(laps[9]["sectors"]), 2)
+    s = SH.report(laps)["sectors"][1]
+    assert s["one_off_laps"][0]["lap"] == 10
+    assert s["one_off_named"] == pytest.approx(s["one_off_laps"][0]["plus"]
+                                               + sum(x["plus"] for x in
+                                                     s["one_off_laps"][1:]), abs=0.01)

@@ -188,13 +188,22 @@ def report(laps):
             acc += e
             if acc >= bucket / 2:
                 break
+        shown = worst[:5]
+        # Число рядом со списком номеров обязано быть суммой ИМЕННО этих
+        # номеров. bucket — превышение по ВСЕМ кругам сектора, и печатать его
+        # над тремя номерами значит послать человека искать семь секунд там,
+        # где их четыре (проверено на Спа: карточка говорила +6.91s на четырёх
+        # кругах, а те четыре стоили 3.98s).
+        named = round(sum(x["plus"] for x in shown), 2)
         out.append({"i": i + 1,
                     "best": round(best, 2), "median": round(med, 2),
                     "scatter": round(sigma, 3),
                     "every_lap": round(every, 3), "se": round(se, 3),
                     "every_lap_total": round(every * len(base), 2),
                     "one_off_total": round(bucket, 2),
-                    "one_off_laps": worst[:5], "one_off_count": len(worst)})
+                    "one_off_named": named,
+                    "one_off_spread": len(exc),
+                    "one_off_laps": shown, "one_off_count": len(worst)})
 
     stable, why = _stable_sector(out, len(base))
     missing = _unrecorded(base)

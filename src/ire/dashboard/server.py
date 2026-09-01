@@ -126,11 +126,18 @@ def _run_label(run):
     return {"track": first.get("track_display") or first.get("track"),
             "config": first.get("config"), "car": first.get("car"),
             "when": (first.get("ts") or "")[:16].replace("T", " "),
-            "laps": len(run)}
+            "laps": len(run),
+            # Постоянное имя заезда — id ЕГО ПЕРВОГО КРУГА. Номер по порядку
+            # для этого не годится: список пересобирается каждые десять секунд,
+            # и любой круг, дописанный в это время, сдвигает все номера на
+            # единицу. Человек выбирал заезд, а через десять секунд под тем же
+            # пунктом оказывались числа другой сессии — и ничто на экране этого
+            # не показывало.
+            "id": first.get("id")}
 
 
 @app.get("/api/sectors")
-def sectors_analysis(run: int = Query(-1)):
+def sectors_analysis(run: str = Query("")):
     """Разбор ЗАЕЗДА по секторам: что теряется каждый круг, а что разово.
 
     Не путать с виджетом оверлея `sectors` — тот показывает живой круг
@@ -156,11 +163,18 @@ def sectors_analysis(run: int = Query(-1)):
         return {"ok": False, "reason": "no run in the history has more than one lap"}
     runs.reverse()                                       # свежие сверху, как в истории
 
-    i = 0 if run < 0 else min(run, len(runs) - 1)
+    labels = [_run_label(r) for r in runs]
+    # Ищем заезд ПО ИМЕНИ, а не по месту в списке. Не нашли — берём свежий и
+    # честно отдаём его имя: заезд мог уехать за границу сорока, и молча
+    # показать чужие числа под старым выбором нельзя.
+    i = 0
+    if run:
+        i = next((k for k, lab in enumerate(labels) if str(lab["id"]) == run), 0)
+
     out = SH.report(runs[i])
-    out["run"] = _run_label(runs[i])
-    out["runs"] = [_run_label(r) for r in runs]
-    out["picked"] = i
+    out["run"] = labels[i]
+    out["runs"] = labels
+    out["picked"] = labels[i]["id"]
     return out
 
 
