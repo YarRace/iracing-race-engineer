@@ -595,7 +595,7 @@ def page_catalog(cat, shots=None):
 </section>
 <section>
   <h2>Overlay — {k['widgets']}</h2>
-  <table><tr><th>Name</th><th>Group</th><th>Key</th><th>Size</th>
+  <table><tr><th></th><th>Name</th><th>Group</th><th>Key</th><th>Size</th>
   <th>Data</th></tr>{rows}</table>
 </section>
 <section>
@@ -657,8 +657,11 @@ def page_news(entries):
         body = ('<section><h1>Changelog</h1><div class="empty">No entries yet. '
                 'Add a file to <span class="k">docs/news/</span>.</div></section>')
         return shell("Changelog", body, active="/news")
+    # id на каждой записи: блок «что изменилось» на главной ссылается сюда
+    # якорем, а без id браузер высаживал человека в начало длинной страницы —
+    # и он не понимал, куда попал.
     posts = "".join(
-        f'<div class="post"><div class="d">{e(p["date"])}</div>'
+        f'<div class="post" id="{e(p["slug"])}"><div class="d">{e(p["date"])}</div>'
         f'<h3>{e(p["title"])}</h3>{_md_lite(p["body"])}</div>' for p in entries)
     return shell("Changelog", f"""
 <section class="hero" style="padding:44px 0 10px">

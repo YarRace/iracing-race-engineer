@@ -96,3 +96,26 @@ def test_the_verdict_carries_the_number_that_produced_it():
     """Порог не универсален (2% колёс Ferrari против 39% Super Formula
     Lights). Если полоса ошибается, число обязано остаться верным."""
     assert camber(60.4, 53.6) == ("too_much", 6.8)
+
+
+def test_a_missing_channel_is_not_reported_as_zero_degrees():
+    """Раньше среднее по пустому списку давало ноль, и «канала нет»
+    превращалось в «ноль градусов»: разница кромок выходила ровно 0.0,
+    вердикт — уверенное «even», и на машине без поверхностных каналов Tyre
+    Tool спокойно сообщал, что с развалом всё в порядке."""
+    frames = [{"tires": {c: {"tl": None, "tm": None, "tr": None}
+                         for c in ("LF", "RF", "LR", "RR")}}]
+    m = tire_metrics(frames)
+    assert m["LF"]["bias"] == "unknown", "отсутствие данных выдали за «ровно»"
+    assert m["LF"]["spread"] is None
+    assert m["front_rear_balance"] is None
+
+
+def test_one_missing_corner_does_not_poison_the_others():
+    """Канал может пропасть на одном колесе. Остальные три обязаны считаться."""
+    t = _even()
+    frames = [_frame(t)]
+    frames[0]["tires"]["LF"] = {"tl": None, "tm": None, "tr": None}
+    m = tire_metrics(frames)
+    assert m["LF"]["bias"] == "unknown"
+    assert m["RF"]["spread"] == 0.0, "исправное колесо потеряли вместе с пустым"

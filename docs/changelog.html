@@ -139,9 +139,9 @@
 <div class="wrap">
 <section class="hero" style="padding:44px 0 10px">
   <h1>What changed</h1>
-  <p class="lead">The project changelog. <a href="rss.xml">RSS</a></p>
+  <p class="lead">The project changelog. <a href="changelog.html">every entry</a></p>
 </section>
-<section><div class="post"><div class="d">2026-09-01</div><h3>Tyre Tool: what the tread edges say, and what they were saying wrong</h3><p>The tread tells you two things without any guesswork. A hot inner edge means
+<section><div class="post" id="2026-09-01-tyre-tool"><div class="d">2026-09-01</div><h3>Tyre Tool: what the tread edges say, and what they were saying wrong</h3><p>The tread tells you two things without any guesswork. A hot inner edge means
 there is more negative camber than the corner is using. A hot middle means the
 tyre is crowned, which is pressure. Both are physics and neither depends on the
 car.</p><p>That reading now lives in two places: a card in the dashboard, and a widget over
@@ -174,7 +174,7 @@ ran Road Atlanta, the SF Lights only Road America. Swapping one non-universal
 constant for another would only look like progress. What did change is that the
 measurement is now a command — <span class="k">python tools/measure_tyres.py</span> — which prints the
 distribution per car and says &quot;this threshold has drifted&quot; out loud when the
-rates diverge.</p></div><div class="post"><div class="d">2026-09-01</div><h3>Setup optimiser: say what the car does, get what to turn</h3><p>Two dropdowns — where in the corner, and what the car does — and you get an
+rates diverge.</p></div><div class="post" id="2026-09-01-setup-optimiser"><div class="d">2026-09-01</div><h3>Setup optimiser: say what the car does, get what to turn</h3><p>Two dropdowns — where in the corner, and what the car does — and you get an
 ordered list of what to change in the garage, each with the reason it works.</p><p>It is deliberately not the two things the engineer already has. <span class="k">symptoms</span> reads
 understeer and oversteer off the telemetry by itself. The AI review explains a
 stint in words and proposes a setup delta. This one takes neither: it runs on
@@ -197,7 +197,7 @@ wing advice admits it cures understeer by taking grip off the rear rather than
 adding it at the front, so the car gets faster and more frightening at once. And
 a lever already sitting at its limit — a front bar reading &quot;Soft&quot; when the advice
 is &quot;softer&quot; — is marked as such, with the alternative offered, because advice you
-cannot carry out is worse than none.</p></div><div class="post"><div class="d">2026-09-01</div><h3>Sectors: the mistake you can drive around, and the one you cannot</h3><p>A delta to your best lap is one number, and it moves the whole way round. It
+cannot carry out is worse than none.</p></div><div class="post" id="2026-09-01-sector-breakdown"><div class="d">2026-09-01</div><h3>Sectors: the mistake you can drive around, and the one you cannot</h3><p>A delta to your best lap is one number, and it moves the whole way round. It
 cannot tell you whether you lost the time in the first sector or clawed it back
 in the third. The only way to find out was to finish, climb out of the car and
 open a tab — which, on a long practice, nobody does.</p><p>Two things landed for this.</p><p><b>Live, in the overlay.</b> A finished sector posts its delta at the sector line
@@ -224,7 +224,7 @@ has five. Checked against the saved history: <b>26% of the lap at Spa was never
 recorded, 33% at Monza, 52% at Road America</b>. Every lap had been losing part of
 itself, permanently, and nothing said so.</p><p>Laps driven from now on keep every sector. Older laps stay clipped — that cannot
 be undone — so the card says out loud how much of the lap it is missing instead
-of pretending the numbers cover the whole thing.</p></div><div class="post"><div class="d">2026-08-31</div><h3>One window instead of two</h3><p>The engineer and the overlay used to be two processes. You started one, then
+of pretending the numbers cover the whole thing.</p></div><div class="post" id="2026-08-31-one-window"><div class="d">2026-08-31</div><h3>One window instead of two</h3><p>The engineer and the overlay used to be two processes. You started one, then
 the other, in that order, and if you got it wrong the overlay opened with a red
 dot and empty widgets — which reads as &quot;the program is broken&quot; rather than
 &quot;the other half is not running yet&quot;.</p><p>Now there is one window with four pages — Home, Overlays, Dashboard, News — and
@@ -234,7 +234,7 @@ layout; the layout appears when you press <b>Start overlays</b>. This is the one
 thing worth copying from how the good apps do it: you cannot lay out a screen
 while half of it is already covered by whatever you switched on first. Stopping
 hides everything and keeps the layout — &quot;get it off my screen&quot; and &quot;forget what
-I picked&quot; are different wishes.</p><p>The build is one application too, not three, and one desktop shortcut.</p></div><div class="post"><div class="d">2026-08-31</div><h3>Your line against theirs, and where you stand</h3><p>Two things that were listed as impossible yesterday are done, and one of
+I picked&quot; are different wishes.</p><p>The build is one application too, not three, and one desktop shortcut.</p></div><div class="post" id="2026-08-31-lines-and-leaderboards"><div class="d">2026-08-31</div><h3>Your line against theirs, and where you stand</h3><p>Two things that were listed as impossible yesterday are done, and one of
 them was only impossible because of a wrong conclusion.</p><p><b>The racing line.</b> Yesterday I wrote that a line comparison could not be
 built because coordinates exist only on Garage 61 laps. The right answer was
 not &quot;cannot&quot; but &quot;start recording them&quot; — so the car&#x27;s latitude and longitude
@@ -258,7 +258,7 @@ browser — that check exists for a reason and is not something to work around.<
 from a catalogue when they want to drive. Deleting the &quot;duplicates&quot; would be
 wrong — a big number, a bar and a rolling trace of the same delta suit
 different people. So instead there are three ready sets: sprint, endurance,
-practice. The first choice is made for you; changing it is one click.</p></div><div class="post"><div class="d">2026-08-31</div><h3>Corner by corner, and a plan for the whole team</h3><p>Two things arrived together, both aimed at the same gap: the engineer could
+practice. The first choice is made for you; changing it is one click.</p></div><div class="post" id="2026-08-31-corner-by-corner"><div class="d">2026-08-31</div><h3>Corner by corner, and a plan for the whole team</h3><p>Two things arrived together, both aimed at the same gap: the engineer could
 tell you *that* you were slow, not *where* — and it had nothing at all to say
 to a team of drivers.</p><p><b>Corner by corner.</b> The lap is now split at its own speed minima and each
 corner compared against your reference lap on the same track and car. Every
@@ -306,14 +306,14 @@ question.</p><p>Two things that only showed up against real data:</p><p>- a lap 
   somebody off to relearn a corner that was fine.
 - <span class="k">canViewTelemetry: true</span> does not mean you can view it — some laps answer
   403, and some 504 while the server is still building the CSV. So the search
-  walks down the list instead of insisting on the fastest lap.</p></div><div class="post"><div class="d">2026-08-21</div><h3>Lap telemetry is written to disk</h3><p>Frames used to live in memory only and were wiped when the session changed. The
+  walks down the list instead of insisting on the fastest lap.</p></div><div class="post" id="2026-08-21-lap-telemetry"><div class="d">2026-08-21</div><h3>Lap telemetry is written to disk</h3><p>Frames used to live in memory only and were wiped when the session changed. The
 history kept nothing but the lap time and three sectors — which left nothing to
 answer &quot;where did I lose the time in turn seven&quot;.</p><p>Now every lap is resampled onto a distance grid and lands as its own file in
-<span class="k">data/laps/</span>.</p><ul><li>a distance grid, not a time grid: two laps compare at the same point on track</li><li>1000 points per lap — about five metres on a five-kilometre circuit</li><li>a Monza lap weighs 27 KB; a 24-hour race adds up to 22 MB</li><li>incomplete and invalid laps are not written, so the reference set stays clean</li><li>conditions go into the metadata: fuel, track and air temperature</li></ul></div><div class="post"><div class="d">2026-08-21</div><h3>Lap history is finally on screen</h3><p>The database held 629 laps and 211 stints, the read functions were written and
+<span class="k">data/laps/</span>.</p><ul><li>a distance grid, not a time grid: two laps compare at the same point on track</li><li>1000 points per lap — about five metres on a five-kilometre circuit</li><li>a Monza lap weighs 27 KB; a 24-hour race adds up to 22 MB</li><li>incomplete and invalid laps are not written, so the reference set stays clean</li><li>conditions go into the metadata: fuel, track and air temperature</li></ul></div><div class="post" id="2026-08-21-history-on-screen"><div class="d">2026-08-21</div><h3>Lap history is finally on screen</h3><p>The database held 629 laps and 211 stints, the read functions were written and
 covered by tests — and no endpoint existed for any of it. The data piled up and
 was shown nowhere.</p><p><span class="k">/api/history</span> and <span class="k">/api/stints</span> arrived, and the <b>Progress</b> card on the
 Records tab stopped being a placeholder: pick a track and car, and you get every
-lap as a dot, a stepped line for the personal best, and a marker on the best lap.</p><ul><li>Spa in the Ferrari 499P — 226 laps, best 2:01.87, 2.44 seconds clawed back</li><li>Monza in the Porsche 963 — 212 laps, best 1:33.84</li><li>the dots are not smoothed: smoothing hides the very scatter the chart is for</li></ul></div><div class="post"><div class="d">2026-08-21</div><h3>The analysis stopped assuming I drive a Cadillac</h3><p>The analysis had <span class="k">Cadillac GTP</span> and <span class="k">Watkins Glen</span> hard-coded as defaults, and
+lap as a dot, a stepped line for the personal best, and a marker on the best lap.</p><ul><li>Spa in the Ferrari 499P — 226 laps, best 2:01.87, 2.44 seconds clawed back</li><li>Monza in the Porsche 963 — 212 laps, best 1:33.84</li><li>the dots are not smoothed: smoothing hides the very scatter the chart is for</li></ul></div><div class="post" id="2026-08-21-explainer-car"><div class="d">2026-08-21</div><h3>The analysis stopped assuming I drive a Cadillac</h3><p>The analysis had <span class="k">Cadillac GTP</span> and <span class="k">Watkins Glen</span> hard-coded as defaults, and
 the live loop never passed the car or the track at all. In a Porsche at Monza
 the model was handed a flat lie in the prompt and gave setup advice for a car
 that was not on track.</p><p>The session snapshot now travels the whole chain. When the car is unknown the

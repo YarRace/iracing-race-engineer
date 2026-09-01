@@ -12,7 +12,25 @@ from __future__ import annotations
 
 import os
 
-_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "logos")
+def _logo_dir():
+    """Папка с логотипами — РЯДОМ С ПРОГРАММОЙ, а не внутри её пакета.
+
+    Путь строился от __file__, и в собранном приложении это уводило внутрь
+    _internal: логотипы, положенные человеком рядом с .exe, не находились, а
+    положить их «правильно» он не мог — папка внутри сборки исчезает при
+    следующем обновлении. Через ire.paths адрес один и тот же и в исходниках,
+    и в сборке.
+    """
+    try:
+        from ire import paths
+        return str(paths.data_dir() / "logos")
+    except Exception:                                    # noqa: BLE001
+        # Оверлей должен подниматься даже когда пакета инженера рядом нет.
+        return os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            "data", "logos")
+
+
+_DIR = _logo_dir()
 _IMG_EXT = (".png", ".svg", ".jpg", ".jpeg", ".webp", ".bmp")
 _cache = {}
 _index = None

@@ -36,7 +36,10 @@ REWRITES = [
     ('src="/panel/', 'src="panel/'),
     ('src="/dash/', 'src="dashboard/'),
     ('src="/hero.png"', 'src="hero.png"'),
-    ('href="/news/rss.xml"', 'href="rss.xml"'),
+    # RSS на статике нет: фид собирает живой сервер. Ссылка на файл,
+    # которого не будет, — это 404 в одно нажатие, поэтому кнопка
+    # ведёт на сам журнал.
+    ('<a href="/news/rss.xml">RSS</a>', '<a href="changelog.html">every entry</a>'),
 ]
 
 # Страница → имя файла. `about` становится index.html: с него начинают.

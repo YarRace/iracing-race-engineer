@@ -54,8 +54,16 @@ def camber(inner, outer):
 
 
 def _avg(xs):
+    """Среднее по числам. None, если чисел не было ВОВСЕ.
+
+    Раньше отдавался ноль, и «канала нет» становилось «ноль градусов»:
+    разница кромок выходила ровно 0.0, вердикт — уверенное «even», и на
+    машине без поверхностных каналов Tyre Tool спокойно сообщал, что с
+    развалом всё в порядке. Отсутствие данных обязано выглядеть как
+    отсутствие данных.
+    """
     xs = [x for x in xs if isinstance(x, (int, float))]
-    return sum(xs) / len(xs) if xs else 0.0
+    return sum(xs) / len(xs) if xs else None
 
 
 def edges(corner, tl, tr):
@@ -70,6 +78,13 @@ def tire_metrics(frames):
         tl = _avg([f["tires"][c]["tl"] for f in frames])
         tm = _avg([f["tires"][c]["tm"] for f in frames])
         tr = _avg([f["tires"][c]["tr"] for f in frames])
+        if None in (tl, tm, tr):
+            # Канала нет — говорим это прямо. Вердикт по нулям выглядел бы
+            # как «кромки ровные», то есть как хорошая новость.
+            out[c] = {"tl": None, "tm": None, "tr": None,
+                      "inner": None, "outer": None,
+                      "spread": None, "bias": "unknown"}
+            continue
         inner, outer = edges(c, tl, tr)
         spread = round(max(tl, tm, tr) - min(tl, tm, tr), 1)
         # bias выводится ИЗ ТОГО ЖЕ вердикта, что показывает Tyre Tool:
@@ -80,7 +95,8 @@ def tire_metrics(frames):
                   "inner": round(inner, 1), "outer": round(outer, 1),
                   "spread": spread, "bias": bias}
         corner_means[c] = _avg([tl, tm, tr])
-    front = _avg([corner_means["LF"], corner_means["RF"]])
-    rear = _avg([corner_means["LR"], corner_means["RR"]])
-    out["front_rear_balance"] = round(front - rear, 1)
+    front = _avg([corner_means.get("LF"), corner_means.get("RF")])
+    rear = _avg([corner_means.get("LR"), corner_means.get("RR")])
+    out["front_rear_balance"] = (round(front - rear, 1)
+                                 if None not in (front, rear) else None)
     return out

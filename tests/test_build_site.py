@@ -129,3 +129,48 @@ def test_a_widget_genuinely_in_no_set_is_still_told_so(tmp_path):
           "file": "fuel.png", "doc": "Fuel", "sets": []}]), encoding="utf-8")
     html = site.page_about(site.load_catalog(), site.load_shots(tmp_path))
     assert "not in any starter set" in html
+
+
+def test_the_widget_table_header_lines_up_with_its_columns():
+    """В строке шесть ячеек (картинка, имя, группа, ключ, размер, данные), а
+    в шапке было пять: каждый заголовок стоял на столбец левее своих данных,
+    и «Name» подписывал картинки."""
+    from ire.dashboard import site
+
+    cat = site.load_catalog()
+    if not cat.get("widgets"):
+        pytest.skip("каталог не собран")
+    html = site.page_catalog(cat, site.load_shots())
+    # Каждую таблицу проверяем ОТДЕЛЬНО: на странице их две, и сравнить шапку
+    # одной со строкой другой — это тест, который зелен по недоразумению.
+    tables = re.findall(r"<table>(.*?)</table>", html, re.S)
+    assert len(tables) >= 2, "таблиц на странице меньше, чем ожидалось"
+    for i, t in enumerate(tables):
+        head = re.search(r"<tr>((?:<th>.*?</th>)+)</tr>", t, re.S)
+        row = re.search(r"<tr>((?:<td.*?</td>)+)</tr>", t, re.S)
+        if not (head and row):
+            continue
+        assert head.group(1).count("<th>") == row.group(1).count("<td"), (
+            f"таблица {i}: шапка на {head.group(1).count('<th>')} ячеек, "
+            f"строка на {row.group(1).count('<td')}")
+
+
+def test_a_changelog_entry_can_be_linked_to():
+    """Блок «что изменилось» на главной ссылается якорем. Без id на записи
+    браузер высаживает человека в начало длинной страницы."""
+    from ire.dashboard import site
+
+    news = site.read_news()
+    if not news:
+        pytest.skip("журнал пуст")
+    html = site.page_news(news)
+    for p in news[:3]:
+        assert f'id="{p["slug"]}"' in html, p["slug"]
+
+
+def test_the_static_site_does_not_offer_an_rss_file_it_does_not_have():
+    """Фид собирает живой сервер. Ссылка на файл, которого не будет, — это
+    404 в одно нажатие."""
+    out = BS.to_static('<p>The changelog. <a href="/news/rss.xml">RSS</a></p>')
+    assert "rss.xml" not in out
+    assert BS.leftover_absolute(out) == []
