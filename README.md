@@ -13,7 +13,7 @@ on the PC that produced it.
 
 | | |
 |---|---|
-| **Overlay** | 45 widgets over the game — fuel, delta, standings, relative, track map, tyre temps, spotter, blind spot, lap log. Each one is tuned on its own: colour, size and font of every number. |
+| **Overlay** | 47 widgets over the game — fuel, delta, standings, relative, track map, tyre temps, spotter, blind spot, lap log. Each one is tuned on its own: colour, size and font of every number. |
 | **Dashboard** | 63 cards across 6 tabs (Solo, Endurance, Setup, Records, Strategy, Race analysis) on the second screen. |
 | **History** | Every valid lap is resampled onto a distance grid and written to disk, with the conditions it was driven in. Progress shows across dates, not one drive. |
 | **Analysis** | Corner by corner: the lap is split at its own speed minima, each corner compared against a reference — your own lap or a quick stranger's from Garage 61 — with the loss explained, the speed and pedal traces drawn, and both racing lines overlaid. |
@@ -102,7 +102,7 @@ Seven modules under `src/ire/`, all local:
    (`/about`, `/catalog`, `/download`, `/news`).
 7. **orchestrator** — ties the live loop together.
 
-The overlay itself lives in `overlay/` (PySide6): `widgets.py` holds all 45,
+The overlay itself lives in `overlay/` (PySide6): `widgets.py` holds all 47,
 `panel.py` is the three-column settings window, `preview.py` renders the live
 preview inside it.
 
@@ -129,7 +129,7 @@ with a newer build never touches your lap history or overlay layout.
 python -m pytest -q
 ```
 
-323 tests, no sim required. The Qt ones run offscreen, and CI runs the same
+463 tests, no sim required. The Qt ones run offscreen, and CI runs the same
 suite on Windows for every push.
 
 ## Tools
@@ -137,6 +137,8 @@ suite on Windows for every push.
 ```bash
 python tools/build_catalog.py       # widget/card catalogue → data/catalog.json
 python tools/render_widgets.py      # a PNG of every widget on demo data
+python tools/build_site.py          # the showcase as a static site in docs/
+python tools/measure_tyres.py       # re-check the Tyre Tool thresholds
 python tools/render_panel.py        # screenshots of the settings window
 python tools/render_dashboard.py    # screenshots of the dashboard
 python tools/render_hero.py         # the overlay-over-the-game hero image
@@ -155,6 +157,8 @@ the code. A test catches the drift, but the command avoids it.
   Not in git, and not to be deleted.
 - `docs/news/` — the changelog, rendered at `/news` with an RSS feed.
 - `docs/widgets/`, `docs/panel/`, `docs/dashboard/` — generated screenshots.
+- `docs/*.html` — the same showcase built as a static site
+  (`python tools/build_site.py`), so it can be read without running anything.
 
 ## Status
 
