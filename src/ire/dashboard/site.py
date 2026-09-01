@@ -85,6 +85,12 @@ def shell(title, body, active=""):
   section{{padding:40px 0}}
   .hero{{padding:64px 0 40px}}
   .nums{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}}
+  .changes{{list-style:none;display:grid;gap:12px}}
+  .changes li{{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:14px 16px}}
+  .changes li a{{font-weight:700;font-size:16px}}
+  .changes .when{{color:var(--muted);font-size:12px;margin-left:10px}}
+  .changes li p{{color:var(--muted);font-size:14px;margin-top:6px}}
   .num{{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);
     padding:18px 20px}}
   .num .v{{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;
@@ -141,6 +147,8 @@ def shell(title, body, active=""):
     .show-stage figcaption{{margin-top:16px;color:var(--muted);font-size:13.5px}}
     .show-stage figcaption b{{display:block;color:var(--txt);font-size:16px;
       margin-bottom:4px}}
+    .show-stage figcaption .meta{{display:block;margin-top:8px;
+      color:var(--muted);font-size:12px;letter-spacing:.2px}}
     img.th{{width:120px;height:auto;display:block;border-radius:6px;
       background:#0d1014;border:1px solid var(--line)}}
     td:first-child{{width:132px}}
@@ -332,10 +340,24 @@ def showcase(shots):
         inputs.append(f'<input type="radio" name="shot" id="s{i}"{sel}>')
         items.append(f'<label for="s{i}">{e(w["title"])}</label>')
         doc = w.get("doc") or ""
+        # Подпись отвечает не только «что это», но и «когда его включают».
+        # Без наборов витрина показывает сорок семь незнакомых картинок, и
+        # выбрать из них нечего: непонятно, что нужно именно тебе.
+        meta = []
+        if w.get("sets"):
+            meta.append("in " + ", ".join(e(x) for x in w["sets"]))
+        else:
+            meta.append("not in any starter set")
+        size = w.get("size") or []
+        if len(size) == 2:
+            meta.append(f"{size[0]}×{size[1]}")
+        if w.get("group"):
+            meta.append(e(w["group"]))
         stage.append(
             f'<figure id="f{i}"><img src="/w/{e(w["file"])}" '
             f'alt="{e(w["title"])}" loading="lazy">'
-            f'<figcaption><b>{e(w["title"])}</b>{e(doc)}</figcaption></figure>')
+            f'<figcaption><b>{e(w["title"])}</b>{e(doc)}'
+            f'<span class="meta">{" · ".join(meta)}</span></figcaption></figure>')
         rules.append(f"#s{i}:checked~.show-stage #f{i}{{display:block}}")
         rules.append(f'#s{i}:checked~.show-list label[for="s{i}"]'
                      f"{{background:var(--panel);color:var(--txt);font-weight:600}}")
@@ -348,6 +370,27 @@ def showcase(shots):
             f'Shots rendered by '
             f'<span class="k">python tools/render_widgets.py</span> on demo '
             f'data: the numbers and driver names are made up.</p></section>')
+
+
+def latest_changes(n=3, d=None):
+    """Последние записи журнала — коротко, прямо на главной витрине.
+
+    Полный журнал живёт отдельной страницей, но туда никто не заходит:
+    человек открывает главную и не видит, что за месяц что-то менялось.
+    Здесь только заголовок, дата и первый абзац — дальше по ссылке.
+    """
+    out = []
+    for item in read_news(d)[:n]:
+        para = (item["body"].split("\n\n") or [""])[0].strip()
+        out.append(f'<li><a href="/news#{e(item["slug"])}">{e(item["title"])}</a>'
+                   f'<span class="when">{e(item["date"])}</span>'
+                   f'<p>{_inline(e(para))}</p></li>')
+    if not out:
+        return ""
+    return (f'<section><h2>What changed lately</h2>'
+            f'<ul class="changes">{"".join(out)}</ul>'
+            f'<p class="lead" style="font-size:14px">'
+            f'<a href="/news">The whole changelog</a></p></section>')
 
 
 def page_about(cat, shots=None, panels=None, dash=None):
@@ -395,6 +438,7 @@ def page_about(cat, shots=None, panels=None, dash=None):
   <h2>Where it runs</h2>
   <div class="sims">{sims}</div>
 </section>
+{latest_changes()}
 {showcase(shots or [])}
 {panel_gallery(panels or [])}
 {dashboard_gallery(dash or [])}

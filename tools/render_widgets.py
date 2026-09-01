@@ -117,6 +117,7 @@ def main():
     QApplication([])
     fonts = load_fonts()
     from overlay.demo import DemoFeed
+    from overlay.panel import STARTERS
     from overlay.widgets import WIDGETS
 
     out = pathlib.Path(a.out)
@@ -151,6 +152,10 @@ def main():
                 "size": list(cls.DEFAULT),
                 "file": path.name,
                 "doc": getattr(cls, "BLURB", ""),      # английская подпись
+                # В каких готовых наборах он стоит. Витрина без этого отвечает
+                # «вот такой виджет есть», но не отвечает на главный вопрос —
+                # нужен ли он мне и когда его включают.
+                "sets": [n for n, keys in STARTERS if name in keys],
             })
         except Exception as e:                                   # noqa: BLE001
             failed.append((name, f"{type(e).__name__}: {e}"))

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Widgets — Race Engineer</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);line-height:1.6;
+    font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{border-bottom:1px solid var(--line);position:sticky;top:0;
+    background:var(--bg);z-index:5}
+  header .wrap{display:flex;align-items:center;gap:26px;height:60px}
+  .logo{font-weight:800;letter-spacing:.5px;color:var(--txt)}
+  .logo b{color:var(--accent)}
+  nav{display:flex;gap:20px;margin-left:auto}
+  nav a{color:var(--muted);font-size:14px}
+  nav a.on{color:var(--txt);font-weight:600}
+  h1{font-size:40px;line-height:1.15;letter-spacing:-.5px;margin-bottom:14px}
+  h1 span{color:var(--accent)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;
+    color:var(--muted);margin:44px 0 16px;font-weight:600}
+  .lead{color:var(--muted);font-size:17px;max-width:640px}
+  section{padding:40px 0}
+  .hero{padding:64px 0 40px}
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .changes{list-style:none;display:grid;gap:12px}
+  .changes li{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:14px 16px}
+  .changes li a{font-weight:700;font-size:16px}
+  .changes .when{color:var(--muted);font-size:12px;margin-left:10px}
+  .changes li p{color:var(--muted);font-size:14px;margin-top:6px}
+  .num{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);
+    padding:18px 20px}
+  .num .v{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;
+    letter-spacing:-1px}
+  .num .k{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .why{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .why div{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:20px}
+  .why h3{font-size:15px;margin-bottom:8px}
+  .why p{color:var(--muted);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);font-weight:600}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:hover td{background:var(--panel)}
+  .k{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;
+    border:1px solid var(--line);color:var(--muted)}
+  .tag.solo{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+  .tag.endur{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  .tag.setup{color:var(--best);border-color:color-mix(in srgb,var(--best) 40%,transparent)}
+  .post{border-bottom:1px solid var(--line);padding:22px 0}
+  .post .d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .post h3{font-size:19px;margin:4px 0 8px}
+  .post ul{margin-left:20px;color:var(--muted)}
+  .empty{color:var(--muted);padding:30px 0}
+  footer{border-top:1px solid var(--line);margin-top:60px;padding:24px 0;
+    color:var(--muted);font-size:13px}
+    /* Hero shot. Both competitors lead with a screenshot rather than a
+       paragraph — you see what the thing is before you read a word. */
+    .hero-big{padding:70px 0 20px;text-align:center}
+    .hero-big h1{font-size:clamp(34px,6vw,64px);letter-spacing:-1.5px;
+      text-transform:uppercase;font-weight:800;margin-bottom:18px}
+    .hero-big .lead{margin:0 auto;font-size:18px}
+    .shot{margin:38px 0 0;border-radius:16px;overflow:hidden;
+      border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.45);
+      background:var(--panel)}
+    .shot img{display:block;width:100%;height:auto}
+    .shot figcaption{padding:10px 16px;font-size:12px;color:var(--muted);
+      border-top:1px solid var(--line)}
+    /* Showcase: list on the left, selected widget on the right. Switching
+       runs on pure CSS — not a line of script on the page. */
+    .show{display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start}
+    .show-list{max-height:520px;overflow:auto;padding-right:6px}
+    .show-list label{display:block;padding:7px 10px;border-radius:8px;
+      color:var(--muted);font-size:13.5px;cursor:pointer}
+    .show-list label:hover{background:var(--panel);color:var(--txt)}
+    .show input{position:absolute;opacity:0;pointer-events:none}
+    .show-stage{background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--r-card);min-height:320px;display:flex;
+      align-items:center;justify-content:center;padding:26px}
+    .show-stage figure{display:none;text-align:center;max-width:100%}
+    .show-stage img{max-width:100%;height:auto}
+    .show-stage figcaption{margin-top:16px;color:var(--muted);font-size:13.5px}
+    .show-stage figcaption b{display:block;color:var(--txt);font-size:16px;
+      margin-bottom:4px}
+    .show-stage figcaption .meta{display:block;margin-top:8px;
+      color:var(--muted);font-size:12px;letter-spacing:.2px}
+    img.th{width:120px;height:auto;display:block;border-radius:6px;
+      background:#0d1014;border:1px solid var(--line)}
+    td:first-child{width:132px}
+    td .sub{color:var(--muted);font-size:12.5px;margin-top:3px;max-width:34ch}
+    .sims{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px}
+    .sim{border:1px solid var(--line);border-radius:var(--r-card);padding:14px 16px;
+      background:var(--panel)}
+    .sim b{display:block;font-size:14.5px;margin-bottom:3px}
+    .sim span{color:var(--muted);font-size:12.5px}
+    /* Screenshot galleries (settings window, dashboard): numbered
+       tabs, one shot at a time, no script. */
+    .gal input{position:absolute;opacity:0;pointer-events:none}
+    .gal-tabs{display:flex;gap:8px;margin-bottom:12px}
+    .gal-tabs label{width:30px;height:30px;display:flex;align-items:center;
+      justify-content:center;border:1px solid var(--line);border-radius:8px;
+      color:var(--muted);font-size:13px;cursor:pointer;
+      font-variant-numeric:tabular-nums}
+    .gal-tabs label:hover{color:var(--txt);border-color:var(--muted)}
+    .gal-stage figure{display:none}
+    .gal-stage img{display:block;width:100%;height:auto;border-radius:12px;
+      border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .gal-stage figcaption{color:var(--muted);font-size:14px;margin-top:14px;
+      max-width:680px}
+    /* Get-it page: numbered steps with the command under each one. */
+    ol.steps{list-style:none;counter-reset:s;display:grid;gap:14px}
+    ol.steps li{counter-increment:s;background:var(--panel);
+      border:1px solid var(--line);border-radius:var(--r-card);
+      padding:16px 20px 16px 58px;position:relative}
+    ol.steps li::before{content:counter(s);position:absolute;left:18px;top:16px;
+      width:24px;height:24px;border-radius:50%;background:var(--accent);
+      color:#08111c;font-weight:800;font-size:13px;display:flex;
+      align-items:center;justify-content:center}
+    ol.steps b{display:block;margin-bottom:6px}
+    ol.steps p{color:var(--muted);font-size:14px;margin-top:6px}
+    pre.cmd{background:#0b0e12;border:1px solid var(--line);border-radius:8px;
+      padding:11px 14px;overflow-x:auto;font-family:ui-monospace,Consolas,monospace;
+      font-size:12.5px;color:#cdd3dc;line-height:1.7}
+    .note{border-left:2px solid var(--warn,#e0a800);padding:2px 0 2px 16px;
+      color:var(--muted);font-size:14px;max-width:680px}
+    @media(max-width:760px){.nums,.why{grid-template-columns:1fr 1fr}h1{font-size:30px}
+      .show{grid-template-columns:1fr}.show-list{max-height:200px}}
+</style></head><body>
+<header><div class="wrap">
+  <span class="logo">RACE <b>ENGINEER</b></span>
+  <nav><a href="https://github.com/YarRace/iracing-race-engineer" class="">Source</a><a href="index.html" class="">About</a><a href="widgets.html" class="on">Widgets</a><a href="get.html" class="">Get it</a><a href="changelog.html" class="">Changelog</a></nav>
+</div></header>
+<div class="wrap">
+<section class="hero" style="padding:44px 0 20px">
+  <h1>Widgets and cards</h1>
+  <p class="lead">47 widgets over the
+  game and 68 cards on the dashboard.
+  The list is read from the code, so it cannot go stale.</p>
+</section>
+<section>
+  <h2>Overlay — 47</h2>
+  <table><tr><th>Name</th><th>Group</th><th>Key</th><th>Size</th>
+  <th>Data</th></tr><tr><td><img class="th" src="widgets/blindspot.png" alt="Blind spot" loading="lazy"></td><td>Blind spot<div class="sub">Two wide bars at the screen edges when a car sits alongside.</div></td><td><span class="tag solo">Solo</span></td><td class="k">blindspot</td><td class="k">620×120</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/cornerloss.png" alt="Corner losses" loading="lazy"></td><td>Corner losses<div class="sub">The three corners where the last lap lost the most time.</div></td><td><span class="tag solo">Solo</span></td><td class="k">cornerloss</td><td class="k">300×150</td><td class="k">corners</td></tr><tr><td><img class="th" src="widgets/deltabar.png" alt="Delta bar" loading="lazy"></td><td>Delta bar<div class="sub">Delta to best as a bar you can read without focusing.</div></td><td><span class="tag solo">Solo</span></td><td class="k">deltabar</td><td class="k">260×92</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/delta.png" alt="Delta to best" loading="lazy"></td><td>Delta to best<div class="sub">Delta to your best lap, in one large number.</div></td><td><span class="tag solo">Solo</span></td><td class="k">delta</td><td class="k">220×120</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/recorddelta.png" alt="Delta to record" loading="lazy"></td><td>Delta to record<div class="sub">Your track record and how far off it you are today.</div></td><td><span class="tag solo">Solo</span></td><td class="k">recorddelta</td><td class="k">220×150</td><td class="k">session, race</td></tr><tr><td><img class="th" src="widgets/deltatrace.png" alt="Delta trace" loading="lazy"></td><td>Delta trace<div class="sub">A rolling trace of your delta to the best lap.</div></td><td><span class="tag solo">Solo</span></td><td class="k">deltatrace</td><td class="k">300×120</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/ers.png" alt="ERS / hybrid" loading="lazy"></td><td>ERS / hybrid<div class="sub">Hybrid charge and how fast you are spending it.</div></td><td><span class="tag solo">Solo</span></td><td class="k">ers</td><td class="k">210×150</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/flags.png" alt="Flags" loading="lazy"></td><td>Flags<div class="sub">Flags as they are shown, plus the ones already waved.</div></td><td><span class="tag solo">Solo</span></td><td class="k">flags</td><td class="k">240×70</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/fuel.png" alt="Fuel &amp; pit" loading="lazy"></td><td>Fuel &amp; pit<div class="sub">Fuel left, burn rate and what the next stop needs.</div></td><td><span class="tag solo">Solo</span></td><td class="k">fuel</td><td class="k">230×220</td><td class="k">strategy</td></tr><tr><td><img class="th" src="widgets/gforce.png" alt="G-force" loading="lazy"></td><td>G-force<div class="sub">Lateral and longitudinal load as a moving dot.</div></td><td><span class="tag solo">Solo</span></td><td class="k">gforce</td><td class="k">150×150</td><td class="k">live</td></tr><tr><td><img class="th" src="widgets/hstandings.png" alt="H. standings" loading="lazy"></td><td>H. standings<div class="sub">The field as a horizontal strip of driver cards.</div></td><td><span class="tag solo">Solo</span></td><td class="k">hstandings</td><td class="k">640×70</td><td class="k">standings</td></tr><tr><td><img class="th" src="widgets/head2head.png" alt="Head 2 head" loading="lazy"></td><td>Head 2 head<div class="sub">You against one rival — the gap and the best-lap difference.</div></td><td><span class="tag solo">Solo</span></td><td class="k">head2head</td><td class="k">390×140</td><td class="k">standings</td></tr><tr><td><img class="th" src="widgets/inputs.png" alt="Inputs" loading="lazy"></td><td>Inputs<div class="sub">Speed, gear and the pedal traces side by side.</div></td><td><span class="tag solo">Solo</span></td><td class="k">inputs</td><td class="k">240×110</td><td class="k">live</td></tr><tr><td><img class="th" src="widgets/timing.png" alt="Laps" loading="lazy"></td><td>Laps<div class="sub">Last, best and predicted lap — and the gaps between them.</div></td><td><span class="tag solo">Solo</span></td><td class="k">timing</td><td class="k">210×150</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/laptimegraph.png" alt="Laptime graph" loading="lazy"></td><td>Laptime graph<div class="sub">Every lap as a bar, coloured by pace.</div></td><td><span class="tag solo">Solo</span></td><td class="k">laptimegraph</td><td class="k">300×160</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/laplog.png" alt="Laptime log" loading="lazy"></td><td>Laptime log<div class="sub">A table of laps: number, time, delta, track temperature.</div></td><td><span class="tag solo">Solo</span></td><td class="k">laplog</td><td class="k">330×220</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/laptimespread.png" alt="Laptime spread" loading="lazy"></td><td>Laptime spread<div class="sub">Where your laps cluster, and which ones are outliers.</div></td><td><span class="tag solo">Solo</span></td><td class="k">laptimespread</td><td class="k">300×132</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/mycar.png" alt="My car" loading="lazy"></td><td>My car<div class="sub">Which car you are in: badge and model name.</div></td><td><span class="tag solo">Solo</span></td><td class="k">mycar</td><td class="k">240×74</td><td class="k">standings</td></tr><tr><td><img class="th" src="widgets/optimal.png" alt="Optimal lap" loading="lazy"></td><td>Optimal lap<div class="sub">The lap you could have driven from your best sectors.</div></td><td><span class="tag solo">Solo</span></td><td class="k">optimal</td><td class="k">210×90</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/pithelper.png" alt="Pit helper" loading="lazy"></td><td>Pit helper<div class="sub">Pit lane: limiter, speed and where the box is.</div></td><td><span class="tag solo">Solo</span></td><td class="k">pithelper</td><td class="k">210×110</td><td class="k">race, live, strategy</td></tr><tr><td><img class="th" src="widgets/position.png" alt="Position &amp; gaps" loading="lazy"></td><td>Position &amp; gaps<div class="sub">Position in class, gaps to the car ahead and behind.</div></td><td><span class="tag solo">Solo</span></td><td class="k">position</td><td class="k">220×170</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/postrend.png" alt="Position trend" loading="lazy"></td><td>Position trend<div class="sub">How your position moved across the race.</div></td><td><span class="tag solo">Solo</span></td><td class="k">postrend</td><td class="k">210×150</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/racebar.png" alt="Race bar" loading="lazy"></td><td>Race bar<div class="sub">A one-line HUD: gear, shift lights, delta and fuel.</div></td><td><span class="tag solo">Solo</span></td><td class="k">racebar</td><td class="k">474×150</td><td class="k">live, race, strategy</td></tr><tr><td><img class="th" src="widgets/radar.png" alt="Radar" loading="lazy"></td><td>Radar<div class="sub">Cars around you drawn from above, at close range.</div></td><td><span class="tag solo">Solo</span></td><td class="k">radar</td><td class="k">150×150</td><td class="k">relative, race</td></tr><tr><td><img class="th" src="widgets/relative.png" alt="Relative" loading="lazy"></td><td>Relative<div class="sub">The cars physically nearest you on track, not on the timesheet.</div></td><td><span class="tag solo">Solo</span></td><td class="k">relative</td><td class="k">360×220</td><td class="k">relative</td></tr><tr><td><img class="th" src="widgets/shift.png" alt="RPM &amp; shift" loading="lazy"></td><td>RPM &amp; shift<div class="sub">Revs and the moment to pull the next gear.</div></td><td><span class="tag solo">Solo</span></td><td class="k">shift</td><td class="k">200×130</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/sectors.png" alt="Sectors" loading="lazy"></td><td>Sectors<div class="sub">Where this lap is up or down, sector by sector.</div></td><td><span class="tag solo">Solo</span></td><td class="k">sectors</td><td class="k">240×132</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/metrics.png" alt="Sensors &amp; balance" loading="lazy"></td><td>Sensors &amp; balance<div class="sub">How you work the pedals, measured over the stint.</div></td><td><span class="tag solo">Solo</span></td><td class="k">metrics</td><td class="k">250×160</td><td class="k">result</td></tr><tr><td><img class="th" src="widgets/session.png" alt="Session" loading="lazy"></td><td>Session<div class="sub">What session this is and how much of it is left.</div></td><td><span class="tag solo">Solo</span></td><td class="k">session</td><td class="k">220×150</td><td class="k">session</td></tr><tr><td><img class="th" src="widgets/summary.png" alt="Session summary" loading="lazy"></td><td>Session summary<div class="sub">The session in one card: position, pace, consistency, incidents.</div></td><td><span class="tag solo">Solo</span></td><td class="k">summary</td><td class="k">220×190</td><td class="k">race, damage</td></tr><tr><td><img class="th" src="widgets/slip.png" alt="Slip" loading="lazy"></td><td>Slip<div class="sub">Not just that the car is sliding — which end is sliding.</div></td><td><span class="tag solo">Solo</span></td><td class="k">slip</td><td class="k">210×130</td><td class="k">live</td></tr><tr><td><img class="th" src="widgets/spotter.png" alt="Spotter" loading="lazy"></td><td>Spotter<div class="sub">Spotter calls in text: car left, car right, three wide.</div></td><td><span class="tag solo">Solo</span></td><td class="k">spotter</td><td class="k">210×110</td><td class="k">race</td></tr><tr><td><img class="th" src="widgets/standings.png" alt="Standings" loading="lazy"></td><td>Standings<div class="sub">The full field, sorted the way race control sorts it.</div></td><td><span class="tag solo">Solo</span></td><td class="k">standings</td><td class="k">620×300</td><td class="k">standings, session, race, live</td></tr><tr><td><img class="th" src="widgets/tiretemps.png" alt="Tire temps" loading="lazy"></td><td>Tire temps<div class="sub">Tyre temperature across three zones of every wheel.</div></td><td><span class="tag solo">Solo</span></td><td class="k">tiretemps</td><td class="k">260×200</td><td class="k">live</td></tr><tr><td><img class="th" src="widgets/wear.png" alt="Tire wear" loading="lazy"></td><td>Tire wear<div class="sub">Remaining tread, per wheel and per zone.</div></td><td><span class="tag solo">Solo</span></td><td class="k">wear</td><td class="k">220×150</td><td class="k">wear</td></tr><tr><td><img class="th" src="widgets/topspeed.png" alt="Top speed" loading="lazy"></td><td>Top speed<div class="sub">Speed now, best this lap and best this session.</div></td><td><span class="tag solo">Solo</span></td><td class="k">topspeed</td><td class="k">210×130</td><td class="k">live, race</td></tr><tr><td><img class="th" src="widgets/trackmap.png" alt="Track map" loading="lazy"></td><td>Track map<div class="sub">The circuit drawn from your own laps, with the field on it.</div></td><td><span class="tag solo">Solo</span></td><td class="k">trackmap</td><td class="k">240×200</td><td class="k">trackmap, relative</td></tr><tr><td><img class="th" src="widgets/weargraph.png" alt="Wear graph" loading="lazy"></td><td>Wear graph<div class="sub">Tyre wear over the stint, as a line per wheel.</div></td><td><span class="tag solo">Solo</span></td><td class="k">weargraph</td><td class="k">240×160</td><td class="k">wear, race</td></tr><tr><td><img class="th" src="widgets/weather.png" alt="Weather" loading="lazy"></td><td>Weather<div class="sub">Air and track temperature, wind, humidity, time of day.</div></td><td><span class="tag solo">Solo</span></td><td class="k">weather</td><td class="k">220×170</td><td class="k">race, live</td></tr><tr><td><img class="th" src="widgets/weatherradar.png" alt="Weather radar" loading="lazy"></td><td>Weather radar<div class="sub">Rain approaching the circuit, and how soon.</div></td><td><span class="tag solo">Solo</span></td><td class="k">weatherradar</td><td class="k">250×130</td><td class="k">race, live</td></tr><tr><td><img class="th" src="widgets/e_driver.png" alt="Driver &amp; stint" loading="lazy"></td><td>Driver &amp; stint<div class="sub">Who is in the car and how long this stint has run.</div></td><td><span class="tag endur">Endurance</span></td><td class="k">e_driver</td><td class="k">240×138</td><td class="k">standings, race</td></tr><tr><td><img class="th" src="widgets/e_incidents.png" alt="Team incidents" loading="lazy"></td><td>Team incidents<div class="sub">Incident count for the whole team, not just you.</div></td><td><span class="tag endur">Endurance</span></td><td class="k">e_incidents</td><td class="k">220×150</td><td class="k">damage</td></tr><tr><td><img class="th" src="widgets/e_time.png" alt="Time left" loading="lazy"></td><td>Time left<div class="sub">Time left in the race, big, with a progress bar.</div></td><td><span class="tag endur">Endurance</span></td><td class="k">e_time</td><td class="k">240×130</td><td class="k">session</td></tr><tr><td><img class="th" src="widgets/s_balance.png" alt="Front/rear balance" loading="lazy"></td><td>Front/rear balance<div class="sub">Heat balance front to rear — and the setup change it asks for.</div></td><td><span class="tag setup">Setup</span></td><td class="k">s_balance</td><td class="k">240×150</td><td class="k">result</td></tr><tr><td><img class="th" src="widgets/s_symptoms.png" alt="Symptoms" loading="lazy"></td><td>Symptoms<div class="sub">What the car does on entry, mid-corner and exit.</div></td><td><span class="tag setup">Setup</span></td><td class="k">s_symptoms</td><td class="k">250×180</td><td class="k">result</td></tr><tr><td><img class="th" src="widgets/s_tyres.png" alt="Tyre tool" loading="lazy"></td><td>Tyre tool<div class="sub">What the tread edges say about camber and pressure.</div></td><td><span class="tag setup">Setup</span></td><td class="k">s_tyres</td><td class="k">250×148</td><td class="k">tyres</td></tr><tr><td><img class="th" src="widgets/s_weartrend.png" alt="Wear trend" loading="lazy"></td><td>Wear trend<div class="sub">How fast the tyres are going away, and how much is left.</div></td><td><span class="tag setup">Setup</span></td><td class="k">s_weartrend</td><td class="k">220×150</td><td class="k">strategy</td></tr></table>
+</section>
+<section>
+  <h2>Dashboard — 68</h2>
+  <table><tr><th>Card</th><th>Tab</th><th>Key</th></tr><tr><td>🎛️ Gauges</td><td>Solo</td><td class="k">live</td></tr><tr><td>⏱️ Delta to best</td><td>Solo</td><td class="k">deltabar</td></tr><tr><td>🔺 RPM &amp; shift</td><td>Solo</td><td class="k">shift</td></tr><tr><td>🎯 G-force</td><td>Solo</td><td class="k">gforce</td></tr><tr><td>🎡 Steering</td><td>Solo</td><td class="k">steer</td></tr><tr><td>🚀 Top speed</td><td>Solo</td><td class="k">topspeed</td></tr><tr><td>Position trend</td><td>Solo</td><td class="k">postrend</td></tr><tr><td>🏁 Position &amp; gaps</td><td>Solo</td><td class="k">race</td></tr><tr><td>⏲️ Laps &amp; sectors</td><td>Solo</td><td class="k">timing</td></tr><tr><td>🏆 Session summary</td><td>Solo</td><td class="k">summary</td></tr><tr><td>🌡️ Tire temps</td><td>Solo</td><td class="k">tiretemps</td></tr><tr><td>📈 Sensors &amp; balance</td><td>Solo</td><td class="k">metrics</td></tr><tr><td>🎓 Training</td><td>Solo</td><td class="k">training</td></tr><tr><td>🌤️ Weather</td><td>Solo</td><td class="k">weather</td></tr><tr><td>📋 Standings</td><td>Solo</td><td class="k">standings</td></tr><tr><td>⚡ ERS / hybrid</td><td>Solo</td><td class="k">ers</td></tr><tr><td>🚩 Flags (history)</td><td>Solo</td><td class="k">flaglog</td></tr><tr><td>🧮 Fuel calculator</td><td>Solo</td><td class="k">fuelcalc</td></tr><tr><td>💎 Optimal lap</td><td>Solo</td><td class="k">optimal</td></tr><tr><td>🟪 Best sectors</td><td>Solo</td><td class="k">bestsectors</td></tr><tr><td>📉 Fuel burn per lap</td><td>Solo</td><td class="k">fuelgraph</td></tr><tr><td>🧭 Relative</td><td>Solo</td><td class="k">relative</td></tr><tr><td>📡 Radar</td><td>Solo</td><td class="k">radar</td></tr><tr><td>⭕ Track ring</td><td>Solo</td><td class="k">trackring</td></tr><tr><td>🗺️ Track map</td><td>Solo</td><td class="k">trackmap</td></tr><tr><td>🛞 Tire wear</td><td>Solo</td><td class="k">wear</td></tr><tr><td>ℹ️ Session</td><td>Solo</td><td class="k">sessioninfo</td></tr><tr><td>🏅 Delta to record</td><td>Solo</td><td class="k">recorddelta</td></tr><tr><td>🅿️ Pit helper</td><td>Solo</td><td class="k">pithelper</td></tr><tr><td>👤 Driver &amp; stint</td><td>Endurance</td><td class="k">e_driver</td></tr><tr><td>⏳ Time left</td><td>Endurance</td><td class="k">e_time</td></tr><tr><td>⛽ Fuel &amp; pit</td><td>Endurance</td><td class="k">e_strategy</td></tr><tr><td>🏎️ Car pace</td><td>Endurance</td><td class="k">e_pace</td></tr><tr><td>⚠️ Incidents</td><td>Endurance</td><td class="k">e_incidents</td></tr><tr><td>👥 Team stint plan</td><td>Endurance</td><td class="k">e_teamplan</td></tr><tr><td>📝 Stint plan</td><td>Endurance</td><td class="k">e_stintplan</td></tr><tr><td>🏁 Position &amp; gaps</td><td>Endurance</td><td class="k">e_pos</td></tr><tr><td>🧭 Relative</td><td>Endurance</td><td class="k">e_relative</td></tr><tr><td>📋 Standings</td><td>Endurance</td><td class="k">e_standings</td></tr><tr><td>🛞 Tire wear</td><td>Endurance</td><td class="k">e_wear</td></tr><tr><td>🌡️ Tire temps</td><td>Endurance</td><td class="k">e_tires</td></tr><tr><td>🌤️ Weather</td><td>Endurance</td><td class="k">e_weather</td></tr><tr><td>🗺️ Track map</td><td>Endurance</td><td class="k">e_trackmap</td></tr><tr><td>🛠️ Setup changes</td><td>Setup</td><td class="k">changes</td></tr><tr><td>🌡️ Tire temps</td><td>Setup</td><td class="k">s_tires</td></tr><tr><td>🧭 Setup optimiser</td><td>Setup</td><td class="k">s_optimiser</td></tr><tr><td>🔧 Tyre tool</td><td>Setup</td><td class="k">s_tyretool</td></tr><tr><td>🧩 Symptoms</td><td>Setup</td><td class="k">s_symptoms</td></tr><tr><td>⚖️ Front/rear balance</td><td>Setup</td><td class="k">s_balance</td></tr><tr><td>📋 Full setup sheet</td><td>Setup</td><td class="k">sheet</td></tr><tr><td>📉 Wear trend</td><td>Setup</td><td class="k">s_weartrend</td></tr><tr><td>📝 Setup notes</td><td>Setup</td><td class="k">s_notes</td></tr><tr><td>🏆 Personal bests</td><td>Records</td><td class="k">records</td></tr><tr><td>🥇 Track record</td><td>Records</td><td class="k">r_track</td></tr><tr><td>👥 Rivals&#x27; times</td><td>Records</td><td class="k">r_rivals</td></tr><tr><td>📈 Progress</td><td>Records</td><td class="k">r_progress</td></tr><tr><td>⛽ Fuel &amp; pit</td><td>Strategy</td><td class="k">strategy</td></tr><tr><td>📝 Stint plan</td><td>Strategy</td><td class="k">st_stints</td></tr><tr><td>🎯 Pit window</td><td>Strategy</td><td class="k">st_window</td></tr><tr><td>🔀 Undercut / Overcut</td><td>Strategy</td><td class="k">st_uc</td></tr><tr><td>🧹 Broken laps</td><td>Race analysis</td><td class="k">an_cleanup</td></tr><tr><td>🟪 Sectors vs everyone</td><td>Race analysis</td><td class="k">g61_sectors</td></tr><tr><td>🌍 Lap times — everyone</td><td>Race analysis</td><td class="k">g61_board</td></tr><tr><td>🎯 Corner by corner</td><td>Race analysis</td><td class="k">an_corners</td></tr><tr><td>⏱️ Time lost (sectors)</td><td>Race analysis</td><td class="k">an_sectors</td></tr><tr><td>🧠 AI review</td><td>Race analysis</td><td class="k">driving</td></tr><tr><td>🏁 Race result</td><td>Race analysis</td><td class="k">an_result</td></tr><tr><td>🛞 Driving / line</td><td>Race analysis</td><td class="k">an_driving</td></tr></table>
+</section></div>
+<footer><div class="wrap">A personal project for iRacing. These pages are built
+from the code — no number here is typed by hand.</div></footer>
+</body></html>

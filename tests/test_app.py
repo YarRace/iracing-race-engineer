@@ -384,3 +384,27 @@ def test_a_new_name_is_saved_without_extra_questions(panel, monkeypatch):
     monkeypatch.setattr(QMessageBox, "question", staticmethod(refuse))
     panel.save_as_profile()
     assert "Monza wet" in panel.config.profiles()
+
+
+def test_the_home_page_offers_a_way_into_the_showcase(app, tmp_path, monkeypatch):
+    """Витрина хорошая, и её никто не видел: адрес надо помнить, а помнить
+    его неоткуда. Кнопка стоит там, куда смотрят на главной в первую
+    секунду."""
+    from PySide6.QtWidgets import QPushButton
+
+    import ire.paths as P
+    monkeypatch.setattr(P, "data_dir", lambda: tmp_path)
+    import app as A
+    monkeypatch.setattr(A.Engineer, "start", lambda self: None)
+
+    opened = []
+    monkeypatch.setattr(A.webbrowser, "open", opened.append)
+
+    w = A.App()
+    try:
+        btn = next(b for b in w.home.findChildren(QPushButton)
+                   if "showcase" in b.text().lower())
+        btn.click()
+        assert opened == [A.DASH + "/about"], opened
+    finally:
+        w.close()

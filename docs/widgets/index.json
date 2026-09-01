@@ -8,7 +8,12 @@
       110
     ],
     "file": "inputs.png",
-    "doc": "Speed, gear and the pedal traces side by side."
+    "doc": "Speed, gear and the pedal traces side by side.",
+    "sets": [
+      "Sprint race",
+      "Endurance",
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "position",
@@ -19,7 +24,10 @@
       170
     ],
     "file": "position.png",
-    "doc": "Position in class, gaps to the car ahead and behind."
+    "doc": "Position in class, gaps to the car ahead and behind.",
+    "sets": [
+      "Sprint race"
+    ]
   },
   {
     "key": "relative",
@@ -30,7 +38,11 @@
       220
     ],
     "file": "relative.png",
-    "doc": "The cars physically nearest you on track, not on the timesheet."
+    "doc": "The cars physically nearest you on track, not on the timesheet.",
+    "sets": [
+      "Sprint race",
+      "Endurance"
+    ]
   },
   {
     "key": "standings",
@@ -41,7 +53,10 @@
       300
     ],
     "file": "standings.png",
-    "doc": "The full field, sorted the way race control sorts it."
+    "doc": "The full field, sorted the way race control sorts it.",
+    "sets": [
+      "Endurance"
+    ]
   },
   {
     "key": "mycar",
@@ -52,7 +67,8 @@
       74
     ],
     "file": "mycar.png",
-    "doc": "Which car you are in: badge and model name."
+    "doc": "Which car you are in: badge and model name.",
+    "sets": []
   },
   {
     "key": "head2head",
@@ -63,7 +79,8 @@
       140
     ],
     "file": "head2head.png",
-    "doc": "You against one rival — the gap and the best-lap difference."
+    "doc": "You against one rival — the gap and the best-lap difference.",
+    "sets": []
   },
   {
     "key": "laptimegraph",
@@ -74,7 +91,8 @@
       160
     ],
     "file": "laptimegraph.png",
-    "doc": "Every lap as a bar, coloured by pace."
+    "doc": "Every lap as a bar, coloured by pace.",
+    "sets": []
   },
   {
     "key": "deltatrace",
@@ -85,7 +103,10 @@
       120
     ],
     "file": "deltatrace.png",
-    "doc": "A rolling trace of your delta to the best lap."
+    "doc": "A rolling trace of your delta to the best lap.",
+    "sets": [
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "laptimespread",
@@ -96,7 +117,8 @@
       132
     ],
     "file": "laptimespread.png",
-    "doc": "Where your laps cluster, and which ones are outliers."
+    "doc": "Where your laps cluster, and which ones are outliers.",
+    "sets": []
   },
   {
     "key": "hstandings",
@@ -107,7 +129,8 @@
       70
     ],
     "file": "hstandings.png",
-    "doc": "The field as a horizontal strip of driver cards."
+    "doc": "The field as a horizontal strip of driver cards.",
+    "sets": []
   },
   {
     "key": "laplog",
@@ -118,7 +141,8 @@
       220
     ],
     "file": "laplog.png",
-    "doc": "A table of laps: number, time, delta, track temperature."
+    "doc": "A table of laps: number, time, delta, track temperature.",
+    "sets": []
   },
   {
     "key": "blindspot",
@@ -129,7 +153,8 @@
       120
     ],
     "file": "blindspot.png",
-    "doc": "Two wide bars at the screen edges when a car sits alongside."
+    "doc": "Two wide bars at the screen edges when a car sits alongside.",
+    "sets": []
   },
   {
     "key": "cornerloss",
@@ -140,7 +165,10 @@
       150
     ],
     "file": "cornerloss.png",
-    "doc": "The three corners where the last lap lost the most time."
+    "doc": "The three corners where the last lap lost the most time.",
+    "sets": [
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "sectors",
@@ -151,7 +179,10 @@
       132
     ],
     "file": "sectors.png",
-    "doc": "Where this lap is up or down, sector by sector."
+    "doc": "Where this lap is up or down, sector by sector.",
+    "sets": [
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "fuel",
@@ -162,7 +193,11 @@
       220
     ],
     "file": "fuel.png",
-    "doc": "Fuel left, burn rate and what the next stop needs."
+    "doc": "Fuel left, burn rate and what the next stop needs.",
+    "sets": [
+      "Sprint race",
+      "Endurance"
+    ]
   },
   {
     "key": "timing",
@@ -173,7 +208,10 @@
       150
     ],
     "file": "timing.png",
-    "doc": "Last, best and predicted lap — and the gaps between them."
+    "doc": "Last, best and predicted lap — and the gaps between them.",
+    "sets": [
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "racebar",
@@ -184,7 +222,8 @@
       150
     ],
     "file": "racebar.png",
-    "doc": "A one-line HUD: gear, shift lights, delta and fuel."
+    "doc": "A one-line HUD: gear, shift lights, delta and fuel.",
+    "sets": []
   },
   {
     "key": "delta",
@@ -195,7 +234,10 @@
       120
     ],
     "file": "delta.png",
-    "doc": "Delta to your best lap, in one large number."
+    "doc": "Delta to your best lap, in one large number.",
+    "sets": [
+      "Sprint race"
+    ]
   },
   {
     "key": "shift",
@@ -206,7 +248,11 @@
       130
     ],
     "file": "shift.png",
-    "doc": "Revs and the moment to pull the next gear."
+    "doc": "Revs and the moment to pull the next gear.",
+    "sets": [
+      "Sprint race",
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "gforce",
@@ -217,7 +263,8 @@
       150
     ],
     "file": "gforce.png",
-    "doc": "Lateral and longitudinal load as a moving dot."
+    "doc": "Lateral and longitudinal load as a moving dot.",
+    "sets": []
   },
   {
     "key": "topspeed",
@@ -228,7 +275,10 @@
       130
     ],
     "file": "topspeed.png",
-    "doc": "Speed now, best this lap and best this session."
+    "doc": "Speed now, best this lap and best this session.",
+    "sets": [
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "slip",
@@ -239,7 +289,8 @@
       130
     ],
     "file": "slip.png",
-    "doc": "Not just that the car is sliding — which end is sliding."
+    "doc": "Not just that the car is sliding — which end is sliding.",
+    "sets": []
   },
   {
     "key": "postrend",
@@ -250,7 +301,8 @@
       150
     ],
     "file": "postrend.png",
-    "doc": "How your position moved across the race."
+    "doc": "How your position moved across the race.",
+    "sets": []
   },
   {
     "key": "summary",
@@ -261,7 +313,8 @@
       190
     ],
     "file": "summary.png",
-    "doc": "The session in one card: position, pace, consistency, incidents."
+    "doc": "The session in one card: position, pace, consistency, incidents.",
+    "sets": []
   },
   {
     "key": "tiretemps",
@@ -272,7 +325,8 @@
       200
     ],
     "file": "tiretemps.png",
-    "doc": "Tyre temperature across three zones of every wheel."
+    "doc": "Tyre temperature across three zones of every wheel.",
+    "sets": []
   },
   {
     "key": "wear",
@@ -283,7 +337,10 @@
       150
     ],
     "file": "wear.png",
-    "doc": "Remaining tread, per wheel and per zone."
+    "doc": "Remaining tread, per wheel and per zone.",
+    "sets": [
+      "Endurance"
+    ]
   },
   {
     "key": "session",
@@ -294,7 +351,8 @@
       150
     ],
     "file": "session.png",
-    "doc": "What session this is and how much of it is left."
+    "doc": "What session this is and how much of it is left.",
+    "sets": []
   },
   {
     "key": "recorddelta",
@@ -305,7 +363,8 @@
       150
     ],
     "file": "recorddelta.png",
-    "doc": "Your track record and how far off it you are today."
+    "doc": "Your track record and how far off it you are today.",
+    "sets": []
   },
   {
     "key": "ers",
@@ -316,7 +375,8 @@
       150
     ],
     "file": "ers.png",
-    "doc": "Hybrid charge and how fast you are spending it."
+    "doc": "Hybrid charge and how fast you are spending it.",
+    "sets": []
   },
   {
     "key": "weather",
@@ -327,7 +387,10 @@
       170
     ],
     "file": "weather.png",
-    "doc": "Air and track temperature, wind, humidity, time of day."
+    "doc": "Air and track temperature, wind, humidity, time of day.",
+    "sets": [
+      "Endurance"
+    ]
   },
   {
     "key": "flags",
@@ -338,7 +401,10 @@
       70
     ],
     "file": "flags.png",
-    "doc": "Flags as they are shown, plus the ones already waved."
+    "doc": "Flags as they are shown, plus the ones already waved.",
+    "sets": [
+      "Sprint race"
+    ]
   },
   {
     "key": "radar",
@@ -349,7 +415,10 @@
       150
     ],
     "file": "radar.png",
-    "doc": "Cars around you drawn from above, at close range."
+    "doc": "Cars around you drawn from above, at close range.",
+    "sets": [
+      "Sprint race"
+    ]
   },
   {
     "key": "trackmap",
@@ -360,7 +429,11 @@
       200
     ],
     "file": "trackmap.png",
-    "doc": "The circuit drawn from your own laps, with the field on it."
+    "doc": "The circuit drawn from your own laps, with the field on it.",
+    "sets": [
+      "Endurance",
+      "Practice / hotlap"
+    ]
   },
   {
     "key": "optimal",
@@ -371,7 +444,8 @@
       90
     ],
     "file": "optimal.png",
-    "doc": "The lap you could have driven from your best sectors."
+    "doc": "The lap you could have driven from your best sectors.",
+    "sets": []
   },
   {
     "key": "pithelper",
@@ -382,7 +456,8 @@
       110
     ],
     "file": "pithelper.png",
-    "doc": "Pit lane: limiter, speed and where the box is."
+    "doc": "Pit lane: limiter, speed and where the box is.",
+    "sets": []
   },
   {
     "key": "metrics",
@@ -393,7 +468,8 @@
       160
     ],
     "file": "metrics.png",
-    "doc": "How you work the pedals, measured over the stint."
+    "doc": "How you work the pedals, measured over the stint.",
+    "sets": []
   },
   {
     "key": "deltabar",
@@ -404,7 +480,8 @@
       92
     ],
     "file": "deltabar.png",
-    "doc": "Delta to best as a bar you can read without focusing."
+    "doc": "Delta to best as a bar you can read without focusing.",
+    "sets": []
   },
   {
     "key": "weargraph",
@@ -415,7 +492,8 @@
       160
     ],
     "file": "weargraph.png",
-    "doc": "Tyre wear over the stint, as a line per wheel."
+    "doc": "Tyre wear over the stint, as a line per wheel.",
+    "sets": []
   },
   {
     "key": "spotter",
@@ -426,7 +504,8 @@
       110
     ],
     "file": "spotter.png",
-    "doc": "Spotter calls in text: car left, car right, three wide."
+    "doc": "Spotter calls in text: car left, car right, three wide.",
+    "sets": []
   },
   {
     "key": "weatherradar",
@@ -437,7 +516,8 @@
       130
     ],
     "file": "weatherradar.png",
-    "doc": "Rain approaching the circuit, and how soon."
+    "doc": "Rain approaching the circuit, and how soon.",
+    "sets": []
   },
   {
     "key": "e_driver",
@@ -448,7 +528,10 @@
       138
     ],
     "file": "e_driver.png",
-    "doc": "Who is in the car and how long this stint has run."
+    "doc": "Who is in the car and how long this stint has run.",
+    "sets": [
+      "Endurance"
+    ]
   },
   {
     "key": "e_time",
@@ -459,7 +542,10 @@
       130
     ],
     "file": "e_time.png",
-    "doc": "Time left in the race, big, with a progress bar."
+    "doc": "Time left in the race, big, with a progress bar.",
+    "sets": [
+      "Endurance"
+    ]
   },
   {
     "key": "e_incidents",
@@ -470,7 +556,10 @@
       150
     ],
     "file": "e_incidents.png",
-    "doc": "Incident count for the whole team, not just you."
+    "doc": "Incident count for the whole team, not just you.",
+    "sets": [
+      "Endurance"
+    ]
   },
   {
     "key": "s_symptoms",
@@ -481,7 +570,8 @@
       180
     ],
     "file": "s_symptoms.png",
-    "doc": "What the car does on entry, mid-corner and exit."
+    "doc": "What the car does on entry, mid-corner and exit.",
+    "sets": []
   },
   {
     "key": "s_balance",
@@ -492,7 +582,8 @@
       150
     ],
     "file": "s_balance.png",
-    "doc": "Heat balance front to rear — and the setup change it asks for."
+    "doc": "Heat balance front to rear — and the setup change it asks for.",
+    "sets": []
   },
   {
     "key": "s_weartrend",
@@ -503,7 +594,8 @@
       150
     ],
     "file": "s_weartrend.png",
-    "doc": "How fast the tyres are going away, and how much is left."
+    "doc": "How fast the tyres are going away, and how much is left.",
+    "sets": []
   },
   {
     "key": "s_tyres",
@@ -514,6 +606,7 @@
       148
     ],
     "file": "s_tyres.png",
-    "doc": "What the tread edges say about camber and pressure."
+    "doc": "What the tread edges say about camber and pressure.",
+    "sets": []
   }
 ]

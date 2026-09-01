@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Changelog — Race Engineer</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);line-height:1.6;
+    font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{border-bottom:1px solid var(--line);position:sticky;top:0;
+    background:var(--bg);z-index:5}
+  header .wrap{display:flex;align-items:center;gap:26px;height:60px}
+  .logo{font-weight:800;letter-spacing:.5px;color:var(--txt)}
+  .logo b{color:var(--accent)}
+  nav{display:flex;gap:20px;margin-left:auto}
+  nav a{color:var(--muted);font-size:14px}
+  nav a.on{color:var(--txt);font-weight:600}
+  h1{font-size:40px;line-height:1.15;letter-spacing:-.5px;margin-bottom:14px}
+  h1 span{color:var(--accent)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;
+    color:var(--muted);margin:44px 0 16px;font-weight:600}
+  .lead{color:var(--muted);font-size:17px;max-width:640px}
+  section{padding:40px 0}
+  .hero{padding:64px 0 40px}
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .changes{list-style:none;display:grid;gap:12px}
+  .changes li{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:14px 16px}
+  .changes li a{font-weight:700;font-size:16px}
+  .changes .when{color:var(--muted);font-size:12px;margin-left:10px}
+  .changes li p{color:var(--muted);font-size:14px;margin-top:6px}
+  .num{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);
+    padding:18px 20px}
+  .num .v{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;
+    letter-spacing:-1px}
+  .num .k{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .why{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .why div{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:20px}
+  .why h3{font-size:15px;margin-bottom:8px}
+  .why p{color:var(--muted);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);font-weight:600}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:hover td{background:var(--panel)}
+  .k{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;
+    border:1px solid var(--line);color:var(--muted)}
+  .tag.solo{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+  .tag.endur{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  .tag.setup{color:var(--best);border-color:color-mix(in srgb,var(--best) 40%,transparent)}
+  .post{border-bottom:1px solid var(--line);padding:22px 0}
+  .post .d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .post h3{font-size:19px;margin:4px 0 8px}
+  .post ul{margin-left:20px;color:var(--muted)}
+  .empty{color:var(--muted);padding:30px 0}
+  footer{border-top:1px solid var(--line);margin-top:60px;padding:24px 0;
+    color:var(--muted);font-size:13px}
+    /* Hero shot. Both competitors lead with a screenshot rather than a
+       paragraph — you see what the thing is before you read a word. */
+    .hero-big{padding:70px 0 20px;text-align:center}
+    .hero-big h1{font-size:clamp(34px,6vw,64px);letter-spacing:-1.5px;
+      text-transform:uppercase;font-weight:800;margin-bottom:18px}
+    .hero-big .lead{margin:0 auto;font-size:18px}
+    .shot{margin:38px 0 0;border-radius:16px;overflow:hidden;
+      border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.45);
+      background:var(--panel)}
+    .shot img{display:block;width:100%;height:auto}
+    .shot figcaption{padding:10px 16px;font-size:12px;color:var(--muted);
+      border-top:1px solid var(--line)}
+    /* Showcase: list on the left, selected widget on the right. Switching
+       runs on pure CSS — not a line of script on the page. */
+    .show{display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start}
+    .show-list{max-height:520px;overflow:auto;padding-right:6px}
+    .show-list label{display:block;padding:7px 10px;border-radius:8px;
+      color:var(--muted);font-size:13.5px;cursor:pointer}
+    .show-list label:hover{background:var(--panel);color:var(--txt)}
+    .show input{position:absolute;opacity:0;pointer-events:none}
+    .show-stage{background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--r-card);min-height:320px;display:flex;
+      align-items:center;justify-content:center;padding:26px}
+    .show-stage figure{display:none;text-align:center;max-width:100%}
+    .show-stage img{max-width:100%;height:auto}
+    .show-stage figcaption{margin-top:16px;color:var(--muted);font-size:13.5px}
+    .show-stage figcaption b{display:block;color:var(--txt);font-size:16px;
+      margin-bottom:4px}
+    .show-stage figcaption .meta{display:block;margin-top:8px;
+      color:var(--muted);font-size:12px;letter-spacing:.2px}
+    img.th{width:120px;height:auto;display:block;border-radius:6px;
+      background:#0d1014;border:1px solid var(--line)}
+    td:first-child{width:132px}
+    td .sub{color:var(--muted);font-size:12.5px;margin-top:3px;max-width:34ch}
+    .sims{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px}
+    .sim{border:1px solid var(--line);border-radius:var(--r-card);padding:14px 16px;
+      background:var(--panel)}
+    .sim b{display:block;font-size:14.5px;margin-bottom:3px}
+    .sim span{color:var(--muted);font-size:12.5px}
+    /* Screenshot galleries (settings window, dashboard): numbered
+       tabs, one shot at a time, no script. */
+    .gal input{position:absolute;opacity:0;pointer-events:none}
+    .gal-tabs{display:flex;gap:8px;margin-bottom:12px}
+    .gal-tabs label{width:30px;height:30px;display:flex;align-items:center;
+      justify-content:center;border:1px solid var(--line);border-radius:8px;
+      color:var(--muted);font-size:13px;cursor:pointer;
+      font-variant-numeric:tabular-nums}
+    .gal-tabs label:hover{color:var(--txt);border-color:var(--muted)}
+    .gal-stage figure{display:none}
+    .gal-stage img{display:block;width:100%;height:auto;border-radius:12px;
+      border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .gal-stage figcaption{color:var(--muted);font-size:14px;margin-top:14px;
+      max-width:680px}
+    /* Get-it page: numbered steps with the command under each one. */
+    ol.steps{list-style:none;counter-reset:s;display:grid;gap:14px}
+    ol.steps li{counter-increment:s;background:var(--panel);
+      border:1px solid var(--line);border-radius:var(--r-card);
+      padding:16px 20px 16px 58px;position:relative}
+    ol.steps li::before{content:counter(s);position:absolute;left:18px;top:16px;
+      width:24px;height:24px;border-radius:50%;background:var(--accent);
+      color:#08111c;font-weight:800;font-size:13px;display:flex;
+      align-items:center;justify-content:center}
+    ol.steps b{display:block;margin-bottom:6px}
+    ol.steps p{color:var(--muted);font-size:14px;margin-top:6px}
+    pre.cmd{background:#0b0e12;border:1px solid var(--line);border-radius:8px;
+      padding:11px 14px;overflow-x:auto;font-family:ui-monospace,Consolas,monospace;
+      font-size:12.5px;color:#cdd3dc;line-height:1.7}
+    .note{border-left:2px solid var(--warn,#e0a800);padding:2px 0 2px 16px;
+      color:var(--muted);font-size:14px;max-width:680px}
+    @media(max-width:760px){.nums,.why{grid-template-columns:1fr 1fr}h1{font-size:30px}
+      .show{grid-template-columns:1fr}.show-list{max-height:200px}}
+</style></head><body>
+<header><div class="wrap">
+  <span class="logo">RACE <b>ENGINEER</b></span>
+  <nav><a href="https://github.com/YarRace/iracing-race-engineer" class="">Source</a><a href="index.html" class="">About</a><a href="widgets.html" class="">Widgets</a><a href="get.html" class="">Get it</a><a href="changelog.html" class="on">Changelog</a></nav>
+</div></header>
+<div class="wrap">
+<section class="hero" style="padding:44px 0 10px">
+  <h1>What changed</h1>
+  <p class="lead">The project changelog. <a href="rss.xml">RSS</a></p>
+</section>
+<section><div class="post"><div class="d">2026-09-01</div><h3>Tyre Tool: what the tread edges say, and what they were saying wrong</h3><p>The tread tells you two things without any guesswork. A hot inner edge means
+there is more negative camber than the corner is using. A hot middle means the
+tyre is crowned, which is pressure. Both are physics and neither depends on the
+car.</p><p>That reading now lives in two places: a card in the dashboard, and a widget over
+the game — because the moment you actually want it is leaving the pits after
+changing camber, and that is exactly when the second screen is behind you.</p><p>There are no per-car target pressures here, and there will not be invented ones.
+There is no source that says what a Ferrari 499P should run, and a number with no
+provenance is worse than a blank. Instead the tool leans on two honest things:
+the physics above, and <b>your own fastest stint</b> — pressures are now saved with
+each stint, so &quot;aim for what was on the car when you were quickest&quot; becomes real
+as the stints pile up.</p><p>## Three things that were wrong, all found by measuring</p><p><b>The whole tyre section was reading a constant.</b> Temperatures came from the
+carcass channels. In a real session those return <b>two distinct values across
+51,797 samples</b> — a placeholder, not telemetry. The surface channels return
+about eleven thousand. Spread was therefore always zero and the verdict always
+&quot;even&quot;: that part of every report meant nothing. Now it reads the surface, with
+the carcass kept as a fallback.</p><p><b>Inner and outer were swapped.</b> The channels name the sides of the tyre in the
+*car&#x27;s* frame — the .ibt header says &quot;LF tire left surface temperature&quot; — so on
+the left-hand wheels the inner edge is R, and on the right-hand wheels it is L.
+It was the other way round, which means the camber advice came out backwards:
+&quot;take some out&quot; where the answer was &quot;put some in&quot;. Confirmed twice over: by the
+channel description, and by 32 of your own sessions, where in all fourteen with a
+readable difference the hotter side was the one facing the middle of the car.
+Not one counterexample.</p><p><b>One threshold lived in two files</b> and the numbers had drifted apart. Fifteen
+wheels out of ninety-six were getting &quot;even&quot; from one module and &quot;too much
+camber&quot; from the other — and you could see both, one in the AI review and one on
+the card. There is one verdict now, in one place.</p><p>## And one thing that is still not right</p><p>The threshold is not universal, and that is measured rather than suspected. It
+fires on <b>2% of Ferrari wheels and 39% of Super Formula Lights wheels</b> — twenty
+times the rate. So it describes a car&#x27;s habit, not a law.</p><p>It has been left alone anyway. There is telemetry for three cars, one of them a
+single session, and car and track are not separable in it: the Ferrari only ever
+ran Road Atlanta, the SF Lights only Road America. Swapping one non-universal
+constant for another would only look like progress. What did change is that the
+measurement is now a command — <span class="k">python tools/measure_tyres.py</span> — which prints the
+distribution per car and says &quot;this threshold has drifted&quot; out loud when the
+rates diverge.</p></div><div class="post"><div class="d">2026-09-01</div><h3>Setup optimiser: say what the car does, get what to turn</h3><p>Two dropdowns — where in the corner, and what the car does — and you get an
+ordered list of what to change in the garage, each with the reason it works.</p><p>It is deliberately not the two things the engineer already has. <span class="k">symptoms</span> reads
+understeer and oversteer off the telemetry by itself. The AI review explains a
+stint in words and proposes a setup delta. This one takes neither: it runs on
+what you felt, it needs no telemetry and no model, and it gives the <b>same answer
+every time</b>. That is the whole point — it is for the first run on a new car,
+for someone else&#x27;s car, for the evening the recording was not on.</p><p>## The useful half is what it refuses to say</p><p>Seven levers are listed with a reason and never advised:</p><p>- <b>camber</b> — which way to go depends on which side of the optimum you are on,
+  and that is measured, not felt. The Tyre Tool reads it off the tread;
+- <b>differential ramp angles</b> — the link from degrees to locking is not one that
+  can be stated with confidence, and a reversed answer there is worse than none;
+- <b>anti-roll bar blades</b> — which number is stiffer differs between cars;
+- <b>dampers, ride height, heave springs</b> — each for its own reason, written out.</p><p>Differential preload is offered on entry and on the coast, where its direction is
+unambiguous, and refused on the way out: under power the locking comes from the
+ramps, and whether more preload helps depends on whether the inside wheel is
+spinning. Saying nothing there is the honest answer.</p><p>The reason for all this caution is recent: a reversed camber verdict was found in
+this very codebase (see the Tyre Tool entry). A tool that sends you to the garage
+to do the opposite of what is needed is worse than no tool.</p><p>## Small things that make it usable</p><p>The brake bias advice says &quot;towards the rear&quot; and then says the number in the
+garage is the share at the <b>front</b>, so towards the rear means making it smaller
+— half the value of the advice is lost in that translation otherwise. The rear
+wing advice admits it cures understeer by taking grip off the rear rather than
+adding it at the front, so the car gets faster and more frightening at once. And
+a lever already sitting at its limit — a front bar reading &quot;Soft&quot; when the advice
+is &quot;softer&quot; — is marked as such, with the alternative offered, because advice you
+cannot carry out is worse than none.</p></div><div class="post"><div class="d">2026-09-01</div><h3>Sectors: the mistake you can drive around, and the one you cannot</h3><p>A delta to your best lap is one number, and it moves the whole way round. It
+cannot tell you whether you lost the time in the first sector or clawed it back
+in the third. The only way to find out was to finish, climb out of the car and
+open a tab — which, on a long practice, nobody does.</p><p>Two things landed for this.</p><p><b>Live, in the overlay.</b> A finished sector posts its delta at the sector line
+and stays there for the rest of the lap. You read it on the straight and drive
+the next sector differently. The reference is your best <b>lap</b>, not the sum of
+your best sectors from different laps — nobody ever drove that lap, so there is
+nothing to chase. A personal best sector is marked separately, the way a timing
+screen does it.</p><p><b>After the session, in the dashboard.</b> This one separates two different
+illnesses. A sector where a typical lap is always short of your own best is
+setup or technique, and it is fixed in the garage. A sector that threw away
+seconds on two laps out of forty is attention, and the garage has nothing to do
+with it. One number — &quot;3.2s lost&quot; — points you at the wrong one.</p><p>Nothing here uses a threshold picked by eye:</p><p>- the reference is the <b>median</b>, not the mean, because one pit stop adds
+  thirty-seven seconds to a sector and the mean then describes the pit stop;
+- &quot;not driving&quot; means a sector <b>1.8× longer than typical</b>. Measured over 1101
+  sector-laps: ordinary driving, mistakes included, reaches ×1.47; pit stops
+  start at ×2.58; between them there is nothing at all;
+- below <b>twelve clean laps</b> no sector is named. On subsamples of real runs the
+  rule was wrong more than half the time at three laps and once in eleven at
+  twelve. A number that is wrong half the time is worse than no number;
+- if two sectors sit closer together than the standard error of the median, both
+  are left alone and the page says so.</p><p>## The part that was quietly broken</p><p>Building this turned up a real loss. Laps were written to the history with
+exactly three sector times — and tracks have more. Spa has four, Road America
+has five. Checked against the saved history: <b>26% of the lap at Spa was never
+recorded, 33% at Monza, 52% at Road America</b>. Every lap had been losing part of
+itself, permanently, and nothing said so.</p><p>Laps driven from now on keep every sector. Older laps stay clipped — that cannot
+be undone — so the card says out loud how much of the lap it is missing instead
+of pretending the numbers cover the whole thing.</p></div><div class="post"><div class="d">2026-08-31</div><h3>One window instead of two</h3><p>The engineer and the overlay used to be two processes. You started one, then
+the other, in that order, and if you got it wrong the overlay opened with a red
+dot and empty widgets — which reads as &quot;the program is broken&quot; rather than
+&quot;the other half is not running yet&quot;.</p><p>Now there is one window with four pages — Home, Overlays, Dashboard, News — and
+the engineer runs as a background thread inside it. Nothing to start twice,
+no order to get wrong.</p><p><b>Ticking an overlay no longer throws it on the screen.</b> It puts it in the
+layout; the layout appears when you press <b>Start overlays</b>. This is the one
+thing worth copying from how the good apps do it: you cannot lay out a screen
+while half of it is already covered by whatever you switched on first. Stopping
+hides everything and keeps the layout — &quot;get it off my screen&quot; and &quot;forget what
+I picked&quot; are different wishes.</p><p>The build is one application too, not three, and one desktop shortcut.</p></div><div class="post"><div class="d">2026-08-31</div><h3>Your line against theirs, and where you stand</h3><p>Two things that were listed as impossible yesterday are done, and one of
+them was only impossible because of a wrong conclusion.</p><p><b>The racing line.</b> Yesterday I wrote that a line comparison could not be
+built because coordinates exist only on Garage 61 laps. The right answer was
+not &quot;cannot&quot; but &quot;start recording them&quot; — so the car&#x27;s latitude and longitude
+now go into every saved lap. It already works without waiting for new laps:
+your own laps live on Garage 61 with coordinates, so your line and a rival&#x27;s
+can be drawn over each other today, corner by corner.</p><p>Two pieces of care around it. The coordinate channel is written only when it
+actually exists — otherwise a thousand zeros would land on disk and a lap with
+no trajectory would be indistinguishable from one driven in the Gulf of
+Guinea. And the telemetry frame tolerates the channel being absent: the sim
+may not publish it, the frame is read sixty times a second, and falling over
+there is not an option.</p><p><b>Where you stand.</b> Lap times from everyone who shares data: position,
+driver, car, gap to the leader, season. Your own row is highlighted — without
+that you end up hunting the table for your own surname. And sector by sector,
+because a lap time never says *which* sector you are losing in, and that is
+the one to work on.</p><p><b>iRating and licence</b> now come from the official iRacing API. The password
+never travels in the clear: iRacing wants base64 of sha256 over the password
+plus your email, the hash is computed locally, and only the hash is sent. The
+credentials are placed by you in a file that never leaves the machine. When
+iRacing asks for a CAPTCHA the app says so and asks you to sign in once in a
+browser — that check exists for a reason and is not something to work around.</p><p><b>Starter sets.</b> Forty-five overlays is a catalogue, and nobody wants to pick
+from a catalogue when they want to drive. Deleting the &quot;duplicates&quot; would be
+wrong — a big number, a bar and a rolling trace of the same delta suit
+different people. So instead there are three ready sets: sprint, endurance,
+practice. The first choice is made for you; changing it is one click.</p></div><div class="post"><div class="d">2026-08-31</div><h3>Corner by corner, and a plan for the whole team</h3><p>Two things arrived together, both aimed at the same gap: the engineer could
+tell you *that* you were slow, not *where* — and it had nothing at all to say
+to a team of drivers.</p><p><b>Corner by corner.</b> The lap is now split at its own speed minima and each
+corner compared against your reference lap on the same track and car. Every
+corner gets a number and a sentence: braked earlier, lower minimum speed,
+later back to full throttle.</p><p>- the split comes from the telemetry, not from iRacing&#x27;s three sectors —
+  &quot;0.4 lost in sector one&quot; never said which corner
+- the first version cut the lap on lateral G, and moving the threshold from
+  0.25 to 0.28 changed Road Atlanta from five corners to six. A split that
+  wobbles with a tuning number is not worth reading, so it went
+- the segment losses add up to the lap delta exactly; a table whose sum does
+  not match the header is a table nobody believes
+- no racing-line comparison: latitude and longitude are not in the stored lap,
+  and drawing a line we do not have would be fiction</p><p><b>Team stint plan.</b> Enter the drivers, get the whole race: who drives which
+stint, from when to when, how many laps and how much fuel — with the clock
+time in each driver&#x27;s own timezone.</p><p>- built from your live pace and fuel burn, not from the car&#x27;s spec sheet
+- the last stint is trimmed to the finish rather than rounded up: an extra
+  planned lap means an extra splash of fuel nobody needed
+- back-to-back stints are counted and flagged — nobody should discover at
+  3 a.m. that they are driving twice in a row</p><p>---</p><p><b>One button.</b> <span class="k">launcher.py</span> starts the engineer, waits until it actually
+answers on the network, and only then opens the overlay. Starting the overlay
+first shows a red dot and empty widgets — which is exactly what makes people
+conclude the thing is broken. It also refuses to start a second engineer over
+a running one, and says so when the first one dies on start-up instead of
+quietly opening an overlay with nothing behind it.</p><p>Builds are now three folders and one desktop shortcut, and a tagged commit
+builds them in CI — including a check that the built engineer really answers
+before anything is published.</p><p>---</p><p><b>Five more, on top.</b> Pick which lap to compare against which, instead of
+always the latest against the best. A speed trace under the corner table,
+shaded where you were slower — the number says how much, the line says where.
+The same analysis as an overlay widget, so you read the three worst corners on
+the next straight instead of after climbing out.</p><p>The team plan learned who can drive when: hours are given per driver in
+minutes from the race start, and a driver who is asleep is skipped rather than
+scheduled. When nobody is free for a stint, the plan says so instead of
+quietly assigning someone — a plan that breaks at 3 a.m. is worse than one
+that admits the gap. And the whole thing downloads as plain text, to paste
+into the team chat in one message.</p><p>---</p><p><b>Reference laps from other drivers.</b> Garage 61 hands over other people&#x27;s laps
+with full telemetry, and they arrive in exactly the same shape as our own —
+so the corner analysis compares against them without a single change.</p><p>Your own best lap answers &quot;where am I worse than me&quot;. A quick stranger&#x27;s lap
+answers &quot;where can anyone go faster&quot;, which is a different and more useful
+question.</p><p>Two things that only showed up against real data:</p><p>- a lap saved on disk had the right lap time but telemetry starting at 8.9% of
+  the distance. The missing start was filled with a flat line at 64 km/h, and
+  the analysis dutifully reported <b>19.8 seconds lost in turn one</b> on a lap
+  that was one second off. Laps now have to cover 92% of the distance to be
+  written at all, and the analysis refuses outright when the per-corner losses
+  do not add up to the lap difference. Printing those numbers would send
+  somebody off to relearn a corner that was fine.
+- <span class="k">canViewTelemetry: true</span> does not mean you can view it — some laps answer
+  403, and some 504 while the server is still building the CSV. So the search
+  walks down the list instead of insisting on the fastest lap.</p></div><div class="post"><div class="d">2026-08-21</div><h3>Lap telemetry is written to disk</h3><p>Frames used to live in memory only and were wiped when the session changed. The
+history kept nothing but the lap time and three sectors — which left nothing to
+answer &quot;where did I lose the time in turn seven&quot;.</p><p>Now every lap is resampled onto a distance grid and lands as its own file in
+<span class="k">data/laps/</span>.</p><ul><li>a distance grid, not a time grid: two laps compare at the same point on track</li><li>1000 points per lap — about five metres on a five-kilometre circuit</li><li>a Monza lap weighs 27 KB; a 24-hour race adds up to 22 MB</li><li>incomplete and invalid laps are not written, so the reference set stays clean</li><li>conditions go into the metadata: fuel, track and air temperature</li></ul></div><div class="post"><div class="d">2026-08-21</div><h3>Lap history is finally on screen</h3><p>The database held 629 laps and 211 stints, the read functions were written and
+covered by tests — and no endpoint existed for any of it. The data piled up and
+was shown nowhere.</p><p><span class="k">/api/history</span> and <span class="k">/api/stints</span> arrived, and the <b>Progress</b> card on the
+Records tab stopped being a placeholder: pick a track and car, and you get every
+lap as a dot, a stepped line for the personal best, and a marker on the best lap.</p><ul><li>Spa in the Ferrari 499P — 226 laps, best 2:01.87, 2.44 seconds clawed back</li><li>Monza in the Porsche 963 — 212 laps, best 1:33.84</li><li>the dots are not smoothed: smoothing hides the very scatter the chart is for</li></ul></div><div class="post"><div class="d">2026-08-21</div><h3>The analysis stopped assuming I drive a Cadillac</h3><p>The analysis had <span class="k">Cadillac GTP</span> and <span class="k">Watkins Glen</span> hard-coded as defaults, and
+the live loop never passed the car or the track at all. In a Porsche at Monza
+the model was handed a flat lie in the prompt and gave setup advice for a car
+that was not on track.</p><p>The session snapshot now travels the whole chain. When the car is unknown the
+prompt says <span class="k">unknown</span> honestly — naming the wrong car is worse than admitting
+we do not know.</p><p>While in there: the Claude branch pointed at a model that does not exist, so
+the analysis simply crashed on switching providers.</p></div></section></div>
+<footer><div class="wrap">A personal project for iRacing. These pages are built
+from the code — no number here is typed by hand.</div></footer>
+</body></html>

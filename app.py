@@ -172,6 +172,22 @@ class Home(QWidget):
         self.who.setWordWrap(True)
         lay.addWidget(self.who)
 
+        # Витрина есть, она хорошая, и её никто не видит: адрес надо помнить,
+        # а помнить его неоткуда. Кнопка рядом с числами — там, куда смотрят
+        # на главной в первую секунду.
+        links = QHBoxLayout()
+        links.setSpacing(10)
+        show = QPushButton("Open the showcase")
+        show.setToolTip("All 47 widgets, the panel and the dashboard — "
+                        "one page, in the browser")
+        show.clicked.connect(lambda: webbrowser.open(DASH + "/about"))
+        links.addWidget(show)
+        dash = QPushButton("Open the dashboard")
+        dash.clicked.connect(lambda: webbrowser.open(DASH))
+        links.addWidget(dash)
+        links.addStretch(1)
+        lay.addLayout(links)
+
         lay.addWidget(QLabel("RECENT SESSIONS", objectName="h2"))
         self.recent = QVBoxLayout()
         self.recent.setSpacing(8)

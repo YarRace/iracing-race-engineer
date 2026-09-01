@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Get it — Race Engineer</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);line-height:1.6;
+    font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{border-bottom:1px solid var(--line);position:sticky;top:0;
+    background:var(--bg);z-index:5}
+  header .wrap{display:flex;align-items:center;gap:26px;height:60px}
+  .logo{font-weight:800;letter-spacing:.5px;color:var(--txt)}
+  .logo b{color:var(--accent)}
+  nav{display:flex;gap:20px;margin-left:auto}
+  nav a{color:var(--muted);font-size:14px}
+  nav a.on{color:var(--txt);font-weight:600}
+  h1{font-size:40px;line-height:1.15;letter-spacing:-.5px;margin-bottom:14px}
+  h1 span{color:var(--accent)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;
+    color:var(--muted);margin:44px 0 16px;font-weight:600}
+  .lead{color:var(--muted);font-size:17px;max-width:640px}
+  section{padding:40px 0}
+  .hero{padding:64px 0 40px}
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .changes{list-style:none;display:grid;gap:12px}
+  .changes li{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:14px 16px}
+  .changes li a{font-weight:700;font-size:16px}
+  .changes .when{color:var(--muted);font-size:12px;margin-left:10px}
+  .changes li p{color:var(--muted);font-size:14px;margin-top:6px}
+  .num{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);
+    padding:18px 20px}
+  .num .v{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;
+    letter-spacing:-1px}
+  .num .k{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .why{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .why div{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:20px}
+  .why h3{font-size:15px;margin-bottom:8px}
+  .why p{color:var(--muted);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);font-weight:600}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:hover td{background:var(--panel)}
+  .k{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;
+    border:1px solid var(--line);color:var(--muted)}
+  .tag.solo{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+  .tag.endur{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  .tag.setup{color:var(--best);border-color:color-mix(in srgb,var(--best) 40%,transparent)}
+  .post{border-bottom:1px solid var(--line);padding:22px 0}
+  .post .d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .post h3{font-size:19px;margin:4px 0 8px}
+  .post ul{margin-left:20px;color:var(--muted)}
+  .empty{color:var(--muted);padding:30px 0}
+  footer{border-top:1px solid var(--line);margin-top:60px;padding:24px 0;
+    color:var(--muted);font-size:13px}
+    /* Hero shot. Both competitors lead with a screenshot rather than a
+       paragraph — you see what the thing is before you read a word. */
+    .hero-big{padding:70px 0 20px;text-align:center}
+    .hero-big h1{font-size:clamp(34px,6vw,64px);letter-spacing:-1.5px;
+      text-transform:uppercase;font-weight:800;margin-bottom:18px}
+    .hero-big .lead{margin:0 auto;font-size:18px}
+    .shot{margin:38px 0 0;border-radius:16px;overflow:hidden;
+      border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.45);
+      background:var(--panel)}
+    .shot img{display:block;width:100%;height:auto}
+    .shot figcaption{padding:10px 16px;font-size:12px;color:var(--muted);
+      border-top:1px solid var(--line)}
+    /* Showcase: list on the left, selected widget on the right. Switching
+       runs on pure CSS — not a line of script on the page. */
+    .show{display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start}
+    .show-list{max-height:520px;overflow:auto;padding-right:6px}
+    .show-list label{display:block;padding:7px 10px;border-radius:8px;
+      color:var(--muted);font-size:13.5px;cursor:pointer}
+    .show-list label:hover{background:var(--panel);color:var(--txt)}
+    .show input{position:absolute;opacity:0;pointer-events:none}
+    .show-stage{background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--r-card);min-height:320px;display:flex;
+      align-items:center;justify-content:center;padding:26px}
+    .show-stage figure{display:none;text-align:center;max-width:100%}
+    .show-stage img{max-width:100%;height:auto}
+    .show-stage figcaption{margin-top:16px;color:var(--muted);font-size:13.5px}
+    .show-stage figcaption b{display:block;color:var(--txt);font-size:16px;
+      margin-bottom:4px}
+    .show-stage figcaption .meta{display:block;margin-top:8px;
+      color:var(--muted);font-size:12px;letter-spacing:.2px}
+    img.th{width:120px;height:auto;display:block;border-radius:6px;
+      background:#0d1014;border:1px solid var(--line)}
+    td:first-child{width:132px}
+    td .sub{color:var(--muted);font-size:12.5px;margin-top:3px;max-width:34ch}
+    .sims{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px}
+    .sim{border:1px solid var(--line);border-radius:var(--r-card);padding:14px 16px;
+      background:var(--panel)}
+    .sim b{display:block;font-size:14.5px;margin-bottom:3px}
+    .sim span{color:var(--muted);font-size:12.5px}
+    /* Screenshot galleries (settings window, dashboard): numbered
+       tabs, one shot at a time, no script. */
+    .gal input{position:absolute;opacity:0;pointer-events:none}
+    .gal-tabs{display:flex;gap:8px;margin-bottom:12px}
+    .gal-tabs label{width:30px;height:30px;display:flex;align-items:center;
+      justify-content:center;border:1px solid var(--line);border-radius:8px;
+      color:var(--muted);font-size:13px;cursor:pointer;
+      font-variant-numeric:tabular-nums}
+    .gal-tabs label:hover{color:var(--txt);border-color:var(--muted)}
+    .gal-stage figure{display:none}
+    .gal-stage img{display:block;width:100%;height:auto;border-radius:12px;
+      border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .gal-stage figcaption{color:var(--muted);font-size:14px;margin-top:14px;
+      max-width:680px}
+    /* Get-it page: numbered steps with the command under each one. */
+    ol.steps{list-style:none;counter-reset:s;display:grid;gap:14px}
+    ol.steps li{counter-increment:s;background:var(--panel);
+      border:1px solid var(--line);border-radius:var(--r-card);
+      padding:16px 20px 16px 58px;position:relative}
+    ol.steps li::before{content:counter(s);position:absolute;left:18px;top:16px;
+      width:24px;height:24px;border-radius:50%;background:var(--accent);
+      color:#08111c;font-weight:800;font-size:13px;display:flex;
+      align-items:center;justify-content:center}
+    ol.steps b{display:block;margin-bottom:6px}
+    ol.steps p{color:var(--muted);font-size:14px;margin-top:6px}
+    pre.cmd{background:#0b0e12;border:1px solid var(--line);border-radius:8px;
+      padding:11px 14px;overflow-x:auto;font-family:ui-monospace,Consolas,monospace;
+      font-size:12.5px;color:#cdd3dc;line-height:1.7}
+    .note{border-left:2px solid var(--warn,#e0a800);padding:2px 0 2px 16px;
+      color:var(--muted);font-size:14px;max-width:680px}
+    @media(max-width:760px){.nums,.why{grid-template-columns:1fr 1fr}h1{font-size:30px}
+      .show{grid-template-columns:1fr}.show-list{max-height:200px}}
+</style></head><body>
+<header><div class="wrap">
+  <span class="logo">RACE <b>ENGINEER</b></span>
+  <nav><a href="https://github.com/YarRace/iracing-race-engineer" class="">Source</a><a href="index.html" class="">About</a><a href="widgets.html" class="">Widgets</a><a href="get.html" class="on">Get it</a><a href="changelog.html" class="">Changelog</a></nav>
+</div></header>
+<div class="wrap">
+<section class="hero" style="padding:44px 0 10px">
+  <h1>Get it running</h1>
+  <p class="lead">Four commands and you are on track with
+  47 overlays
+  and a dashboard. It runs entirely on your own machine.</p>
+</section>
+<section>
+  <h2>What you need</h2>
+  <div class="sims"><div class="sim"><b>iRacing</b><span>running on the same PC</span></div><div class="sim"><b>Windows 10 · 11</b><span>the SDK is Windows-only</span></div><div class="sim"><b>Python 3.12</b><span>with pip</span></div><div class="sim"><b>A second screen</b><span>optional — the dashboard is nicer there</span></div></div>
+</section>
+<section>
+  <h2>Four steps</h2>
+  <ol class="steps"><li><b>Get the code</b><pre class="cmd">git clone https://github.com/YarRace/iracing-race-engineer
+cd iracing-race-engineer</pre><p>Windows 10 or 11, on the machine where iRacing runs. The telemetry SDK is a Windows memory-mapped file — there is no way around that.</p></li><li><b>Set up Python</b><pre class="cmd">python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt</pre><p>Python 3.12. The virtual environment keeps these packages out of your system Python.</p></li><li><b>Start it</b><pre class="cmd">python launcher.py --start</pre><p>One command starts both halves. It waits until the engineer actually answers before opening the overlay — an overlay opened too early shows a red dot and empty widgets, and that is what makes people think it is broken.</p></li><li><b>Go drive</b><pre class="cmd">http://localhost:8000</pre><p>The dashboard is on that address, and the overlay panel opens on its own. Tick the overlays you want and place them with Ctrl+Shift+L.</p></li></ol>
+  <p class="note" style="margin-top:20px">There is no download link here on
+  purpose: nothing is published yet, and a button over an empty file is worse
+  than four honest commands.</p>
+</section>
+<section>
+  <h2>Or build it standalone</h2>
+  <p class="lead">If you would rather not keep Python around, build it once
+  and run it by double-click afterwards.</p>
+  <pre class="cmd">pip install pyinstaller
+python tools/build_exe.py --zip --shortcuts</pre>
+  <p class="note">You get three folders in <span class="k">dist/</span> — the
+  engineer, the overlay and the launcher — plus one desktop shortcut that
+  starts everything. Keep the folders next to each other: the launcher looks
+  for the other two as siblings. A folder each, not a single file: one-file
+  builds unpack 120 MB into a temp directory on every launch and trip antivirus
+  heuristics doing it. Your data lives next to the app, so replacing a folder
+  never touches your lap history.</p>
+</section>
+<section><h2>How you set it up</h2><style>#pn0:checked~.gal-stage #pnf0{display:block}#pn0:checked~.gal-tabs label[for="pn0"]{background:var(--accent);color:#08111c;border-color:var(--accent)}#pn1:checked~.gal-stage #pnf1{display:block}#pn1:checked~.gal-tabs label[for="pn1"]{background:var(--accent);color:#08111c;border-color:var(--accent)}#pn2:checked~.gal-stage #pnf2{display:block}#pn2:checked~.gal-tabs label[for="pn2"]{background:var(--accent);color:#08111c;border-color:var(--accent)}</style><div class="gal"><input type="radio" name="pn" id="pn0" checked><input type="radio" name="pn" id="pn1"><input type="radio" name="pn" id="pn2"><div class="gal-tabs"><label for="pn0">1</label><label for="pn1">2</label><label for="pn2">3</label></div><div class="gal-stage"><figure id="pnf0"><img src="panel/panel.png" alt="The settings window" loading="lazy"><figcaption>Pick an overlay on the left, watch it change in the middle, tune it on the right. No need to alt-tab into the game to see the result.</figcaption></figure><figure id="pnf1"><img src="panel/panel-map.png" alt="The settings window" loading="lazy"><figcaption>The preview is the real widget on the real data — not a picture of one.</figcaption></figure><figure id="pnf2"><img src="panel/panel-log.png" alt="The settings window" loading="lazy"><figcaption>Every widget carries its own settings, its own presets and a reset back to factory.</figcaption></figure></div></div></section>
+<section>
+  <h2>If something does not start</h2>
+  <p class="lead">The overlays read their data from the engineer. If
+  <span class="k">run.py</span> is not running, the panel shows a red dot and
+  every widget sits empty — that is the first thing to check. The source and
+  the issue tracker live on <a href="https://github.com/YarRace/iracing-race-engineer">GitHub</a>.</p>
+</section></div>
+<footer><div class="wrap">A personal project for iRacing. These pages are built
+from the code — no number here is typed by hand.</div></footer>
+</body></html>
