@@ -86,10 +86,22 @@ SKIPPED = [
     {"lever": "Heave and third springs", "kind": "uncertain",
      "why": "they work in bump on both sides at once, not in roll, so they do "
             "not move the balance the way one expects"},
-    {"lever": "Less rear toe-in / less front toe-out", "kind": "last_resort",
-     "why": "it works, but it trades stability everywhere for turn-in in one "
-            "phase — do the bars and pressures first"},
 ]
+
+# Последнее средство РАЗНОЕ для двух симптомов, и одной строкой на оба оно
+# противоречило совету в той же карточке: против заноса мы говорим «Rear toe —
+# more toe-in», а раскрывашка отвечала «less rear toe-in… it works». Один
+# рычаг, две стрелки, один экран.
+_LAST_RESORT = {
+    "understeer": {"lever": "Less rear toe-in", "kind": "last_resort",
+                   "why": "it works, but it trades stability everywhere for "
+                          "turn-in in one phase — do the bars and pressures "
+                          "first"},
+    "oversteer": {"lever": "Less front toe-out", "kind": "last_resort",
+                  "why": "it works, but it trades turn-in everywhere for "
+                         "stability in one phase — do the bars and pressures "
+                         "first"},
+}
 
 # Ось, на которой лечится симптом. Недостаточная поворачиваемость — переду не
 # хватает, значит смягчаем ПЕРЕД; избыточная — наоборот.
@@ -99,18 +111,29 @@ _HELPS = {"understeer": "Rear", "oversteer": "Front"}
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
 
 
+AMBIGUOUS = object()        # подходит больше одного РАЗНОГО поля
+
+
 def _find(fields, *parts):
-    """Первый путь CarSetup, где встречаются все куски. None — если нет.
+    """Первый путь CarSetup, где встречаются все куски.
 
     Ищем по кускам, а не по жёсткому пути: у разных машин секции разные, и
     один жёсткий путь молча давал бы пустоту на половине гаража. Заодно
     ловится ловушка вида `TiresAero.LeftRearTire.StartingPressure` — секция
     задних шин называется иначе, чем задней подвески.
+
+    None — не нашли вовсе. AMBIGUOUS — подошло несколько РАЗНЫХ полей.
+    Выбирать победителя алфавитом («Chassis…» раньше «DriveTrain…») значит
+    показать человеку путь до чужого рычага: на машине, где есть и
+    `Chassis.Front.SpringPreload`, и `DriveTrain.DiffSpec.Preload`, совет
+    про дифференциал указывал бы на пружину.
     """
-    for key in sorted(fields or {}):
-        if all(part in key for part in parts):
-            return key
-    return None
+    hits = [k for k in sorted(fields or {}) if all(p in k for p in parts)]
+    if not hits:
+        return None
+    if len({k.rsplit(".", 1)[-1] for k in hits}) > 1:
+        return AMBIGUOUS
+    return hits[0]
 
 
 def _axle_fields(fields, axle, tail):
@@ -166,18 +189,32 @@ def advise(phase, symptom, brake="any", speed="any",
         rank = RANK.get(key, {}).get(phase)
         if rank is None:
             return                      # в этой фазе рычаг не работает
-        if path is None and fields:
-            # Сетап есть, а поля в нём нет — значит его нет у ЭТОЙ машины.
-            # Сказать честно, а не промолчать.
-            unavailable.append({"lever": lever,
-                                "why": "this car does not expose that setting"})
-            return
         # Сетапа нет вовсе — совет всё равно выдаём. В этом и смысл
         # инструмента: он нужен, когда сима под рукой нет, и первая версия
         # ровно в этом случае возвращала пустоту.
-        now = fields.get(path)
+        if path is AMBIGUOUS:
+            # Совет остаётся — он про физику и от имени поля не зависит.
+            # А вот чужой путь показывать нельзя.
+            path = None
+        # Рычаг назван ОСЬЮ — значит и полей под ним два. Печатать один левый
+        # путь под «Rear tyre pressure» значит показать половину правки.
+        # Склейка здесь, а не в шаблоне: карточка печатает field дословно, и
+        # список ушёл бы на экран питоновским литералом.
+        paths = [x for x in (path if isinstance(path, list) else [path]) if x]
+        if not paths and fields:
+            unavailable.append({
+                "lever": lever,
+                # Утверждение про ПОИСК, а не про машину: промах по подстроке
+                # не факт об автомобиле.
+                "why": "I could not find that setting in this car's setup"})
+            return
+        vals = [fields.get(x) for x in paths]
+        now = None
+        if paths:
+            now = (vals[0] if len({str(v) for v in vals}) <= 1
+                   else " / ".join(str(v) for v in vals))
         row = {"key": key, "rank": rank, "lever": lever, "move": move,
-               "field": path, "now": now, "why": why}
+               "field": ", ".join(paths) or None, "now": now, "why": why}
         if caution:
             row["caution"] = caution
         if _at_limit(now, move):
@@ -201,11 +238,23 @@ def advise(phase, symptom, brake="any", speed="any",
               else None))
 
     # ── 2. Давление на оси, которой не хватает ──────────────────────────────
+    #
+    # Направление «ниже = больше сцепления» верно ТОЛЬКО в рабочем окне. Если
+    # Tyre Tool уже видит холодную середину протектора — шина недокачана, и
+    # правило переворачивается. Раньше об этом писалось в оговорке, а совет
+    # оставался прежним: человек читал «спусти ещё» жирным и предупреждение
+    # мелким. Теперь переворачивается сам совет.
     press = _axle_fields(fields, lacks, "StartingPressure")
-    take("pressure", f"{lacks} tyre pressure", "a little lower",
-         press[0] if press else None,
-         "inside the working window a lower pressure spreads the contact patch "
-         "and softens the sidewall, so the axle carries more",
+    low = _under_inflated(tyres, lacks)
+    take("pressure", f"{lacks} tyre pressure",
+         "a little higher" if low else "a little lower",
+         press or None,
+         ("the Tyre Tool reads this axle as under-inflated: the middle of the "
+          "tread is running cooler than the shoulders, so the tyre is rolling "
+          "onto its edges and lower would make it worse"
+          if low else
+          "inside the working window a lower pressure spreads the contact patch "
+          "and softens the sidewall, so the axle carries more"),
          caution=_pressure_caution(tyres, lacks))
 
     # ── 3. Тормозной баланс — только на входе и только под тормозом ─────────
@@ -251,7 +300,7 @@ def advise(phase, symptom, brake="any", speed="any",
         why += ("; a torsion bar's stiffness goes as the fourth power of its "
                 "diameter, so thinner is softer")
     take("spring", lever, how,
-         (spring or torsion or [None])[0], why,
+         spring or torsion or None, why,
          caution=("changing the bar moves ride height too — check the car is "
                   "not bottoming out") if torsion else None)
 
@@ -278,7 +327,7 @@ def advise(phase, symptom, brake="any", speed="any",
     else:
         rear_toe = _axle_fields(fields, "Rear", "ToeIn")
         take("toe", "Rear toe", "more toe-in",
-             rear_toe[0] if rear_toe else None,
+             rear_toe or None,
              "toe-in at the rear keeps the rear axle pointing along the car "
              "and resists it stepping out")
 
@@ -290,9 +339,21 @@ def advise(phase, symptom, brake="any", speed="any",
             "brake": brake, "speed": speed,
             "moves": moves,
             "unavailable": unavailable,
-            "skipped": _skipped_for(phase, brake, speed),
+            "skipped": _skipped_for(phase, brake, speed, symptom),
             "have_setup": bool(fields),
             "headline": _headline(phase, symptom, speed)}
+
+
+def _under_inflated(tyres, axle):
+    """Видит ли Tyre Tool холодную середину протектора на этой оси.
+
+    Это единственное место, где у нас есть ИЗМЕРЕНИЕ, а не ощущение, — и оно
+    сильнее ощущения: против измерения совет разворачивается.
+    """
+    corners = ((tyres or {}).get("corners") or {})
+    side = "F" if axle == "Front" else "R"
+    return [c for c, v in corners.items()
+            if len(c) == 2 and c[1] == side and v.get("crown") == "low"]
 
 
 def _pressure_caution(tyres, axle):
@@ -303,22 +364,22 @@ def _pressure_caution(tyres, axle):
     за окно по короне протектора, но на его данных такое не встретилось ни
     разу из 96 колёс, так что молчание предохранителя ничего не доказывает.
     """
-    base = ("this holds inside the working window only — past it the rule "
-            "turns around")
-    corners = ((tyres or {}).get("corners") or {})
-    side = "F" if axle == "Front" else "R"
-    bad = [c for c, v in corners.items()
-           if c[1] == side and v.get("crown") == "low"]
+    bad = _under_inflated(tyres, axle)
     if bad:
-        return ("the Tyre Tool already reads " + "/".join(sorted(bad)) +
-                " as under-inflated — going lower will make it worse")
-    return base
+        return ("measured on " + "/".join(sorted(bad)) +
+                " — this one goes against what you felt, and the measurement "
+                "wins")
+    return ("this holds inside the working window only — past it the rule "
+            "turns around")
 
 
-def _skipped_for(phase, brake, speed):
+def _skipped_for(phase, brake, speed, symptom):
     """Что не советуем сейчас. Причина всегда рядом: молчание про рычаг
     читается как «мы про него не знаем»."""
     out = list(SKIPPED)
+    # Последнее средство зависит от симптома — см. _LAST_RESORT.
+    if symptom in _LAST_RESORT:
+        out.append(_LAST_RESORT[symptom])
     if phase == "entry" and brake == "coasting":
         out.append({"lever": "Brake bias", "kind": "not_now",
                     "why": "you are off the brakes by then, so it cannot be "

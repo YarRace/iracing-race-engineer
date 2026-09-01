@@ -113,7 +113,7 @@ def states():
             {"pos": 7, "name": "Rival Ahead", "is_player": False,
              "best": 91.2, "last": 92.0, "gap": -1.2, "car": "Ferrari 499P",
              "manufacturer": "ferrari", "class_color": 0xF1C40F, "irating": 3200},
-            {"pos": 8, "name": "Iaroslav Chizhov", "is_player": True,
+            {"pos": 8, "name": "Yaroslav Chizhov", "is_player": True,
              "best": 91.8, "last": 92.4, "gap": 0.0, "car": "Ferrari 499P",
              "manufacturer": "ferrari", "class_color": 0xF1C40F, "irating": 3287},
             {"pos": 9, "name": "Rival Behind", "is_player": False,

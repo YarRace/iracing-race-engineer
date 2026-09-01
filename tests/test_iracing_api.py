@@ -123,13 +123,13 @@ def test_profile_shapes_licences_for_the_interface(tmp_path, monkeypatch):
         json.dumps({"email": "a@b.c", "password": "pw"}), encoding="utf-8")
 
     monkeypatch.setattr(api.Client, "get", lambda self, path, **kw: {
-        "display_name": "Iaroslav Chizhov", "cust_id": 42, "club_name": "Russia",
+        "display_name": "Yaroslav Chizhov", "cust_id": 42, "club_name": "Russia",
         "licenses": [{"category_name": "Sports Car", "irating": 2450,
                       "group_name": "A", "safety_rating": 3.51},
                      {"category_name": "Formula Car", "irating": 1800,
                       "group_name": "B", "safety_rating": 2.9}]})
     p = api.profile(force=True)
-    assert p["ok"] and p["name"] == "Iaroslav Chizhov"
+    assert p["ok"] and p["name"] == "Yaroslav Chizhov"
     assert {x["category"] for x in p["licenses"]} == {"Sports Car", "Formula Car"}
     assert p["licenses"][0]["licence"] == "A 3.51"
     assert api.irating("sports_car") == 2450

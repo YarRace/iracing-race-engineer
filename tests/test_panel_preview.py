@@ -391,3 +391,76 @@ def test_closing_the_panel_leaves_a_snapshot(app, tmp_path):
     back = Config(str(tmp_path / "back.json"))
     back.import_layout(str(backups[-1]))
     assert back.widget_opt("fuel", "bg") == 0.42
+
+
+# ── фото-задник ─────────────────────────────────────────────────────────────
+
+def test_the_photo_backdrop_is_the_one_you_see_first(app, tmp_path):
+    """Смысл предпросмотра — увидеть виджет таким, каким он будет поверх
+    игры. На аккуратном градиенте читается что угодно, на ночной трассе с
+    фарами и отбойником — далеко не всё."""
+    from overlay.preview import BACKDROPS, DEFAULT_BACKDROP, PHOTOS, PreviewCanvas
+
+    assert PHOTOS, "фото-задников нет вовсе"
+    assert DEFAULT_BACKDROP == len(BACKDROPS) - len(PHOTOS)
+    cv = PreviewCanvas(Store(), Config(str(tmp_path / "c.json")))
+    assert cv._bg == DEFAULT_BACKDROP
+
+
+def test_the_photo_file_is_actually_there():
+    """Задник, которого нет на диске, — это пустой холст и вопрос «а где?»."""
+    from ire import paths
+    from overlay.preview import PHOTOS
+
+    for _, fname in PHOTOS:
+        f = paths.res_root() / "docs" / "backdrops" / fname
+        assert f.exists(), f
+        assert f.stat().st_size > 10_000, "файл подозрительно мал"
+
+
+@pytest.mark.parametrize("size", [(700, 500), (400, 700), (1200, 300), (240, 160)])
+def test_the_photo_fills_the_canvas_at_any_shape(app, tmp_path, size):
+    """«Подогнать идеально» значит заполнить холст БЕЗ искажения: масштаб по
+    большей стороне, лишнее за края. Растянуть фотографию под пропорции окна
+    значит показать кривую трассу — а окно тянут как хотят."""
+    from overlay.preview import DEFAULT_BACKDROP, PreviewCanvas
+
+    w, h = size
+    cv = PreviewCanvas(Store(), Config(str(tmp_path / f"c{w}{h}.json")))
+    cv.set_backdrop(DEFAULT_BACKDROP)
+    cv.resize(w, h)
+    img = cv.grab().toImage()
+    for x, y in ((2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3)):
+        assert img.pixelColor(x, y).alpha() > 200, f"угол {x},{y} не закрашен"
+
+
+def test_a_missing_photo_falls_back_instead_of_crashing(app, tmp_path, monkeypatch):
+    """Файл могли не положить в сборку. Пустой холст лучше падения панели."""
+    import ire.paths as P
+    from overlay.preview import DEFAULT_BACKDROP, PreviewCanvas
+
+    monkeypatch.setattr(P, "res_root", lambda: tmp_path)      # там задников нет
+    cv = PreviewCanvas(Store(), Config(str(tmp_path / "c.json")))
+    cv.set_backdrop(DEFAULT_BACKDROP)
+    cv.resize(400, 300)
+    cv.grab()                                                 # не должно упасть
+
+
+def test_the_photo_is_read_once_not_thirty_times_a_second(app, tmp_path):
+    """paintEvent зовётся тридцать раз в секунду. Открывать файл на каждом
+    кадре — ровно тот лишний расход, из-за которого предпросмотр начинает
+    лагать, а лагающий предпросмотр читается как лагающая программа."""
+    from overlay import preview as PV
+
+    reads = []
+    real = PV._photo
+    PV._photo = lambda i: (reads.append(i), real(i))[1]
+    try:
+        cv = PV.PreviewCanvas(Store(), Config(str(tmp_path / "c.json")))
+        cv.set_backdrop(PV.DEFAULT_BACKDROP)
+        cv.resize(400, 300)
+        for _ in range(5):
+            cv.grab()
+        assert len(reads) == 1, f"файл прочитан {len(reads)} раз"
+    finally:
+        PV._photo = real

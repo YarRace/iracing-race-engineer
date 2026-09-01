@@ -211,16 +211,43 @@ def test_the_pressure_advice_always_names_its_boundary(setup_fields):
     assert "working window" in m["caution"]
 
 
-def test_it_refuses_to_deflate_a_tyre_the_tyre_tool_calls_under_inflated(
-        setup_fields):
-    """Единственное место, где у нас есть измерение, а не ощущение, — Tyre
-    Tool. Если он видит холодную середину протектора, «спусти ещё» сделает
-    хуже."""
+def test_a_measurement_turns_the_pressure_advice_around(setup_fields):
+    """Единственное место, где у нас есть ИЗМЕРЕНИЕ, а не ощущение, — Tyre
+    Tool. Если он видит холодную середину протектора, шина уже недокачана, и
+    «спусти ещё» сделает хуже.
+
+    Раньше об этом писалось только в оговорке, а совет оставался прежним:
+    человек читал «a little lower» жирным и предупреждение мелким. Теперь
+    разворачивается сам совет — измерение сильнее ощущения.
+    """
     tyres = {"corners": {"LF": {"crown": "low"}, "RF": {"crown": "low"},
                          "LR": {"crown": "even"}, "RR": {"crown": "even"}}}
     m = move(advise("mid", "understeer", fields=setup_fields, tyres=tyres),
              "pressure")
-    assert "under-inflated" in m["caution"] and "worse" in m["caution"]
+    assert m["move"] == "a little higher", "совет не развернулся"
+    assert "under-inflated" in m["why"]
+    assert "measurement wins" in m["caution"]
+
+
+def test_without_a_measurement_the_advice_stays_as_felt(setup_fields):
+    m = move(advise("mid", "understeer", fields=setup_fields), "pressure")
+    assert m["move"] == "a little lower"
+    assert "working window" in m["caution"]
+
+
+def test_the_last_resort_does_not_contradict_the_advice_on_screen(setup_fields):
+    """Против заноса совет — «Rear toe: more toe-in», а раскрывашка отвечала
+    «less rear toe-in… it works». Один рычаг, две стрелки, один экран."""
+    r = advise("mid", "oversteer", fields=setup_fields)
+    toe = move(r, "toe")
+    assert toe["move"] == "more toe-in"
+    last = [s for s in r["skipped"] if s["kind"] == "last_resort"]
+    assert len(last) == 1
+    assert "front toe-out" in last[0]["lever"].lower(), last[0]["lever"]
+
+    r2 = advise("entry", "understeer", fields=setup_fields)
+    last2 = [s for s in r2["skipped"] if s["kind"] == "last_resort"]
+    assert "rear toe-in" in last2[0]["lever"].lower(), last2[0]["lever"]
 
 
 # ── анкета ──────────────────────────────────────────────────────────────────

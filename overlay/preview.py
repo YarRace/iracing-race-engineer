@@ -21,13 +21,40 @@ from PySide6.QtCore import Qt, QRectF, QTimer, QPointF
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
+# Фото-задники: файл в docs/backdrops. Рисованная трасса — упрощение, и на
+# ней виджет всегда читается; настоящая фотография показывает, как оно будет
+# на самом деле — с деревьями, отбойником и фарами позади цифр.
+PHOTOS = [
+    ("Nordschleife night", "nordschleife-night.jpg"),
+]
+
 BACKDROPS = [
     # (подпись, небо сверху, небо снизу, полотно, обочина)
     ("Sunset", "#2b3a55", "#c96f3f", "#2a2d33", "#3d4a35"),
     ("Day", "#4a7fb5", "#a9c8e8", "#33363c", "#41582f"),
     ("Night", "#0b1020", "#1a2440", "#202329", "#1d2a1b"),
     ("Rain", "#3b4450", "#6c7683", "#3a3f47", "#2f3a2c"),
-]
+] + [(name, None, None, None, None) for name, _ in PHOTOS]
+
+# Фото идёт первым выбором, если оно вообще есть.
+DEFAULT_BACKDROP = (len(BACKDROPS) - len(PHOTOS)) if PHOTOS else 0
+
+
+def _photo(i):
+    """Кадр по индексу задника или None, если это рисованный.
+
+    Читаем через ire.paths: в собранном приложении файл лежит внутри пакета,
+    а не рядом с исходником.
+    """
+    k = i - (len(BACKDROPS) - len(PHOTOS))
+    if k < 0 or k >= len(PHOTOS):
+        return None
+    from PySide6.QtGui import QPixmap
+
+    from ire import paths
+    path = paths.res_root() / "docs" / "backdrops" / PHOTOS[k][1]
+    pm = QPixmap(str(path))
+    return None if pm.isNull() else pm
 
 
 class PreviewCanvas(QWidget):
@@ -41,7 +68,11 @@ class PreviewCanvas(QWidget):
         self.config = config
         self._widget = None
         self._cls = None
-        self._bg = 0
+        # По умолчанию — фотография, а не рисованная трасса. Смысл
+        # предпросмотра в том, чтобы увидеть виджет таким, каким он будет
+        # поверх игры; на аккуратном градиенте читается что угодно, а на
+        # ночной трассе с фарами и отбойником — далеко не всё.
+        self._bg = DEFAULT_BACKDROP
         self._zoom = 1.0
         self.setMinimumSize(420, 300)
 
@@ -105,6 +136,22 @@ class PreviewCanvas(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         W, H = self.width(), self.height()
+
+        photo = self._photo_cached()
+        if photo is not None:
+            # Заполняем холст БЕЗ искажения: масштаб по большей стороне,
+            # лишнее уходит за края. Растянуть фотографию под пропорции окна
+            # значит показать кривую трассу — а окно человек тянет как хочет.
+            k = max(W / photo.width(), H / photo.height())
+            w, h = photo.width() * k, photo.height() * k
+            p.drawPixmap(QRectF((W - w) / 2, (H - h) / 2, w, h), photo,
+                         QRectF(0, 0, photo.width(), photo.height()))
+            # То же лёгкое затемнение, что и у рисованных: на фотографии
+            # белые цифры виджета иначе теряются в фарах.
+            p.fillRect(QRectF(0, 0, W, H), QColor(0, 0, 0, 40))
+            self._paint_widget_hint(p, W, H)
+            return
+
         _, sky_top, sky_bot, road, grass = BACKDROPS[self._bg]
         horizon = H * 0.42
 
@@ -131,7 +178,18 @@ class PreviewCanvas(QWidget):
             p.drawLine(QPointF(W / 2, y0), QPointF(W / 2, y1))
 
         p.fillRect(QRectF(0, 0, W, H), QColor(0, 0, 0, 28))  # лёгкое затемнение
+        self._paint_widget_hint(p, W, H)
 
+    def _photo_cached(self):
+        """Кадр задника. Читаем с диска ОДИН раз: paintEvent зовётся тридцать
+        раз в секунду, и открывать файл на каждом кадре — это ровно тот лишний
+        расход, из-за которого предпросмотр начинает лагать."""
+        if getattr(self, "_photo_i", None) != self._bg:
+            self._photo_i = self._bg
+            self._photo_pm = _photo(self._bg)
+        return self._photo_pm
+
+    def _paint_widget_hint(self, p, W, H):
         if self._widget is None:
             f = QFont("Segoe UI")
             f.setPixelSize(14)

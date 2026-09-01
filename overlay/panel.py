@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLa
                                QGridLayout, QStackedWidget)
 
 from overlay.hotkey import GlobalHotkey
-from overlay.preview import BACKDROPS, PreviewCanvas
+from overlay.preview import BACKDROPS, DEFAULT_BACKDROP, PreviewCanvas
 
 GROUPS = [("solo", "🟢 SOLO"), ("endur", "🔵 ENDURANCE"), ("setup", "🟣 SETUP")]
 
@@ -481,6 +481,7 @@ class ControlPanel(QWidget):
         bar.addWidget(QLabel("Backdrop", objectName="hint"))
         self.bg = QComboBox()
         self.bg.addItems([b[0] for b in BACKDROPS])
+        self.bg.setCurrentIndex(DEFAULT_BACKDROP)
         self.bg.currentIndexChanged.connect(self.preview.set_backdrop)
         bar.addWidget(self.bg)
         bar.addSpacing(10)

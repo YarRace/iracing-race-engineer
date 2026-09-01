@@ -54,7 +54,7 @@ TANK = 89.0
 BURN_PER_LAP = 3.1
 
 DRIVERS = [
-    ("Marek Ostrowski", 3410), ("Yuto Shibata", 3320), ("Iaroslav Chizhov", 3287),
+    ("Marek Ostrowski", 3410), ("Yuto Shibata", 3320), ("Yaroslav Chizhov", 3287),
     ("Alida Vieira", 3190), ("Tom Selby", 3105), ("Nils Bergqvist", 2980),
 ]
 ME = 2                               # индекс игрока в списке выше

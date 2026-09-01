@@ -45,12 +45,31 @@ from ire.storage import history, laps as lap_store
 from ire.dashboard.server import app, STATE
 
 
+DASH_ERROR = ""          # почему дашборд не поднялся. Пусто — значит поднялся.
+
+
+def dash_port():
+    """Порт дашборда. Одно место на всех, иначе оверлей стучится не туда."""
+    return int(os.environ.get("IRE_PORT", "8000"))
+
+
 def _serve():
-    # Порт из окружения: 8000 занят, когда инженер уже запущен, и второй
-    # экземпляр раньше просто падал на bind, продолжая крутить цикл сима
-    # без дашборда — со стороны это выглядело как «запустился и молчит».
-    port = int(os.environ.get("IRE_PORT", "8000"))
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+    """Дашборд в фоне.
+
+    Про неудачу надо сказать ВСЛУХ и наружу. Поток демонический, его смерть
+    не доходит до Engineer.error, а у собранного приложения нет консоли — и
+    человек видел «Engineer running · dashboard at http://localhost:8000»
+    при наглухо мёртвом дашборде. Занятый порт — обычное дело: вторая копия
+    инженера запускается одним двойным щелчком.
+    """
+    global DASH_ERROR
+    port = dash_port()
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+    except (OSError, SystemExit) as e:
+        DASH_ERROR = (f"the dashboard could not take port {port} ({e}) — "
+                      f"another copy of the engineer is probably already running")
+        print(DASH_ERROR)
 
 
 def _connected(ir):
@@ -169,6 +188,11 @@ def main():
                 STATE["strategy"] = {}
                 STATE["race"] = {}
                 STATE["trackmap"] = {}
+                # Сетап и свод по шинам — тоже к прошлой сессии. Без сброса на
+                # новой трассе первую минуту висят чужие давления и чужой
+                # вердикт по развалу, причём выглядят они как свежие.
+                STATE["setup"] = {}
+                STATE["tyres"] = {}
                 record = None                                # рекорд перечитаем для новой трассы
                 official_map = False
                 sof_frozen = None                            # новая сессия — новый состав, новый SoF
@@ -287,6 +311,15 @@ def main():
                 # (рекорд меняется максимум раз в круг, чаще спрашивать БД смысла нет)
                 if ident.get("track") and (record is None or frame_n % 120 == 0):
                     record = history.best_lap(hist, ident["track"], ident["car"])
+                    # Сетап кладём рядом с рекордом и по той же причине: он
+                    # меняется раз в заезд в боксы, а разбор YAML сессии на
+                    # двадцати кадрах в секунду стоил бы дорого.
+                    #
+                    # Без этой строки Setup Optimiser весь свой век отвечал
+                    # «No live setup»: ключ читали, а писать его было некому.
+                    # Именно ЗДЕСЬ, а не в ветке «за рулём я»: инструмент
+                    # нужен в гараже, где is_on_track False.
+                    STATE["setup"] = ir["CarSetup"] or {}
                 # ВСЕ каналы для оверлея/дашборда — часто и РАВНОМЕРНО (~20/сек, выше частоты
                 # опроса оверлея), чтобы живым был КАЖДЫЙ виджет, а не «пара частичек».
                 # 20/сек (а не 60) — баланс: плавно, но CPU не отбираем у iRacing

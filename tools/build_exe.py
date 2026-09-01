@@ -53,6 +53,8 @@ DATAS = [
     ("docs/dashboard", "docs/dashboard"),
     ("docs/news", "docs/news"),
     ("docs/hero.png", "docs"),
+    # Фоны предпросмотра: без них панель показывает виджет на пустоте.
+    ("docs/backdrops", "docs/backdrops"),
 ]
 
 # ВНИМАНИЕ: пути назначения обязаны совпадать с тем, что считает

@@ -1366,6 +1366,11 @@ function renderSectorHistory(r){
   const drop = r.dropped
     ? ` · ${r.dropped} lap${r.dropped>1?'s':''} with a different set of sectors`
     : '';
+  // Обрезанный замер — НЕ заезд в боксы, и подпись у него своя: человек
+  // иначе пойдёт вспоминать пит-стоп, которого не было.
+  const cut = r.truncated
+    ? ` · ${r.truncated} lap${r.truncated>1?'s':''} with a sector timed wrong`
+    : '';
 
   el.innerHTML = _runPicker(r) +
     `<div class="why" style="margin-bottom:8px">${esc(r.headline||'')}</div>
@@ -1380,7 +1385,7 @@ function renderSectorHistory(r){
        <b>Every lap</b> is how far a typical lap sits from your own best in that
        sector — that is setup or technique. <b>One-off</b> is what a few laps threw
        away on top of that — that is attention.
-       ${r.clean_laps} clean laps${skip}${drop}${opt}.</div>${miss}`;
+       ${r.clean_laps} clean laps${skip}${cut}${drop}${opt}.</div>${miss}`;
   bindRunPicker();
 }
 

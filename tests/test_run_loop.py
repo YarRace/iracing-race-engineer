@@ -116,3 +116,58 @@ def test_a_frame_is_built_whoever_is_driving(on_track):
     frame = live_frame(ir)
     assert isinstance(frame, dict)
     assert "fuel" in frame, "в кадре нет топлива — лог кругов запишет пустоту"
+
+
+def test_a_busy_port_is_reported_rather_than_papered_over(monkeypatch):
+    """Порт занимает вторая копия программы — обычное дело, запускается одним
+    двойным щелчком. Поток с сервером демонический, его смерть не доходит до
+    Engineer.error, а консоли у собранного приложения нет: окно бодро писало
+    «Engineer running · dashboard at …» при наглухо мёртвом дашборде.
+
+    Занятость порта ПОДДЕЛЫВАЕТСЯ, а не устраивается по-настоящему: на
+    Windows второй bind с SO_REUSEADDR проходит, uvicorn поднимается и
+    крутится вечно — тест вешал прогон на пять минут вместо того, чтобы
+    что-то проверить.
+    """
+    import run
+
+    def boom(*a, **k):
+        raise OSError(10048, "only one usage of each socket address is permitted")
+
+    monkeypatch.setattr(run.uvicorn, "run", boom)
+    monkeypatch.setenv("IRE_PORT", "8123")
+    run.DASH_ERROR = ""
+    try:
+        run._serve()
+        assert "could not take port" in run.DASH_ERROR, run.DASH_ERROR
+        assert "8123" in run.DASH_ERROR
+    finally:
+        run.DASH_ERROR = ""
+
+
+def test_a_dashboard_that_did_come_up_says_nothing(monkeypatch):
+    """Ложная тревога хуже молчания: человек пойдёт закрывать вторую копию,
+    которой нет."""
+    import run
+
+    monkeypatch.setattr(run.uvicorn, "run", lambda *a, **k: None)
+    run.DASH_ERROR = ""
+    run._serve()
+    assert run.DASH_ERROR == ""
+
+
+def test_the_overlay_asks_the_same_port_the_dashboard_took():
+    """При IRE_PORT=8010 оверлей молча опрашивал 8000 и оставался пустым, а
+    выглядело это как «инженер не запущен»."""
+    import importlib
+    import os
+
+    import overlay.store as store
+
+    os.environ["IRE_PORT"] = "8010"
+    try:
+        importlib.reload(store)
+        assert store.DASH.endswith(":8010"), store.DASH
+    finally:
+        os.environ.pop("IRE_PORT", None)
+        importlib.reload(store)

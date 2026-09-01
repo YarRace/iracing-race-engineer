@@ -6,12 +6,17 @@ keep-alive соединение (httpx.Client) и опрашиваем ТОЛЬ�
 """
 from __future__ import annotations
 
+import os
 import threading
 import time
 
 import httpx
 
-DASH = "http://localhost:8000"
+# Порт берётся из окружения, как и у сервера: при IRE_PORT=8010 оверлей
+# молча опрашивал 8000 и оставался пустым, а выглядело это как
+# «инженер не запущен».
+DASH = (os.environ.get("IRE_DASH")
+        or "http://localhost:%s" % os.environ.get("IRE_PORT", "8000"))
 ENDPOINTS = ("live", "race", "strategy", "standings", "relative",
              "wear", "session", "damage", "trackmap", "result", "corners",
              "tyres")

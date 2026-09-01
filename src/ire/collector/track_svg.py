@@ -145,7 +145,11 @@ def _cache_path(track_id):
     from ire.collector.track_map import _maps_dir
     d = _maps_dir()
     os.makedirs(d, exist_ok=True)
-    return os.path.join(d, f"official_v2_{track_id}.json")   # v2 = после флипа направления
+    # v3 — после починки калибровки. Прежние кэши строились с baseline 0 и
+    # clockwise True, когда конфиг не скачался, и лежали так навсегда: точка
+    # на карте отставала или убегала на треть круга. Их надо перестроить, а
+    # не подправить, поэтому новое имя.
+    return os.path.join(d, f"official_v3_{track_id}.json")
 
 
 def fetch(track_id, timeout=8.0):
@@ -174,11 +178,26 @@ def fetch(track_id, timeout=8.0):
             if svg.status_code != 200:
                 LAST_ERROR = f"not in database (id {track_id})"
                 continue
+            # Конфиг ОБЯЗАТЕЛЕН. В нём линия старта (baseline) и направление
+            # движения — без них геометрия есть, а привязки к LapDistPct нет.
+            # Раньше при неудаче молча подставлялись нули, карта строилась и
+            # кэшировалась навсегда: на Road Atlanta baseline 0.383 означает,
+            # что точка на карте убегала на 38% круга — проезжаешь первый
+            # поворот, а на карте уже четвёртый. Карта, уверенно показывающая
+            # не туда, хуже отсутствия карты: своя, из телеметрии, привязана к
+            # LapDistPct по построению.
+            c = None
             try:
-                cfg = httpx.get(f"{base}/configs/{track_id}.json", timeout=timeout, follow_redirects=True)
-                c = cfg.json() if cfg.status_code == 200 else {}
-            except Exception:
-                c = {}
+                cfg = httpx.get(f"{base}/configs/{track_id}.json", timeout=timeout,
+                                follow_redirects=True)
+                if cfg.status_code == 200:
+                    c = cfg.json()
+            except Exception:                                # noqa: BLE001
+                c = None
+            if not isinstance(c, dict) or "baseline" not in c:
+                LAST_ERROR = (f"no calibration for track {track_id} — the shape is "
+                              f"there but nothing says where the start line is")
+                continue
             pts = build_points(svg.text, c.get("baseline", 0.0), c.get("clockwise", True))
             if not pts:
                 LAST_ERROR = "SVG parse failed"

@@ -304,3 +304,55 @@ def test_a_single_bad_lap_is_named_with_its_own_number():
     assert s["one_off_named"] == pytest.approx(s["one_off_laps"][0]["plus"]
                                                + sum(x["plus"] for x in
                                                      s["one_off_laps"][1:]), abs=0.01)
+
+
+def test_a_truncated_sector_does_not_become_your_best():
+    """Сектор втрое короче типичного — сбой замера, а не рекорд. Став
+    «лучшим», он выдумывал секунды: на Спа заголовок объявлял «S2 стоит тебе
+    17.80 секунды каждый круг», на Монце Best 3.78 при типичном 15.92."""
+    laps = run_of(20, spread=0.06)
+    laps[6]["sectors"][2] = 3.78
+    laps[6]["lap_time"] = round(sum(laps[6]["sectors"]), 2)
+
+    r = SH.report(laps)
+    assert r["sectors"][2]["best"] > 20.0, "обрезанный замер снова стал лучшим"
+    assert r["sectors"][2]["every_lap"] < 0.5, "заголовок выдумал секунды"
+    assert r["truncated"] == 1
+
+
+def test_a_truncated_lap_is_not_called_a_pit_stop():
+    """Подписать сбой таймера как «pit or off» значит отправить человека
+    вспоминать заезд в боксы, которого не было."""
+    laps = run_of(20, spread=0.06)
+    laps[6]["sectors"][2] = 3.78                       # сбитый замер
+    laps[9]["sectors"][0] = 90.0                       # настоящий пит
+    for i in (6, 9):
+        laps[i]["lap_time"] = round(sum(laps[i]["sectors"]), 2)
+
+    r = SH.report(laps)
+    assert r["truncated"] == 1 and r["skipped"] == 1
+
+
+def test_every_lap_of_the_run_is_accounted_for():
+    """Человек считает свои круги сам. Двадцать в списке и семнадцать под
+    таблицей без объяснения читаются как потеря данных."""
+    laps = run_of(20, spread=0.06)
+    laps[3]["sectors"][1] = 2.0                        # обрезанный
+    laps[8]["sectors"][0] = 95.0                       # пит
+    for i in (3, 8):
+        laps[i]["lap_time"] = round(sum(laps[i]["sectors"]), 2)
+
+    r = SH.report(laps)
+    assert r["clean_laps"] + r["skipped"] + r["truncated"] == r["laps"]
+
+
+def test_a_genuinely_quick_sector_is_still_your_best():
+    """Нижняя граница не должна съедать настоящий быстрый круг: реальная
+    езда в его данных не опускается ниже ×0.975 от типичного."""
+    laps = run_of(20, spread=0.06)
+    laps[4]["sectors"][0] -= 0.6                       # честно быстрее
+    laps[4]["lap_time"] = round(sum(laps[4]["sectors"]), 2)
+
+    r = SH.report(laps)
+    assert r["truncated"] == 0, "быстрый круг приняли за сбой замера"
+    assert r["sectors"][0]["best"] == pytest.approx(laps[4]["sectors"][0], abs=0.01)

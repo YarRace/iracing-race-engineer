@@ -657,3 +657,34 @@ def test_the_chosen_run_does_not_move_when_new_laps_arrive(tmp_path, monkeypatch
     assert after["when"] == before["when"], "выбранный заезд уехал"
     assert after["track"] == before["track"]
     assert after["laps"] == before["laps"]
+
+
+def test_the_optimiser_sees_the_setup_the_engineer_read():
+    """Докстринг advise() обещает: «рядом с советом стоит текущее значение».
+    Ключ STATE['setup'] читали, а писать его было некому — и человек, сидя в
+    машине с загруженным сетапом, всегда получал «No live setup»."""
+    from fastapi.testclient import TestClient
+
+    from ire.dashboard.server import STATE, app
+
+    before = STATE.get("setup")
+    STATE["setup"] = {"Chassis": {"Front": {"ArbSize": "Medium"},
+                                  "LeftRear": {"SpringRate": "120 N/mm"},
+                                  "RightRear": {"SpringRate": "120 N/mm"}}}
+    try:
+        r = TestClient(app).get(
+            "/api/setup/advise?phase=mid&symptom=understeer").json()
+        assert r["have_setup"] is True, "сетап снова не доходит"
+        assert any(m.get("now") for m in r["moves"]), "советы без текущих значений"
+    finally:
+        STATE["setup"] = before
+
+
+def test_the_run_loop_actually_writes_the_setup_key():
+    """Тест выше проверяет читателя. Этот — что писатель существует: раньше
+    читателей было один, писателей ноль."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "run.py"
+           ).read_text(encoding="utf-8")
+    assert 'STATE["setup"] = ir["CarSetup"]' in src, "сетап никто не кладёт"
+    assert 'STATE["setup"] = {}' in src, "сетап не сбрасывается на новой сессии"

@@ -2838,16 +2838,25 @@ class TyreToolWidget(OverlayWidget):
                             MUTED, 9, True, key="mean")
 
         half = W / 2
-        # Шаг строки от высоты: ужатый виджет должен терять давления, а не
-        # заднюю ось. Потерянная ось выглядит как поломка, потерянные
-        # давления — как компактный режим.
-        pitch = max(26, min(50, (H - 48) / 2))
+        # Раскладка считается ОТ ВЫСОТЫ, а не от постоянных. Прежние 42/68 и
+        # вердикт на H−10 давали заднему ряду базовую линию 68 при ЛЮБОЙ
+        # высоте: минимальный размер виджета 120×60 достижим мышью, и на нём
+        # задняя ось уходила за нижнюю кромку, а на 200×76 строка вердикта
+        # шла прямо сквозь неё.
+        #
+        # Порядок жертв: сначала давления, потом вердикт, ось — никогда.
+        # Потерянная ось читается как поломка, потерянные давления — как
+        # компактный режим.
+        show_v = self._opt("show_verdict", True) and H >= 76
+        foot = 16 if show_v else 4              # место под строку вердикта
+        top = 42 if H >= 96 else 30             # шапка ужимается раньше оси
+        pitch = min(50, max(20, H - foot - top - 4))
         show_p = self._opt("show_pressure", True) and pitch >= 40
 
         for i, c in enumerate(("LF", "RF", "LR", "RR")):
             v = (r.get("corners") or {}).get(c) or {}
             x = 12 if i % 2 == 0 else half + 4
-            y = 42 + (i // 2) * pitch
+            y = top + (i // 2) * pitch
             self.text(p, x, y, c, MUTED, 9, True)
             d = v.get("camber_delta")
             self.text(p, x + 26, y,
@@ -2872,11 +2881,11 @@ class TyreToolWidget(OverlayWidget):
                 # под цифрой выглядит как недогруженные данные.
                 self.text(p, x, y + 18, "no pressures from this car", MUTED, 9)
 
-        if self._opt("show_verdict", True):
+        if show_v:
             line = _tyre_todo_line(r.get("todo"))
             # «Менять нечего» надо сказать вслух — молчание читается как
             # поломка виджета.
-            self.text(p, 12, H - 10, line or r.get("verdict") or "",
+            self.text(p, 12, H - 4, line or r.get("verdict") or "",
                       AMBER if line else self._cb(GREEN), 10, False, key="verdict")
 
     def parts(self):

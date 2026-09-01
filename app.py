@@ -207,8 +207,23 @@ class Home(QWidget):
     def refresh(self):
         if getattr(self, "_who_text", ""):
             self.who.setText(self._who_text)
+        # Мёртвый дашборд надо назвать так же громко, как упавший инженер:
+        # порт занимает вторая копия программы, поток с сервером
+        # демонический, и до Engineer.error его смерть не доходит. Раньше
+        # окно бодро писало «Engineer running · dashboard at …» при наглухо
+        # мёртвом дашборде, и сказать об этом было негде — консоли у
+        # собранного приложения нет.
+        dash_err = ""
+        try:
+            import run as _run
+            dash_err = _run.DASH_ERROR
+        except Exception:                                    # noqa: BLE001
+            pass
+
         if self.engineer.error:
             self.sub.setText("The engineer stopped: " + self.engineer.error)
+        elif dash_err:
+            self.sub.setText("The engineer is running, but " + dash_err)
         elif self.engineer.alive:
             self.sub.setText(f"Engineer running · dashboard at {DASH}")
         else:
