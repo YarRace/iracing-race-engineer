@@ -145,3 +145,39 @@ def test_an_old_database_gets_the_new_columns_without_losing_its_rows():
                        {"laps": 5, "mean_lap": 129.0, "pressures": {"LF": "150 kPa"}})
     assert history.recent_stints(conn, 1)[0]["pressures"] == {"LF": "150 kPa"}
     conn.close()
+
+
+def test_upgrading_from_the_previous_version_keeps_everything():
+    """Человек обновляется: старая база, старый конфиг оверлея, старая опись
+    снимков. Проверено и на копии его настоящей базы (637 кругов, 219
+    стинтов) — здесь то же самое, но воспроизводимо."""
+    import os
+    import sqlite3
+    import tempfile
+
+    path = os.path.join(tempfile.mkdtemp(), "old.db")
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE laps (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, "
+                "track TEXT, track_display TEXT, config TEXT, car TEXT, "
+                "car_path TEXT, session_type TEXT, lap_num INTEGER, lap_time REAL, "
+                "s1 REAL, s2 REAL, s3 REAL, valid INTEGER NOT NULL DEFAULT 1)")
+    old.execute("INSERT INTO laps (ts, track, car, lap_num, lap_time, s1, s2, s3) "
+                "VALUES ('2026-08-01', 'spa', 'Ferrari 499P', 3, 122.9, "
+                "33.9, 30.5, 25.9)")
+    old.commit()
+    old.close()
+
+    conn = history.connect(path)
+    rows = history.lap_sectors(conn)
+    assert len(rows) == 1 and rows[0]["lap_num"] == 3, "старый круг пропал"
+    # Старый круг честно помечен неполным: там записаны три сектора из
+    # четырёх, и делать вид, что это весь круг, нельзя.
+    assert rows[0]["recorded_all"] is False
+    assert rows[0]["sectors"] == [33.9, 30.5, 25.9]
+
+    history.save_lap(conn, {"track": "spa", "car": "Ferrari 499P"}, 4, 122.5,
+                     [33.5, 30.4, 25.6, 32.9])
+    fresh = history.lap_sectors(conn)[-1]
+    assert fresh["sectors"] == [33.5, 30.4, 25.6, 32.9], "четвёртый сектор снова потерян"
+    assert fresh["recorded_all"] is True
+    conn.close()

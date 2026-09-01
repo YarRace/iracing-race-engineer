@@ -101,3 +101,31 @@ def test_the_front_page_shows_what_changed_lately():
     assert "What changed lately" in html
     if site.read_news():
         assert 'class="changes"' in html
+
+
+def test_an_old_index_without_sets_says_nothing_rather_than_something_false(tmp_path):
+    """Опись, собранная прошлой версией, поля sets не имеет. «Не входит ни в
+    один набор» было бы утверждением о том, чего мы не знаем, — а человек
+    прочтёт его как факт и не станет искать виджет в наборах."""
+    import json as _json
+
+    from ire.dashboard import site
+
+    (tmp_path / "index.json").write_text(_json.dumps(
+        [{"key": "fuel", "title": "Fuel", "group": "solo", "size": [220, 170],
+          "file": "fuel.png", "doc": "Fuel left and burn"}]), encoding="utf-8")
+    html = site.page_about(site.load_catalog(), site.load_shots(tmp_path))
+    assert "not in any starter set" not in html
+    assert "220×170" in html, "остальные сведения потеряли вместе с наборами"
+
+
+def test_a_widget_genuinely_in_no_set_is_still_told_so(tmp_path):
+    import json as _json
+
+    from ire.dashboard import site
+
+    (tmp_path / "index.json").write_text(_json.dumps(
+        [{"key": "fuel", "title": "Fuel", "group": "solo", "size": [220, 170],
+          "file": "fuel.png", "doc": "Fuel", "sets": []}]), encoding="utf-8")
+    html = site.page_about(site.load_catalog(), site.load_shots(tmp_path))
+    assert "not in any starter set" in html

@@ -344,10 +344,12 @@ def showcase(shots):
         # Без наборов витрина показывает сорок семь незнакомых картинок, и
         # выбрать из них нечего: непонятно, что нужно именно тебе.
         meta = []
-        if w.get("sets"):
-            meta.append("in " + ", ".join(e(x) for x in w["sets"]))
-        else:
-            meta.append("not in any starter set")
+        # Отсутствие поля и пустой список — РАЗНЫЕ вещи. У описи, собранной
+        # прошлой версией, поля нет вовсе, и «не входит ни в один набор»
+        # было бы утверждением о том, чего мы не знаем.
+        if "sets" in w:
+            meta.append("in " + ", ".join(e(x) for x in w["sets"])
+                        if w["sets"] else "not in any starter set")
         size = w.get("size") or []
         if len(size) == 2:
             meta.append(f"{size[0]}×{size[1]}")
