@@ -17,6 +17,14 @@ import pathlib
 import re
 import sys
 
+# Вывод у нас русский, а консоль на чужой машине бывает не в UTF-8 — на
+# раннере GitHub это cp437, и первая же печатная строка роняла скрипт с
+# UnicodeEncodeError. Из-за этого проверка падала НА КАЖДОМ коммите, ещё до
+# тестов, и заметить это было нечем: локально консоль в UTF-8.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Каталог считает виджеты, а для этого импортирует overlay.widgets — то есть
 # тянет Qt. На машине без экрана (CI) это падает, и падало: шаг «Rebuild the
 # catalogue» был единственным, кому забыли передать QT_QPA_PLATFORM, и весь

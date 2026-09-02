@@ -17,6 +17,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Вывод инструментов русский, а консоль раннера — cp437. Без этой строки
+# первая же печатная строка роняет шаг с UnicodeEncodeError, и прогон падает
+# ещё до тестов. Скрипты чинят это и сами, но переменная видна глазами.
+env:
+  PYTHONIOENCODING: utf-8
+
 jobs:
   tests:
     runs-on: windows-latest

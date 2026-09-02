@@ -15,6 +15,14 @@ import subprocess
 import sys
 import time
 
+# Вывод у нас русский, а консоль на чужой машине бывает не в UTF-8 — на
+# раннере GitHub это cp437, и первая же печатная строка роняла скрипт с
+# UnicodeEncodeError. Из-за этого проверка падала НА КАЖДОМ коммите, ещё до
+# тестов, и заметить это было нечем: локально консоль в UTF-8.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 # Порядок важен: каталог первым — снимки и сайт опираются на него.

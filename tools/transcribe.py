@@ -22,6 +22,14 @@ import subprocess
 import sys
 import tempfile
 
+# Вывод у нас русский, а консоль на чужой машине бывает не в UTF-8 — на
+# раннере GitHub это cp437, и первая же печатная строка роняла скрипт с
+# UnicodeEncodeError. Из-за этого проверка падала НА КАЖДОМ коммите, ещё до
+# тестов, и заметить это было нечем: локально консоль в UTF-8.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def extract_audio(video, wav):
     """Дорожка в 16 кГц моно — то, что ждёт whisper.
