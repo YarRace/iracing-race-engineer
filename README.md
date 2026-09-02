@@ -160,8 +160,26 @@ the code. A test catches the drift, but the command avoids it.
 - `docs/*.html` — the same showcase built as a static site
   (`python tools/build_site.py`), so it can be read without running anything.
 
+## Your data
+
+Everything stays on your machine. Laps, telemetry, track maps and settings
+are written to `data/` next to the program and go nowhere else — there is no
+account, no upload, no analytics. Two features reach the network because they
+cannot work otherwise, and only when you set them up: Garage 61 (other
+drivers' laps, with your own token) and the racing news feed. Neither sends
+anything about you.
+
+## Licence
+
+Copyright © 2026 Yaroslav Chizhov. All rights reserved — see [LICENSE](LICENSE).
+
+The code is public so it can be read: to see how the engineer works and what
+it does with your data before you run it. That is not a licence to use it.
+If you want to run, modify or ship it, ask — the answer is often yes.
+
+Manufacturer badges, backdrop photographs, and every iRacing name in here
+belong to their owners. This project is not affiliated with iRacing.
+
 ## Status
 
-Works end to end and is used in real races. Nothing is published as a
-download yet — you either run it from source or build it yourself with the
-command above.
+Works end to end and is used in real races.

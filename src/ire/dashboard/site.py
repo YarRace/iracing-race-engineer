@@ -26,6 +26,13 @@ ROOT = paths.res_root()
 NEWS_DIR = ROOT / "docs" / "news"
 CATALOG = ROOT / "data" / "catalog.json"
 
+# Адрес витрины в интернете. Нужен абсолютным: мессенджер тянет картинку
+# со своей стороны, и относительный путь ему не с чем сложить.
+SITE_URL = "https://yarrace.github.io/iracing-race-engineer/"
+SITE_DESC = ("A race engineer for iRacing: a dashboard on the second screen, "
+             "an overlay of your own over the game, and analysis once you "
+             "climb out. Everything runs locally.")
+
 NAV = (("/", "Dashboard"), ("/about", "About"), ("/catalog", "Widgets"),
        ("/download", "Get it"), ("/news", "Changelog"))
 
@@ -55,6 +62,10 @@ def e(s):
 
 
 def shell(title, body, active=""):
+    # Метки og: — карточка для мессенджеров. Без них Discord и Telegram
+    # показывают голый адрес: они заходят на страницу и ищут именно их.
+    # Пояснение живёт ЗДЕСЬ, а не HTML-комментарием: комментарий уехал бы в
+    # браузер вместе со страницей, а интерфейс у нас английский.
     nav = "".join(
         f'<a href="{href}" class="{"on" if href == active else ""}">{e(name)}</a>'
         for href, name in NAV)
@@ -62,6 +73,13 @@ def shell(title, body, active=""):
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)} — Race Engineer</title>
+<meta name="description" content="{e(SITE_DESC)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Race Engineer">
+<meta property="og:title" content="{e(title)} — Race Engineer">
+<meta property="og:description" content="{e(SITE_DESC)}">
+<meta property="og:image" content="{SITE_URL}hero.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/tokens.css">
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
@@ -459,6 +477,19 @@ def page_about(cat, shots=None, panels=None, dash=None):
   <p class="lead">Up soon: a corner-by-corner lap breakdown with the cost of every
   mistake in seconds, lap comparison by distance, and team strategy for endurance.
   The full plan lives in <span class="k">docs/roadmap-overlay-2026-08.md</span>.</p>
+</section>
+<section>
+  <h2>Your data, and who owns this</h2>
+  <p class="lead">Everything stays on your machine. Laps, telemetry, track maps and
+  settings are written next to the program and go nowhere else — no account, no
+  upload, no analytics. Two features reach the network because they cannot work
+  otherwise, and only once you set them up: Garage 61 for other drivers' laps,
+  with your own token, and the racing news feed. Neither sends anything about you.</p>
+  <p class="lead" style="font-size:14px">The code is public so it can be read before
+  it is run. It is not under an open licence: copyright &copy; 2026 Yaroslav
+  Chizhov, all rights reserved — see <a href="{REPO}/blob/main/LICENSE">LICENSE</a>.
+  Manufacturer badges, backdrop photographs and every iRacing name here belong to
+  their owners; this project is not affiliated with iRacing.</p>
 </section>""", active="/about")
 
 

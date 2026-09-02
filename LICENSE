@@ -1,0 +1,32 @@
+Copyright (c) 2026 Yaroslav Chizhov. All rights reserved.
+
+The source code in this repository is published so that it can be read: to
+see how the engineer works, to check what it does with your data, and to
+judge it before running it. That is the whole reason it is public.
+
+Reading is not permission to use. No licence is granted here to copy, run,
+modify, redistribute, or sell this software or any part of it. If you want
+to do any of those things, ask — the answer is often yes, and it costs a
+message.
+
+Contact: through the repository at
+https://github.com/YarRace/iracing-race-engineer
+
+WHAT THIS DOES NOT COVER
+
+Third-party material kept alongside the code has its own owners and its own
+terms, and nothing here changes them:
+
+  - manufacturer badges in data/logos/ — trademarks of their manufacturers;
+  - photographs used as preview backdrops in docs/backdrops/;
+  - iRacing, and every track and car name that appears in this project,
+    belong to iRacing.com Motorsport Simulations and the respective
+    rights holders. This project is not affiliated with, endorsed by, or
+    connected to iRacing in any way.
+
+NO WARRANTY
+
+This software is provided "as is", without warranty of any kind, express or
+implied. It reads telemetry and offers opinions about a video game; it is
+not fit for any purpose beyond that, and the author is not liable for what
+happens if you use it.

@@ -174,3 +174,35 @@ def test_the_static_site_does_not_offer_an_rss_file_it_does_not_have():
     out = BS.to_static('<p>The changelog. <a href="/news/rss.xml">RSS</a></p>')
     assert "rss.xml" not in out
     assert BS.leftover_absolute(out) == []
+
+
+def test_the_page_carries_a_card_for_messengers():
+    """Кидаешь ссылку в Discord — мессенджер заходит на страницу и ищет
+    именно эти метки. Не находит — показывает голый адрес."""
+    from ire.dashboard import site
+
+    html = site.page_about(site.load_catalog(), site.load_shots())
+    for tag in ('property="og:title"', 'property="og:image"',
+                'property="og:description"', 'name="twitter:card"'):
+        assert tag in html, tag
+
+
+def test_the_preview_image_is_an_absolute_address():
+    """Мессенджер тянет картинку со своей стороны, и относительный путь ему
+    не с чем сложить — карточка выйдет без обложки."""
+    from ire.dashboard import site
+
+    html = site.page_about(site.load_catalog(), site.load_shots())
+    m = re.search(r'property="og:image" content="([^"]+)"', html)
+    assert m and m.group(1).startswith("https://"), m and m.group(1)
+
+
+def test_the_preview_image_actually_exists():
+    """Ссылка на картинку, которой нет, — карточка без обложки и вопрос «а
+    где?». Проверяем ФАЙЛ, а не только тег."""
+    from ire.dashboard import site
+
+    html = site.page_about(site.load_catalog(), site.load_shots())
+    url = re.search(r'property="og:image" content="([^"]+)"', html).group(1)
+    name = url.rsplit("/", 1)[-1]
+    assert (ROOT / "docs" / name).exists(), name
