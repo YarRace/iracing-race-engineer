@@ -12,9 +12,17 @@
     python tools/build_catalog.py
 """
 import json
+import os
 import pathlib
 import re
 import sys
+
+# Каталог считает виджеты, а для этого импортирует overlay.widgets — то есть
+# тянет Qt. На машине без экрана (CI) это падает, и падало: шаг «Rebuild the
+# catalogue» был единственным, кому забыли передать QT_QPA_PLATFORM, и весь
+# прогон валился ещё до тестов. Ставим сами: скрипт не должен зависеть от
+# того, вспомнил ли о нём тот, кто его зовёт.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
