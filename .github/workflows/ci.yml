@@ -65,6 +65,13 @@ jobs:
         # соответствующий тест это поймает.
         env:
           QT_QPA_PLATFORM: offscreen
-        run: |
-          python tools/refresh_assets.py
-          python -m pytest -q tests/test_ui_language.py
+        # ДВА шага, а не один с двумя строками: на Windows оболочка — pwsh,
+        # и она смотрит код только ПОСЛЕДНЕЙ команды. Падение refresh_assets
+        # молча пряталось за зелёным pytest, и проверка врала, что всё цело:
+        # release и site валились на том же шаге, а tests показывал зелёный.
+        run: python tools/refresh_assets.py
+
+      - name: The widget catalogue matches the code
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q tests/test_ui_language.py

@@ -104,8 +104,12 @@ def main():
 
     chrome = find_chrome()
     if not chrome:
-        print("  Chrome не найден — снимать нечем.")
-        return 1
+        # Код 2, а не 1: браузера нет — это свойство МАШИНЫ, а не ошибка в
+        # коде. Единицей мы роняли всю цепочку, а вместе с ней сборку релиза
+        # и автосборку витрины: снимки дашборда необязательны, страницы
+        # собираются и без свежих.
+        print("  Chrome не найден — снимков дашборда не будет (не смертельно).")
+        return 2
 
     tmpdir = tempfile.mkdtemp(prefix="ire-shot-")
     os.environ["IRE_DB_PATH"] = os.path.join(tmpdir, "shot.db")

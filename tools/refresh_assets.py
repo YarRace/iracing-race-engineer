@@ -45,7 +45,7 @@ def main():
                     help="без снимков — только то, что считается мгновенно")
     args = ap.parse_args()
 
-    failed = []
+    failed, skipped = [], []
     for title, script, fast_ok in STEPS:
         if args.fast and not fast_ok:
             continue
@@ -54,13 +54,21 @@ def main():
                            cwd=ROOT, capture_output=True, text=True,
                            encoding="utf-8", errors="replace")
         dt = time.monotonic() - t0
-        mark = "ok " if r.returncode == 0 else "СБОЙ"
+        # Код 2 — «нечем сделать на этой машине» (нет браузера для
+        # снимков). Это предупреждение, а не поломка: ронять из-за
+        # него сборку релиза значит требовать браузер там, где он
+        # не нужен.
+        mark = {0: "ok  ", 2: "ПРОП"}.get(r.returncode, "СБОЙ")
         print(f"  {mark} {title:<9} {dt:5.1f}с   {script}")
-        if r.returncode != 0:
+        if r.returncode == 2:
+            skipped.append(script)
+        elif r.returncode != 0:
             failed.append((script, (r.stderr or r.stdout or "")[-400:]))
 
     for script, err in failed:
         print(f"\n  {script}:\n{err}")
+    for script in skipped:
+        print(f"  пропущено: {script} — нечем выполнить на этой машине")
     return 1 if failed else 0
 
 
