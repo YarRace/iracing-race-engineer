@@ -45,9 +45,9 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -77,11 +77,20 @@ jobs:
           # Снимки PNG отличаются от запуска к запуску (шрифты, сглаживание,
           # живая демо-секунда), и коммитить их каждый раз значит гонять шум.
           # Берём только страницы и опись — то, что правда меняется по смыслу.
-          git add docs/*.html docs/tokens.css docs/.nojekyll \
-                  docs/widgets/index.json data/catalog.json 2>/dev/null || true
+          #
+          # data/catalog.json здесь НЕ упоминается, хотя раньше упоминался:
+          # папка data/ в .gitignore, и `git add` на неё падал с кодом 1,
+          # НИЧЕГО НЕ ДОБАВИВ В ИНДЕКС. Ошибку глотал `|| true`, дальше diff показывал
+          # пустоту — и шаг честно печатал «коммитить нечего» на каждом
+          # прогоне. Автосборка витрины не работала ни разу с самого начала.
+          # Поэтому же здесь нет `|| true`: пусть падает громко.
+          git add docs/*.html docs/tokens.css docs/.nojekyll docs/widgets/index.json
           if git diff --cached --quiet; then
             echo "витрина не изменилась — коммитить нечего"
           else
-            git commit -m "site: пересобрано автоматически при пуше в main"
+            # [skip ci]: этот пуш меняет только собранные страницы. Гонять
+            # из-за них полный прогон тестов — двадцать минут раннера ради
+            # файлов, которые сам же раннер и сделал.
+            git commit -m "site: пересобрано автоматически при пуше в main [skip ci]"
             git push
           fi
