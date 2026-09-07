@@ -754,6 +754,23 @@ function renderTyreTool(r){
   const todo = (r.todo||[]).map(t=>
     `<li><b>${TYRE_NAME[t.corner]}</b> — ${t.why} (${t.delta>0?'+':''}${t.delta.toFixed(1)}&deg;)</li>`).join('');
 
+  // На чём стоит порог. «Много» без ответа на «по сравнению с чем» — это не
+  // измерение: одно и то же число срабатывало на 2% колёс одной машины и на
+  // 39% другой. Теперь на карточке написано, чей это порог и сколько колёс
+  // за ним стоит, — и когда он общий, это тоже сказано вслух.
+  const ref = (r.corners.LF||{});
+  const rref = (r.corners.LR||{});
+  const basis = ref.camber_basis === 'car'
+    ? `Thresholds measured on your own laps in this car:
+       front over <b>${fix(ref.camber_much,1)}&deg;</b>,
+       rear over <b>${fix(rref.camber_much,1)}&deg;</b>
+       (${ref.camber_n} front wheel-sessions, ${rref.camber_n} rear).
+       They mean "hotter than you usually run it", not "too much camber" —
+       if you always run a lot, so does the bar.`
+    : `Threshold is the shared <b>${fix(ref.camber_much,1)}&deg;</b>: not enough
+       of your own laps in this car yet. That number fires on 2% of wheels in
+       one car and 39% in another, so read the figure above it, not the colour.`;
+
   el.innerHTML = `<div class="tires" style="max-width:none">${cells}</div>
     <div class="why" style="margin-top:8px">
       Inner minus outer edge. A little hotter on the inside is what negative
@@ -762,6 +779,7 @@ function renderTyreTool(r){
       edges say very little.</div>
     ${todo ? `<ul style="margin:8px 0 0 18px;padding:0;font-size:13px">${todo}</ul>`
            : `<div style="margin-top:8px;color:var(--good);font-size:13px">${r.verdict||''}</div>`}
+    <div class="why" style="margin-top:6px">${basis}</div>
     ${r.have_pressures ? '' :
       '<div class="why" style="margin-top:6px">This car does not publish its pressures to the app.</div>'}`;
 }

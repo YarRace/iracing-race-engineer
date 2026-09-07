@@ -20,6 +20,7 @@ Ferrari 499P и на 39% колёс Super Formula Lights. Появится тр�
     python tools/measure_tyres.py                    все .ibt из папки iRacing
     python tools/measure_tyres.py --dir путь         своя папка
     python tools/measure_tyres.py --min-kmh 80       строже отбор «ездил»
+    python tools/measure_tyres.py --write            записать пороги по машинам
 """
 import argparse
 import collections
@@ -117,11 +118,46 @@ def measure(folder, min_kmh):
     return files, rows, skipped
 
 
+def _write_baseline(rows):
+    """Записать пороги по паре «машина + ось» из измеренного.
+
+    Отдельным ключом, а не по умолчанию: файл влияет на то, что человек
+    увидит в карточке, и переписывать его молча при каждом запуске
+    инструмента неправильно.
+    """
+    from ire.metrics import tyre_baseline as tb
+
+    samples = {}
+    for r in rows:
+        samples.setdefault((r["car"], tb.axle(r["corner"])), []).append(r["camber"])
+
+    baseline = tb.build(samples)
+    print("\nПОРОГИ ПО МАШИНАМ И ОСЯМ")
+    for (car, ax), vals in sorted(samples.items()):
+        got = (baseline["cars"].get(car) or {}).get(ax)
+        if got:
+            print(f"  {car:<26}{ax}  > {got['much']:>5.2f} °C   "
+                  f"по {got['n']} колёсам (медиана {got['median']:+.2f})")
+        else:
+            why = ("колёс мало" if len(vals) < tb.MIN_WHEELS
+                   else "порог ниже шума — машина не даёт читаемого перекоса")
+            print(f"  {car:<26}{ax}  — не записан: {why} "
+                  f"({len(vals)} из {tb.MIN_WHEELS})")
+    if not baseline["cars"]:
+        print("  Ни одной пары не хватило на порог — остаётся общее число.")
+        return
+    f = tb.save(baseline)
+    print(f"  Записано: {f}")
+    print("  Инженер подхватит при следующем запуске.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dir", default=str(DEFAULT_DIR))
     ap.add_argument("--min-kmh", type=float, default=MIN_KMH,
                     help="ниже этого максимума считаем, что машина не выезжала")
+    ap.add_argument("--write", action="store_true",
+                    help="записать измеренные пороги в data/tyre_baseline.json")
     a = ap.parse_args()
 
     from ire.metrics.tire import CAMBER_MUCH, CAMBER_NOISE
@@ -182,6 +218,9 @@ def main():
     hits = {car: sum(1 for r in rows if r["car"] == car and r["camber"] > CAMBER_MUCH)
                  / max(1, sum(1 for r in rows if r["car"] == car))
             for car in cars}
+    if a.write:
+        _write_baseline(rows)
+
     if len(hits) > 1 and max(hits.values()) > 4 * max(min(hits.values()), 0.01):
         lo = min(hits, key=hits.get)
         hi = max(hits, key=hits.get)

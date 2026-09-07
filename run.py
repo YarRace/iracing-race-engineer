@@ -31,6 +31,7 @@ from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        tire_wear_by_corner, session_info)
 from ire.setup.sto_reader import read_sto
 from ire.metrics.tire import tire_metrics
+from ire.metrics import tyre_baseline
 from ire.metrics.tyres import report as tyre_report
 from ire.collector.race_state import (race_extras, SectorTimer, sector_starts,
                                       sector_view,
@@ -148,6 +149,17 @@ def main():
     ir = irsdk.IRSDK()
     hist = history.connect()                      # база истории (круги/стинты) — Фаза 1
     print(f"History: {history.default_path()}")
+    # Пороги развала, измеренные на его собственных заездах. Файл лежит на
+    # диске между запусками; нет его — работаем на общем числе и говорим
+    # об этом на карточке, а не молча.
+    STATE["tyre_baseline"] = tyre_baseline.load()
+    _tb = STATE["tyre_baseline"] or {}
+    print("Tyre camber thresholds: "
+          + (", ".join(f"{car} {ax} > {v['much']}°C (n={v['n']})"
+                       for car, axles in (_tb.get("cars") or {}).items()
+                       for ax, v in sorted(axles.items()))
+             or f"default {tyre_baseline.CAMBER_MUCH}°C for every car — "
+                f"need {tyre_baseline.MIN_WHEELS} wheel-sessions to measure yours"))
     det = StintDetector()
     tracker = None
     sector_timer = None
@@ -193,6 +205,9 @@ def main():
                 # вердикт по развалу, причём выглядят они как свежие.
                 STATE["setup"] = {}
                 STATE["tyres"] = {}
+                # Опись порогов НЕ сбрасываем: она про машину, а не про
+                # сессию, и копится месяцами. Сбросить её на смене трассы
+                # значило бы каждый раз возвращаться к общему числу.
                 record = None                                # рекорд перечитаем для новой трассы
                 official_map = False
                 sof_frozen = None                            # новая сессия — новый состав, новый SoF
@@ -370,7 +385,12 @@ def main():
                             # прочитанное один раз на старте устарело бы.
                             fields = read_sto(ir["CarSetup"] or {})["fields"]
                             STATE["tyres"] = tyre_report(
-                                tire_metrics(frames), fields, frames)
+                                tire_metrics(frames), fields, frames,
+                                # Порог развала — по ЕГО заездам в этой
+                                # машине: общее число ошибается на разных
+                                # машинах в двадцать раз.
+                                STATE.get("tyre_baseline"),
+                                ident.get("car_path") or ident.get("car"))
                         except Exception as e:               # noqa: BLE001
                             if not getattr(main, "_tyres_warned", False):
                                 print("Tyres: failed to build the report:", e)
@@ -402,6 +422,13 @@ def main():
                             "pressures": press or None,
                             "tyre_temps": temps or None,
                         })
+                        # Порог развала пересчитывается ЗДЕСЬ, а не раз при
+                        # запуске: он обязан догонять человека. Меняется
+                        # сетап, меняется манера — планка, посчитанная в
+                        # июле, к сентябрю описывает уже не его.
+                        STATE["tyre_baseline"] = (
+                            tyre_baseline.refresh_from_history(hist)
+                            or STATE.get("tyre_baseline"))
                     except Exception as e:
                         print("History: failed to save stint:", e)
                 conditions = {"track_temp": frames[0]["track_temp"]}

@@ -14,17 +14,29 @@
         75%   +5.12   (было +4.1)            75%   +1.61   (было +0.89)
         95%   +7.58                          95%   +2.45
 
-Вторая, важнее: ПОРОГ НЕ УНИВЕРСАЛЕН, и это измерено, а не предположено.
-CAMBER_MUCH срабатывает на 2% колёс Ferrari 499P и на 39% колёс Super
-Formula Lights — разница в двадцать раз. Значит число описывает не «слишком
-большой развал вообще», а привычку конкретной машины.
+Вторая, важнее: ЕДИНЫЙ ПОРОГ НЕ РАБОТАЛ, и это измерено. CAMBER_MUCH
+срабатывал на 2% колёс Ferrari 499P, 39% колёс Super Formula Lights и 0%
+колёс Porsche 963 GTP. Число описывало не «слишком большой развал вообще»,
+а привычку конкретной машины: на одной молчало всегда, на другой кричало на
+каждом втором колесе.
 
-Менять его пока не на что: телеметрия есть по трём машинам, причём у
-третьей всего одна сессия, и машина с трассой в этих записях не разделены
-(Ferrari ездил только Road Atlanta, SF Lights только Road America) — любой
-эффект можно с равным правом приписать трассе. Половина реального пробега (303 круга на
-Porsche и Cadillac) телеметрии не оставила вовсе. Перемерить, когда данных
-станет больше, помогает tools/measure_tyres.py.
+РЕШЕНО (07.09.2026): порог считается по СОБСТВЕННЫМ заездам человека в этой
+машине и на этой оси — `metrics/tyre_baseline`. Ось отдельно не прихоть: на
+25 записях Porsche 963 GTP (одна машина, одна трасса — значит ни машина, ни
+трасса тут ни при чём) задняя ось горячее передней по внутренней кромке в
+19 сессиях из 19, медиана разницы +2.06 °C, перестановочный тест p < 0.0001.
+Один порог на четыре колеса сравнивал зад с планкой, поставленной по переду:
+
+    перед  медиана +1.02   порог по его данным  3.48
+    зад    медиана +3.41   порог по его данным  4.55
+
+Данных мало — остаётся общее число, и карточка пишет об этом прямо, а не
+выдаёт чужую планку за измеренную. Сколько «мало» — тоже измерено
+бутстрапом: ниже 30 колесо-сессий оценка гуляет на полтора градуса при
+общем разбросе в пять.
+
+Записать пороги по накопленной телеметрии: tools/measure_tyres.py --write;
+дальше они обновляются сами при закрытии каждого стинта.
 
 Ровно поэтому в ответе всегда стоит и само число: если полоса ошибается,
 число остаётся верным.
@@ -46,6 +58,7 @@ from __future__ import annotations
 
 import re
 
+from ire.metrics import tyre_baseline
 from ire.metrics.tire import CAMBER_MUCH, CAMBER_NOISE, camber   # noqa: F401
 
 CORNERS = ("LF", "RF", "LR", "RR")
@@ -149,12 +162,16 @@ def moving_frames(frames):
                if isinstance(f.get("speed"), (int, float)) and f["speed"] > MOVING_MS)
 
 
-def report(temps, fields=None, frames=None):
+def report(temps, fields=None, frames=None, baseline=None, car=None):
     """Свод по четырём колёсам: что видно и что с этим делать.
 
     temps — то, что вернул `tire.tire_metrics`.
     frames — кадры телеметрии, если есть: по ним проверяется, что машина
     вообще ездила. Без них вердикт даётся как раньше.
+    baseline/car — опись порогов, измеренных на его собственных заездах в
+    этой машине (`metrics/tyre_baseline`). Нет её — остаётся общее число,
+    и в ответе стоит `camber_basis: "default"`, чтобы карточка сказала об
+    этом вслух, а не выдала чужую планку за измеренную.
     """
     if not temps:
         return {"ok": False, "reason": "no tyre temperatures in this session"}
@@ -169,11 +186,16 @@ def report(temps, fields=None, frames=None):
     corners = {}
     for c in CORNERS:
         t = temps.get(c) or {}
-        cam, cam_d = camber(t.get("inner"), t.get("outer"))
+        ref = tyre_baseline.ref_for(baseline, car, c)
+        cam, cam_d = camber(t.get("inner"), t.get("outer"), ref["much"])
         crw, crw_d = crown(t.get("tm"), t.get("inner"), t.get("outer"))
         corners[c] = {
             "inner": t.get("inner"), "middle": t.get("tm"), "outer": t.get("outer"),
             "camber": cam, "camber_delta": cam_d, "camber_why": WHY[cam],
+            # Порог и его происхождение идут рядом с вердиктом. «Много» без
+            # ответа на вопрос «по сравнению с чем» — это не измерение.
+            "camber_much": ref["much"], "camber_basis": ref["basis"],
+            "camber_n": ref["n"],
             "crown": crw, "crown_delta": crw_d, "crown_why": WHY[crw],
             "pressure": press.get(c) or {},
         }
