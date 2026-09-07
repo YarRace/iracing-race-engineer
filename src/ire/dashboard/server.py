@@ -121,6 +121,36 @@ def session(): return STATE["session"]
 def trackmap(): return STATE["trackmap"]
 
 
+@app.get("/api/news")
+def news(limit: int = 3):
+    """Что нового и вышла ли версия свежее установленной.
+
+    Раньше и то и другое жило только на сайте. Человек, который запустил
+    программу и поехал, ни одной новой возможности не увидит: он не ходит
+    на страницу проекта — он смотрит в дашборд.
+
+    Обновление объявляется ТОЛЬКО когда номер версии в релизе правда
+    старше установленного и оба номера разобрались. Ни сети, ни запроса
+    наружу здесь нет: опись релиза кладёт на диск сборка витрины, а
+    дашборд её просто читает.
+    """
+    from ire import __version__
+
+    rel = site.load_release() or {}
+    tag = rel.get("tag")
+    return {"version": __version__,
+            "update": {"tag": tag, "url": rel.get("url"),
+                       "published": rel.get("published")}
+                      if site.is_newer(tag, __version__) else None,
+            "entries": [{"date": e["date"], "title": e["title"],
+                         "slug": e["slug"],
+                         # Первый абзац, а не весь текст: карточка на
+                         # главной должна поместиться, а полностью запись
+                         # читается в журнале.
+                         "lead": (e["body"].split("\n\n")[0] or "").strip()}
+                        for e in site.read_news()[:max(0, limit)]]}
+
+
 def _run_label(run):
     first = run[0]
     return {"track": first.get("track_display") or first.get("track"),

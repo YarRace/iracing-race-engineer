@@ -78,6 +78,26 @@
   .why{color:var(--muted);font-size:13px}
   .err{background:#2a1414;border:1px solid #5a2020;color:#e8a0a0;padding:10px 12px;border-radius:10px;font-size:13px}
   .empty{color:var(--muted);font-style:italic;padding:8px 0}
+  /* News on the main tab: what changed, and whether a newer build is out. */
+  #news{margin-bottom:18px}
+  .newsbar{display:flex;align-items:center;gap:12px;background:var(--panel);
+    border:1px solid var(--accent);border-radius:12px;padding:12px 14px;
+    margin-bottom:12px}
+  .newsbar b{color:var(--accent)}
+  .newsbar .grow{flex:1;color:var(--muted);font-size:13.5px}
+  .newsbar a{color:var(--accent);font-weight:600}
+  .newsbar button{background:none;border:0;color:var(--muted);cursor:pointer;
+    font-size:16px;line-height:1;padding:2px 4px}
+  .newscards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+    gap:12px}
+  .newscard{background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:14px 16px}
+  .newscard .d{color:var(--muted);font-size:11px;letter-spacing:.5px;
+    font-variant-numeric:tabular-nums}
+  .newscard h3{font-size:14.5px;margin:4px 0 6px}
+  .newscard h3 a{color:var(--txt);text-decoration:none}
+  .newscard h3 a:hover{text-decoration:underline}
+  .newscard p{color:var(--muted);font-size:12.5px;line-height:1.55}
   .mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
   .segbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit}
   .segbtn:hover{border-color:var(--accent);color:var(--txt)}
@@ -162,6 +182,7 @@
 </div>
 <div id="customizeMenu" style="display:none"></div>
 <div id="tab-solo" class="mpane">
+<div id="news"></div>
 <div class="grid">
   <!-- ЛЕВО -->
   <div class="col">
@@ -1306,6 +1327,42 @@ const wetnessTxt = w => w<=1 ? 'dry' : (w<=3?'drying':(w<=5?'damp':'wet'));
 // сдвигал все номера — под тем же пунктом оказывался другой заезд.
 let _secRun = '', _secBusy = false;
 
+// Новости и уведомление об обновлении на главной вкладке.
+//
+// И то и другое жило только на сайте — то есть там, куда человек, который
+// запустил программу и поехал, не заходит никогда. Новую возможность он не
+// увидит, а вышедшую версию не заметит.
+//
+// Уведомление показывается ТОЛЬКО когда номер версии в релизе правда старше
+// установленного и оба номера разобрались. Никуда наружу дашборд при этом не
+// ходит: опись релиза кладёт на диск сборка, здесь она просто читается.
+async function tickNews(){
+  const el = $('news'); if(!el) return;
+  let r; try{ r = await (await fetch('/api/news?limit=3')).json(); }catch{ return; }
+  const hidden = localStorage.getItem('newsHiddenUntil') || '';
+  let html = '';
+  if(r.update && hidden !== r.update.tag){
+    html += `<div class="newsbar">
+      <b>${esc(r.update.tag)} is out</b>
+      <span class="grow">You are on ${esc(r.version)}${r.update.published?' &middot; released '+esc(r.update.published):''}</span>
+      <a href="${esc(r.update.url||'#')}" target="_blank" rel="noopener">Download</a>
+      <button title="Hide until the next version" data-hide="${esc(r.update.tag)}">&times;</button>
+    </div>`;
+  }
+  const cards = (r.entries||[]).map(e=>`<div class="newscard">
+      <div class="d">${esc(e.date)}</div>
+      <h3><a href="/news#${esc(e.slug)}">${esc(e.title)}</a></h3>
+      <p>${esc((e.lead||'').slice(0,180))}${(e.lead||'').length>180?'&hellip;':''}</p>
+    </div>`).join('');
+  if(cards) html += `<div class="newscards">${cards}</div>`;
+  el.innerHTML = html;
+  // Скрываем ДО СЛЕДУЮЩЕЙ версии, а не навсегда: «больше не показывать»
+  // означало бы, что о следующем релизе он тоже не узнает.
+  const b = el.querySelector('[data-hide]');
+  if(b) b.onclick = () => { localStorage.setItem('newsHiddenUntil', b.dataset.hide);
+                            tickNews(); };
+}
+
 async function tickSectorHistory(){
   if(_secBusy) return;
   _secBusy = true;
@@ -2413,6 +2470,8 @@ tpInit();
 setInterval(tickCorners, 6000);
 // Раз в 10 секунд: круги ложатся в базу по одному, чаще смотреть незачем.
 tickSectorHistory(); setInterval(tickSectorHistory, 10000);
+// Новости меняются с выходом версии, а не в секунду: раз в полчаса.
+tickNews(); setInterval(tickNews, 1800000);
 // Анкета отвечает на действия человека, а не по таймеру.
 tickOptimiser();
 setInterval(tickG61Board, 20000);

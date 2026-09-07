@@ -734,6 +734,23 @@ def page_catalog(cat, shots=None):
 
 # ── чейнджлог ───────────────────────────────────────────────────────────────
 
+def parse_version(tag):
+    """«v0.1.1» -> (0, 1, 1). Не разобралось — None, а не догадка.
+
+    Тег может быть каким угодно: «nightly», «2026-09-07», «v1.0-rc1». Из
+    «не разобрал» нельзя делать «новее» — иначе программа будет вечно
+    предлагать обновиться на то, чего не понимает.
+    """
+    m = re.match(r"v?(\d+)\.(\d+)(?:\.(\d+))?$", (tag or "").strip())
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3) or 0)) if m else None
+
+
+def is_newer(tag, current):
+    """Правда ли, что в релизе версия свежее установленной."""
+    a, b = parse_version(tag), parse_version(current)
+    return bool(a and b and a > b)
+
+
 def read_news(d=None):
     """Записи из docs/news/*.md, новые сверху.
 
