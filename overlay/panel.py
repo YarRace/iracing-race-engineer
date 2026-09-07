@@ -45,12 +45,15 @@ STARTERS = [
                            "timing", "topspeed", "cornerloss", "trackmap"]),
 ]
 
+# Подзаголовок раздела (#subgroup) тише самой группы (#group): иначе
+# список превращается в лестницу из заголовков.
 QSS = """
 QWidget { background:#0f1216; color:#e8eaed; font-family:'Segoe UI'; font-size:13px; }
 QScrollArea, QSplitter { border:none; background:#0f1216; }
 QSplitter::handle { background:#1b2027; width:1px; }
 QLabel#title { font-size:15px; font-weight:800; }
 QLabel#group { color:#9099a6; font-weight:800; letter-spacing:1px; font-size:11px; }
+QLabel#subgroup { color:#5c6472; font-weight:700; letter-spacing:.6px; font-size:10px; }
 QLabel#colhead { color:#7d8797; font-weight:800; letter-spacing:1.2px; font-size:10px; }
 QLabel#hint { color:#69727f; font-size:11px; }
 QLabel#wname { font-size:15px; font-weight:800; }
@@ -272,10 +275,18 @@ class ControlPanel(QWidget):
             il.addWidget(head)
             self._group_heads[gkey] = head
 
-            for cls in classes:
-                il.addWidget(self._build_row(cls))
-                if config_enabled := self.config.is_enabled(cls.KEY):
-                    self.toggle(cls, True)
+            for tkey, ttitle in self._topics_in(classes):
+                if len(classes) > 8:
+                    # Подзаголовок только там, где список правда длинный.
+                    # В группе из трёх виджетов раздел добавляет строку и не
+                    # экономит ни одной.
+                    sub = QLabel(ttitle, objectName="subgroup")
+                    sub.setContentsMargins(2, 6, 0, 2)
+                    il.addWidget(sub)
+                for cls in self._sorted_topic(classes, tkey):
+                    il.addWidget(self._build_row(cls))
+                    if self.config.is_enabled(cls.KEY):
+                        self.toggle(cls, True)
         il.addStretch(1)
         scroll.setWidget(inner)
 
@@ -362,6 +373,30 @@ class ControlPanel(QWidget):
         grid.setRowStretch(grid.rowCount(), 1)
         self._gallery.setWidget(inner)
 
+    def _topics_in(self, classes):
+        """Разделы, в которых есть хоть один виджет этой группы, по порядку."""
+        from overlay import widgets as W
+
+        present = {getattr(c, "TOPIC", None) for c in classes}
+        out = [(k, t) for k, t in W.TOPICS if k in present]
+        rest = [c for c in classes if getattr(c, "TOPIC", None) is None]
+        return out + ([(None, "Other")] if rest else [])
+
+    def _sorted_topic(self, classes, tkey):
+        """Виджеты раздела, альтернативы — подряд.
+
+        «Standings» и «H. standings» стояли в списке далеко друг от друга, и
+        разница между ними читалась как «зачем-то два одинаковых». Рядом
+        они читаются как выбор формы, чем и являются.
+        """
+        here = [c for c in classes if getattr(c, "TOPIC", None) == tkey]
+
+        def key(c):
+            family = sorted([c.TITLE] + list(getattr(c, "ALT", ()) or ()))
+            return (family[0], c.TITLE)
+
+        return sorted(here, key=key)
+
     def _build_row(self, cls):
         """Строка списка: галочка «включён» + кнопка выбора для предпросмотра."""
         r = QWidget()
@@ -380,6 +415,12 @@ class ControlPanel(QWidget):
         btn = QPushButton(_btn_text(cls.TITLE), objectName="row")
         btn.setCheckable(True)
         btn.setCursor(Qt.PointingHandCursor)
+        # Подсказка говорит вслух то, что список раньше умалчивал: это не
+        # дубль, это другой вид тех же данных.
+        alt = getattr(cls, "ALT", ()) or ()
+        blurb = getattr(cls, "BLURB", "") or ""
+        btn.setToolTip(blurb + (f"\n\nAnother view of the same data: "
+                                f"{', '.join(alt)}" if alt else ""))
         btn.clicked.connect(lambda _=False, k=cls.KEY: self.select(k))
         self._rows[cls.KEY] = btn
         rh.addWidget(btn, 1)

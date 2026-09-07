@@ -3082,3 +3082,75 @@ WIDGETS = [
     DriverStintWidget, TimeLeftWidget, TeamIncidentsWidget,
     SymptomsWidget, BalanceWidget, WearTrendWidget, TyreToolWidget,
 ]
+
+
+# --- Разделы списка в панели ------------------------------------------------
+#
+# Сорок семь виджетов одним столбцом — это прокрутка на каждый чих и вечный
+# вопрос «а Standings и H. standings — это разве не одно и то же?». Одно и
+# то же данные, разная форма; список об этом молчал, и разница выглядела
+# как дубль.
+#
+# Поэтому две вещи, и обе про СПИСОК, а не про виджеты: раздел у каждого и
+# явно названные АЛЬТЕРНАТИВЫ — «другой вид того же». Ничего не удалено:
+# и таблица, и полоса нужны разным людям, а вертикальный список рядом с
+# горизонтальной лентой — это выбор, а не мусор.
+TOPICS = [
+    ("car", "The car right now"),
+    ("lap", "Lap time"),
+    ("field", "The field"),
+    ("tyres", "Tyres"),
+    ("strategy", "Strategy & session"),
+    ("track", "Track & conditions"),
+]
+
+TOPIC_OF = {
+    "car": ("inputs", "shift", "gforce", "slip", "topspeed", "racebar", "ers"),
+    "lap": ("timing", "delta", "deltabar", "deltatrace", "sectors", "optimal",
+            "laptimegraph", "laptimespread", "laplog", "cornerloss",
+            "recorddelta"),
+    "field": ("position", "relative", "standings", "hstandings", "head2head",
+              "radar", "blindspot", "spotter", "postrend"),
+    "tyres": ("tiretemps", "wear", "weargraph", "s_tyres", "s_weartrend",
+              "s_balance", "s_symptoms"),
+    "strategy": ("fuel", "pithelper", "session", "summary", "metrics", "mycar",
+                 "e_driver", "e_time", "e_incidents"),
+    "track": ("trackmap", "flags", "weather", "weatherradar"),
+}
+
+# «Другой вид тех же данных». Пары двусторонние — заполняются ниже.
+ALTERNATIVES = {
+    "standings": ("hstandings",),
+    "laptimegraph": ("laptimespread",),
+    "delta": ("deltabar", "deltatrace"),
+    "deltabar": ("deltatrace",),
+}
+
+
+def _apply_taxonomy():
+    """Разложить виджеты по разделам и связать альтернативы.
+
+    Один проход по списку, а не TOPIC у каждого класса: так таксономия
+    видна целиком в одном месте, и промах (новый виджет без раздела)
+    ловится тестом, а не глазами по сорока семи классам.
+    """
+    by_key = {c.KEY: c for c in WIDGETS}
+    for topic, keys in TOPIC_OF.items():
+        for k in keys:
+            if k in by_key:
+                by_key[k].TOPIC = topic
+    pairs = {}
+    for a, others in ALTERNATIVES.items():
+        for b in others:
+            pairs.setdefault(a, set()).add(b)
+            pairs.setdefault(b, set()).add(a)
+    for a, others in pairs.items():
+        for b in others:
+            pairs[a] |= {x for x in pairs.get(b, ()) if x != a}
+    for k, others in pairs.items():
+        if k in by_key:
+            by_key[k].ALT = tuple(sorted(by_key[o].TITLE for o in others
+                                         if o in by_key))
+
+
+_apply_taxonomy()
