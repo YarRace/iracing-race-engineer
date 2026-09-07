@@ -100,11 +100,12 @@ def build(out_dir, check=False):
     shots = site.load_shots()
     panels = site.load_panel_shots()
     dash = site.load_dashboard_shots()
+    rel = site.load_release()
 
     made = {
         "about": lambda: site.page_about(cat, shots, panels, dash),
         "catalog": lambda: site.page_catalog(cat, shots),
-        "download": lambda: site.page_download(cat, panels),
+        "download": lambda: site.page_download(cat, panels, rel),
         "news": lambda: site.page_news(site.read_news()),
     }
 

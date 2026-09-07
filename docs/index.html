@@ -129,6 +129,17 @@
       width:24px;height:24px;border-radius:50%;background:var(--accent);
       color:#08111c;font-weight:800;font-size:13px;display:flex;
       align-items:center;justify-content:center}
+    /* Download cards. They exist only when a release is actually
+       published — see release_section(). */
+    .dls{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+      gap:14px}
+    a.dl{display:block;background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--r-card);padding:18px 20px;color:var(--txt)}
+    a.dl:hover{border-color:var(--accent);text-decoration:none}
+    a.dl b{display:block;font-size:16px;color:var(--accent);margin-bottom:4px}
+    a.dl .dlname{display:block;font-family:ui-monospace,Consolas,monospace;
+      font-size:12px;color:var(--muted);margin-bottom:8px}
+    a.dl span{color:var(--muted);font-size:13.5px}
     ol.steps b{display:block;margin-bottom:6px}
     ol.steps p{color:var(--muted);font-size:14px;margin-top:6px}
     pre.cmd{background:#0b0e12;border:1px solid var(--line);border-radius:8px;

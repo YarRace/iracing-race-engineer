@@ -534,7 +534,8 @@ def about():
 @app.get("/download", response_class=HTMLResponse)
 def download():
     """Как это взять и запустить. Сайт рассказывал про продукт, но не давал его."""
-    return site.page_download(site.load_catalog(), site.load_panel_shots())
+    return site.page_download(site.load_catalog(), site.load_panel_shots(),
+                              site.load_release())
 
 
 @app.get("/catalog", response_class=HTMLResponse)

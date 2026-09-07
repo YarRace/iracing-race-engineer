@@ -200,6 +200,17 @@ def shell(title, body, active=""):
       width:24px;height:24px;border-radius:50%;background:var(--accent);
       color:#08111c;font-weight:800;font-size:13px;display:flex;
       align-items:center;justify-content:center}}
+    /* Download cards. They exist only when a release is actually
+       published — see release_section(). */
+    .dls{{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+      gap:14px}}
+    a.dl{{display:block;background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--r-card);padding:18px 20px;color:var(--txt)}}
+    a.dl:hover{{border-color:var(--accent);text-decoration:none}}
+    a.dl b{{display:block;font-size:16px;color:var(--accent);margin-bottom:4px}}
+    a.dl .dlname{{display:block;font-family:ui-monospace,Consolas,monospace;
+      font-size:12px;color:var(--muted);margin-bottom:8px}}
+    a.dl span{{color:var(--muted);font-size:13.5px}}
     ol.steps b{{display:block;margin-bottom:6px}}
     ol.steps p{{color:var(--muted);font-size:14px;margin-top:6px}}
     pre.cmd{{background:#0b0e12;border:1px solid var(--line);border-radius:8px;
@@ -277,6 +288,30 @@ def _load_index(folder, root=None):
         return json.loads(f.read_text(encoding="utf-8"))
     except (ValueError, OSError):
         return []
+
+
+def load_release(root=None):
+    """Опись опубликованного релиза из docs/release.json.
+
+    Файл пишет `tools/fetch_release.py`, а обновляет прогон при пуше в
+    main. Нет файла — значит опубликованного релиза нет: страница честно
+    скажет, что скачивать пока нечего. Кнопка над несуществующим файлом
+    хуже четырёх честных команд, и это не фигура речи — по такой кнопке
+    человек уходит с 404 и не возвращается.
+
+    Черновик релиза сюда не попадает: его видит только владелец, а
+    страницу читают все.
+    """
+    base = pathlib.Path(root) if root else (ROOT / "docs")
+    f = base / "release.json"
+    if not f.exists():
+        return None
+    try:
+        rel = json.loads(f.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+    # Релиз без файлов — это тег с описанием, скачивать нечего.
+    return rel if isinstance(rel, dict) and rel.get("assets") else None
 
 
 def load_panel_shots(root=None):
@@ -528,7 +563,73 @@ NEEDS = [
 ]
 
 
-def page_download(cat, panels=None):
+def human_size(n):
+    """Размер словами. Человеку важно «100 или 300 МБ», а не число байт."""
+    n = int(n or 0)
+    return f"{n / 1048576:.0f} MB" if n >= 1048576 else f"{n / 1024:.0f} KB"
+
+
+# Что есть что. Порядок файлов в ответе GitHub случаен, а человек должен
+# понимать, с какого начинать: три архива без подписей — это выбор вслепую.
+ASSET_NOTES = (
+    ("RaceEngineerLauncher", "Start here",
+     "One button that starts both halves and waits until the engineer answers."),
+    ("RaceEngineerOverlay", "The overlay",
+     "The panel and every widget that sits on top of the sim."),
+    ("RaceEngineer", "The engineer",
+     "Reads the sim and serves the dashboard on :8000."),
+)
+
+
+def _asset_note(name):
+    for key, title, note in ASSET_NOTES:
+        if name.startswith(key):
+            return title, note
+    return name, ""
+
+
+def release_section(rel):
+    """Ссылки на скачивание — или честное «пока нечего»."""
+    if not rel:
+        return """<section>
+  <h2>Four steps</h2>
+  <ol class="steps">{steps}</ol>
+  <p class="note" style="margin-top:20px">There is no download link here on
+  purpose: nothing is published yet, and a button over an empty file is worse
+  than four honest commands.</p>
+</section>"""
+
+    # Порядок наш, а не тот, в котором их вернул GitHub: с лаунчера начинают.
+    order = {k: i for i, (k, _, _) in enumerate(ASSET_NOTES)}
+    assets = sorted(rel["assets"],
+                    key=lambda a: min((i for k, i in order.items()
+                                       if a["name"].startswith(k)), default=99))
+    cards = ""
+    for a in assets:
+        title, note = _asset_note(a["name"])
+        cards += (f'<a class="dl" href="{e(a["url"])}">'
+                  f'<b>{e(title)}</b>'
+                  f'<span class="dlname">{e(a["name"])} · {e(human_size(a.get("size")))}</span>'
+                  f'<span>{e(note)}</span></a>')
+    tag = e(rel.get("tag", ""))
+    return f"""<section>
+  <h2>Download</h2>
+  <p class="lead">Version {tag}. Windows only, no installer and no Python
+  needed. Unpack all three next to each other — the launcher looks for the
+  other two as siblings.</p>
+  <div class="dls">{cards}</div>
+  <p class="note" style="margin-top:16px">Windows SmartScreen will warn about
+  an unknown publisher: the build is not code-signed yet. <i>More info</i> →
+  <i>Run anyway</i>, or check the file yourself. Every release is built from
+  this repository by a public workflow, and you can read what it does.</p>
+</section>
+<section>
+  <h2>Or run it from source</h2>
+  <ol class="steps">{{steps}}</ol>
+</section>"""
+
+
+def page_download(cat, panels=None, rel=None):
     """Как это взять и запустить.
 
     Готового установщика нет, и писать «Download» кнопкой поверх пустоты
@@ -541,10 +642,12 @@ def page_download(cat, panels=None):
     steps = "".join(
         f"<li><b>{e(title)}</b><pre class=\"cmd\">{e(cmd)}</pre>"
         f"<p>{e(note)}</p></li>" for title, cmd, note in STEPS)
+    lead = ("Unpack a folder and run it"
+            if rel else "Four commands and you are on track")
     return shell("Get it", f"""
 <section class="hero" style="padding:44px 0 10px">
   <h1>Get it running</h1>
-  <p class="lead">Four commands and you are on track with
+  <p class="lead">{lead} with
   {k.get('widgets', 0)} {plural(k.get('widgets', 0), 'overlay', 'overlays')}
   and a dashboard. It runs entirely on your own machine.</p>
 </section>
@@ -552,13 +655,7 @@ def page_download(cat, panels=None):
   <h2>What you need</h2>
   <div class="sims">{needs}</div>
 </section>
-<section>
-  <h2>Four steps</h2>
-  <ol class="steps">{steps}</ol>
-  <p class="note" style="margin-top:20px">There is no download link here on
-  purpose: nothing is published yet, and a button over an empty file is worse
-  than four honest commands.</p>
-</section>
+{release_section(rel).format(steps=steps)}
 <section>
   <h2>Or build it standalone</h2>
   <p class="lead">If you would rather not keep Python around, build it once
