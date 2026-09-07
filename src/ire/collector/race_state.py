@@ -44,6 +44,20 @@ def decode_warnings(bits):
     return [{"key": k, "label": lbl} for mask, k, lbl in _ENGINE_WARNINGS if bits & mask]
 
 
+def _opt(ir, name):
+    """Необязательный канал: у старого SDK его может не быть вовсе.
+
+    Обращение по ключу к настоящему irsdk отдаёт None, а к обычному
+    словарю — бросает KeyError. Второе случается в тестах и в любом коде,
+    который подменяет источник, и падать из-за камеры, без которой всё
+    работает, здесь нечего.
+    """
+    try:
+        return ir[name]
+    except (KeyError, TypeError):
+        return None
+
+
 def _relative(ir):
     """Relative-разрыв (сек) до ФИЗИЧЕСКИ ближайшей машины на трассе впереди и сзади,
     по положению на круге (CarIdxLapDistPct) — а не по позиции в стендинге.
@@ -232,9 +246,19 @@ def build_relative(ir):
         return {"cars": [], "player_pct": None}
     lap_t = (ir["LapBestLapTime"] or 0) or (ir["LapLastLapTime"] or 0) or 90.0
     cars = []
+    pace_pct = None
     for d in drivers:
         idx = d.get("CarIdx")
-        if idx is None or d.get("CarIsPaceCar") or d.get("IsSpectator"):
+        if idx is None or d.get("IsSpectator"):
+            continue
+        if d.get("CarIsPaceCar"):
+            # В таблицу машина безопасности не идёт — её там никто не
+            # обгоняет. А на карте она нужна: под жёлтым весь смысл в том,
+            # где она сейчас и успеешь ли ты за ней пристроиться.
+            pp = _at(dist, idx)
+            ps = _at(surf, idx)
+            if pp is not None and pp >= 0 and not (ps is not None and ps < 0):
+                pace_pct = round(pp, 4)
             continue
         dd = _at(dist, idx)
         if dd is None or dd < 0:
@@ -259,7 +283,12 @@ def build_relative(ir):
             "is_player": idx == my_idx,
         })
     cars.sort(key=lambda c: c["rel_pct"])
-    return {"cars": cars, "player_pct": round(my_d, 4)}
+    # cam_idx — за какой машиной сейчас камера. Нужен карте: когда смотришь
+    # трансляцию или повтор, на карте должно быть видно, чей это вид.
+    cam = _opt(ir, "CamCarIdx")
+    return {"cars": cars, "player_pct": round(my_d, 4),
+            "pace_pct": pace_pct,
+            "cam_idx": cam if isinstance(cam, int) and cam >= 0 else None}
 
 
 def race_extras(ir):

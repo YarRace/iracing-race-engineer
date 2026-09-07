@@ -425,11 +425,11 @@
     "title": "Track map",
     "group": "solo",
     "size": [
-      240,
-      200
+      300,
+      240
     ],
     "file": "trackmap.png",
-    "doc": "The circuit drawn from your own laps, with the field on it.",
+    "doc": "The circuit with the field on it: turn numbers, names, flags and the safety car.",
     "sets": [
       "Endurance",
       "Practice / hotlap"

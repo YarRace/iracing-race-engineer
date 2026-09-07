@@ -1937,12 +1937,68 @@ class RadarWidget(OverlayWidget):
 
 
 class TrackMapWidget(OverlayWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "trackmap", "Track map", (240, 200), "solo", ("trackmap", "relative")
-    BLURB = "The circuit drawn from your own laps, with the field on it."
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "trackmap", "Track map", (300, 240), "solo", ("trackmap", "relative", "race")
+    BLURB = "The circuit with the field on it: turn numbers, names, flags and the safety car."
+
+    # Цвет полотна под флагом. Жёлтый на карте — не украшение: под полным
+    # жёлтым меняется всё поведение, и увидеть это надо не читая текст.
+    FLAG_LINE = {"caution": "#ffd23f", "caution_waving": "#ffd23f",
+                 "yellow": "#ffd23f", "yellow_waving": "#ffd23f",
+                 "red": "#ff5a4d", "white": "#e8eaed", "checkered": "#e8eaed"}
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self._corners = []
+        self._corner_key = None
+
+    def _turns(self, pts, tm):
+        """Повороты для этой карты. Считаются один раз, а не каждый кадр."""
+        ang = float(self._opt("corner_angle", 30))
+        key = (tm.get("track"), tm.get("config"), len(pts), ang)
+        if key != self._corner_key:
+            try:
+                from ire.metrics import track_corners
+                self._corners = track_corners.find(pts, ang)
+            except Exception:                            # noqa: BLE001
+                self._corners = []
+            self._corner_key = key
+        return self._corners
+
+    def _backdrop(self, p, tm):
+        """Фото трассы под картой. Нет файла — просто ничего."""
+        if not self._opt("photo", True):
+            return
+        try:
+            from overlay import trackphoto
+            px = trackphoto.photo(tm.get("track"), tm.get("config"))
+        except Exception:                                # noqa: BLE001
+            px = None
+        if px is None or px.isNull():
+            return
+        w, h = self.width(), self.height()
+        # Заполняем кадр целиком, не искажая: масштаб по большей стороне.
+        k = max(w / px.width(), h / px.height())
+        tw, th = px.width() * k, px.height() * k
+        p.save()
+        p.setOpacity(max(0.0, min(1.0, float(self._opt("photo_dim", 35)) / 100.0)))
+        p.drawPixmap(QRectF((w - tw) / 2, (h - th) / 2, tw, th), px,
+                     QRectF(0, 0, px.width(), px.height()))
+        p.restore()
+
+    def _line_color(self):
+        base = self._opt("line_color", "#8b97a6")
+        if not self._opt("flag_line", True):
+            return base
+        for f in (self.store.get("race") or {}).get("flags") or []:
+            col = self.FLAG_LINE.get(f.get("key"))
+            if col:
+                return col
+        return base
 
     def draw(self, p):
         tm = self.store.get("trackmap") or {}
         pts = tm.get("points") or []
+        self._backdrop(p, tm)
         if not pts:
             self.text(p, 12, 28, "drive a lap — map will build", MUTED, 10)
             return
@@ -1954,7 +2010,10 @@ class TrackMapWidget(OverlayWidget):
                     name = f"{name} · {cfg}"             # конфиг дописываем, если не вошёл в имя
                 self.text_center(p, name, WHITE, 11, y=14)
                 top = 20                                 # освобождаем место — карту сдвигаем ниже
-        sc = min(self.width(), self.height() - top) / 100.0
+        # Поля: номера поворотов и плашки с именами выходят ЗА полотно, и без
+        # запаса первый же поворот у края обрезается на половине цифры.
+        pad = 16 if self._opt("show_corners", True) else 6
+        sc = max(min(self.width() - pad * 2, self.height() - top - pad * 2) / 100.0, 0.2)
         ox = (self.width() - 100 * sc) / 2
         oy = top + (self.height() - top - 100 * sc) / 2
         path = QPainterPath()
@@ -1962,16 +2021,65 @@ class TrackMapWidget(OverlayWidget):
             x, y = ox + pt["x"] * sc, oy + pt["y"] * sc
             path.lineTo(x, y) if i else path.moveTo(x, y)
         # НЕ замыкаем: у самодельной карты есть дрейф → замыкающая линия резала бы полкарты
-        pen = QPen(QColor(self._opt("line_color", "#8b97a6")))
+        pen = QPen(QColor(self._line_color()))
         pen.setWidthF(float(self._opt("line_w", 4)))     # толщина линии трассы (⚙)
         pen.setCapStyle(Qt.RoundCap)
         pen.setJoinStyle(Qt.RoundJoin)
         p.setPen(pen)
         p.setBrush(Qt.NoBrush)
         p.drawPath(path)
-        cars = (self.store.get("relative") or {}).get("cars") or []
+
+        if self._opt("show_corners", True):
+            self._draw_corners(p, pts, tm, ox, oy, sc)
+
+        rel = self.store.get("relative") or {}
         spts = sorted(pts, key=lambda q: q.get("pct", 0))   # привязка — по pct (карта хранится в порядке траектории)
+        self._draw_cars(p, rel, spts, ox, oy, sc, top)
+        self._draw_pace(p, rel, spts, ox, oy, sc)
+
+    def _draw_corners(self, p, pts, tm, ox, oy, sc):
+        """Номера поворотов, найденные ПО ФОРМЕ.
+
+        Это не официальная нумерация iRacing — её взять негде: SDK её не
+        отдаёт, а в публичных контурах SVG нет ни одной подписи. Номера
+        идут по ходу движения от старт/финиша и отбирают повороты, где
+        человек реально крутит руль: порог сверен с его собственной
+        телеметрией по Ле-Ману.
+        """
+        from ire.metrics import track_corners
+        turns = self._turns(pts, tm)
+        if not turns:
+            return
+        # Подпись поворота НЕ должна выглядеть как машина. Первая версия
+        # рисовала тёмный кружок с цифрой — ровно то же, что машинка, и
+        # на карте выходило пятнадцать одинаковых кружков, из которых
+        # шесть ехали, а девять нет. Теперь это только цифра с тёмным
+        # ореолом плюс короткая насечка на самом полотне.
+        f = QFont("Segoe UI")
+        f.setPointSizeF(max(6.5, sc * 6.5))
+        f.setBold(True)
+        p.setFont(f)
+        spots = track_corners.place(pts, turns, reach=7.0, apart=9.0)
+        for c, (lx, ly) in zip(turns, spots):
+            x, y = ox + lx * sc, oy + ly * sc
+            tx, ty = ox + c["x"] * sc, oy + c["y"] * sc
+            p.setPen(QPen(QColor(255, 255, 255, 55), 1))
+            p.drawLine(QPointF(tx, ty), QPointF(x, y))    # насечка к самому повороту
+            box = QRectF(x - 9, y - 8, 18, 16)
+            # Ореол: цифра поверх серой линии иначе не читается.
+            p.setPen(QPen(QColor(13, 15, 18, 210)))
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                p.drawText(box.translated(dx, dy), Qt.AlignCenter, str(c["n"]))
+            p.setPen(QPen(QColor("#c3cbd6")))
+            p.drawText(box, Qt.AlignCenter, str(c["n"]))
+
+    def _draw_cars(self, p, rel, spts, ox, oy, sc, top=0):
+        cars = rel.get("cars") or []
+        cam = rel.get("cam_idx")
         cr = float(self._opt("car_r", 7))                # размер машинок (⚙)
+        names = self._opt("show_names", "near")
+        near = float(self._opt("name_range", 3)) / 100.0
+        style = self._opt("name_style", "last")
         shown = 0
         # игрок рисуется ПОСЛЕДНИМ — поверх остальных, чтоб его было видно
         for c in sorted(cars, key=lambda cc: 1 if cc.get("is_player") else 0):
@@ -1982,6 +2090,16 @@ class TrackMapWidget(OverlayWidget):
             player = c.get("is_player")
             r = cr + 1 if player else cr
             cx, cy = ox + pos[0] * sc, oy + pos[1] * sc
+            if c.get("on_pit"):
+                # В боксах машина никого не обгоняет. Полный цвет читается
+                # как «он рядом на трассе», а его там нет.
+                p.setOpacity(0.45)
+            if cam is not None and c.get("idx") == cam and not player:
+                # Кольцо вокруг того, за кем камера: на повторе иначе не
+                # понять, чей это вид.
+                p.setPen(QPen(QColor("#ffd23f"), 2))
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(QPointF(cx, cy), r + 3.5, r + 3.5)
             p.setPen(QPen(QColor(13, 15, 18), 1.5))      # тёмная обводка — контраст на линии
             p.setBrush(QColor(GREEN) if player else _clr(c.get("class_color")))   # игрок зелёный
             p.drawEllipse(QPointF(cx, cy), r, r)
@@ -1993,13 +2111,71 @@ class TrackMapWidget(OverlayWidget):
                 p.setFont(f)
                 p.setPen(QPen(QColor("#0d0f12")))
                 p.drawText(QRectF(cx - r, cy - r - 1, r * 2, r * 2), Qt.AlignCenter, num)
+            if names != "off" and not player:
+                if names == "all" or abs(c.get("rel_pct") or 1.0) <= near:
+                    self._pill(p, cx, cy - r - 3, c, style, top)
+            p.setOpacity(1.0)
             shown += 1
         self.text(p, 10, self.height() - 8, f"cars: {shown}", MUTED, 9)    # диагностика/инфо
+
+    def _pill(self, p, cx, cy, car, style, top=0):
+        """Плашка с именем над машинкой."""
+        name = fmt_driver_name(car.get("name"), style, "normal")
+        if not name:
+            return
+        f = QFont("Segoe UI")
+        f.setPointSizeF(9.0)
+        f.setBold(True)
+        p.setFont(f)
+        w = p.fontMetrics().horizontalAdvance(name) + 10
+        h = p.fontMetrics().height() + 2
+        x = min(max(cx - w / 2, 1), max(self.width() - w - 1, 1))
+        # Не выше имени трассы: плашка садилась ровно на заголовок.
+        y = max(cy - h, top + 1)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(13, 15, 18, 215))
+        p.drawRoundedRect(QRectF(x, y, w, h), h / 2, h / 2)
+        p.setPen(QPen(_clr(car.get("class_color"))))
+        p.drawText(QRectF(x, y, w, h), Qt.AlignCenter, name)
+
+    def _draw_pace(self, p, rel, spts, ox, oy, sc):
+        """Машина безопасности. Под жёлтым это главное, что нужно на карте."""
+        if not self._opt("show_pace", True):
+            return
+        pp = rel.get("pace_pct")
+        if pp is None:
+            return
+        pos = self._on_track(pp, spts)
+        cx, cy = ox + pos[0] * sc, oy + pos[1] * sc
+        r = float(self._opt("car_r", 7)) + 2
+        p.setPen(QPen(QColor(13, 15, 18), 1.5))
+        p.setBrush(QColor("#ffd23f"))
+        p.drawEllipse(QPointF(cx, cy), r, r)
+        f = QFont("Segoe UI")
+        f.setPointSizeF(max(6.0, r * 0.85))
+        f.setBold(True)
+        p.setFont(f)
+        p.setPen(QPen(QColor("#0d0f12")))
+        p.drawText(QRectF(cx - r, cy - r - 1, r * 2, r * 2), Qt.AlignCenter, "SC")
 
     def extra_settings(self, lay):
         self.opt_slider(lay, "Track line width", "line_w", 1, 14, 4)
         self.opt_slider(lay, "Car dot size", "car_r", 4, 18, 7)
         self.opt_check(lay, "Show track name", "show_name", True)
+        self.opt_check(lay, "Colour the track by the flag", "flag_line", True)
+        self.opt_check(lay, "Show the safety car", "show_pace", True)
+        # Номера СВОИ, найденные по форме: официальных iRacing не отдаёт.
+        self.opt_check(lay, "Number the turns (found from the shape)",
+                       "show_corners", True)
+        self.opt_slider(lay, "A turn is at least, degrees", "corner_angle", 15, 60, 30)
+        self.opt_choice(lay, "Driver names", "show_names",
+                        [("off", "Off"), ("near", "Cars near me"), ("all", "Everyone")])
+        self.opt_slider(lay, "Near me means, % of a lap", "name_range", 1, 20, 3)
+        self.opt_choice(lay, "Name style", "name_style",
+                        [("last", "Last"), ("jlast", "J. Last"),
+                         ("lastj", "Last J."), ("full", "Full")])
+        self.opt_check(lay, "Track photo behind the map", "photo", True)
+        self.opt_slider(lay, "Photo brightness", "photo_dim", 5, 100, 35)
 
     @staticmethod
     def _on_track(pct, s):
