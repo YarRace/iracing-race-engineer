@@ -73,7 +73,17 @@ def main():
                     if a.wait else None)
 
     while True:
-        runs = get(f"{base}/actions/runs?per_page={max(a.limit, 10)}")["workflow_runs"]
+        try:
+            runs = get(f"{base}/actions/runs?per_page={max(a.limit, 10)}")["workflow_runs"]
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            # Обрыв связи посреди ожидания — не ответ о прогоне. Инструмент,
+            # который падает стеком на моргнувшем интернете, заставляет
+            # запускать его заново и гадать, что там с прогоном.
+            if not a.wait:
+                raise
+            print(f"  связь пропала ({type(exc).__name__}) — пробую снова")
+            time.sleep(25)
+            continue
         if sha:
             runs = [r for r in runs if r["head_sha"].startswith(sha)]
         if not a.wait or (runs and all(r["status"] == "completed" for r in runs)):
