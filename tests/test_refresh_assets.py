@@ -91,9 +91,19 @@ def test_the_annotation_survives_newlines_and_percent(monkeypatch, capsys):
     assert "ValueError" in out
 
 
-@pytest.mark.parametrize("script", ["render_dashboard.py", "render_panel.py"])
-def test_a_shot_that_did_not_render_returns_the_warning_code(script):
+def test_a_dashboard_shot_that_did_not_render_is_only_a_warning():
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "tools" / "render_dashboard.py").read_text(encoding="utf-8")
+    assert "return 2 if failed else 0" in src, (
+        "снимок дашборда снова роняет сборку: браузера на машине может и не "
+        "быть, это не повод не собрать релиз")
+
+
+@pytest.mark.parametrize("script", ["render_panel.py", "render_widgets.py"])
+def test_a_widget_that_threw_still_fails_the_build(script):
+    # Эти двое рисуют через Qt, без внешнего браузера. Исключение оттуда —
+    # сломанный виджет, и прощать его нельзя: витрина молча недосчитается
+    # картинки, а опись уедет в git уже без неё.
     src = (pathlib.Path(__file__).resolve().parents[1] / "tools" / script).read_text(
         encoding="utf-8")
-    assert "return 2 if failed else 0" in src, (
-        f"{script} снова роняет сборку из-за одного снимка")
+    assert "return 1" in src, f"{script} стал прощать поломку виджета"
