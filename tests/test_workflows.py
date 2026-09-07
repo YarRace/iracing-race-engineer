@@ -83,3 +83,16 @@ def test_the_russian_output_has_somewhere_to_go():
         env = d.get("env") or {}
         assert str(env.get("PYTHONIOENCODING", "")).lower() == "utf-8", (
             f"{f.name}: нет PYTHONIOENCODING — русский вывод уронит шаг")
+
+
+def test_the_repo_is_read_from_origin_not_hardcoded():
+    """tools/ci_status.py должен работать и после переименования репозитория."""
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    from ci_status import repo_from_url
+
+    for url in ("https://github.com/YarRace/iracing-race-engineer.git",
+                "https://github.com/YarRace/iracing-race-engineer",
+                "git@github.com:YarRace/iracing-race-engineer.git",
+                "  https://github.com/YarRace/iracing-race-engineer/  \n"):
+        assert repo_from_url(url) == "YarRace/iracing-race-engineer", url

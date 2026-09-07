@@ -51,6 +51,16 @@ python -m pytest -q
 
 Qt tests run offscreen, and nothing needs iRacing to be open.
 
+If a run goes red on GitHub and you cannot open its log — the log is owner
+only, even on a public repository — ask for the reason instead of guessing:
+
+```
+python tools/ci_status.py --wait
+```
+
+It prints the failing step and the real error text, which the build puts
+into an annotation precisely because annotations are readable by everyone.
+
 ## What this project will not take
 
 - **Scraping other people's data** from services that do not offer it. This
