@@ -10,6 +10,7 @@
     python tools/refresh_assets.py --fast    без снимков (только каталог)
 """
 import argparse
+import os
 import pathlib
 import subprocess
 import sys
@@ -39,6 +40,27 @@ STEPS = [
 ]
 
 
+def _annotate(script, err):
+    """Вынести ошибку в аннотацию GitHub — единственное, что видно снаружи.
+
+    Журнал прогона отдаётся только владельцу репозитория: запрос к
+    /actions/jobs/<id>/logs отвечает 403 даже для открытого репозитория.
+    Из-за этого причину падения приходилось УГАДЫВАТЬ по имени шага — три
+    догадки подряд, каждая ценой круга «поправил, запушил, подождал».
+
+    А вот аннотации открыты всем: /check-runs/<id>/annotations отдаёт их без
+    токена. Значит настоящий текст ошибки надо класть именно туда.
+
+    Перевод строки внутри команды Actions кодируется как %0A: иначе
+    аннотация обрежется на первой строке, а нужен как раз хвост с
+    исключением.
+    """
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    esc = err.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+    print(f"::error title={script}::{esc[:4000] or 'без вывода'}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true",
@@ -63,10 +85,11 @@ def main():
         if r.returncode == 2:
             skipped.append(script)
         elif r.returncode != 0:
-            failed.append((script, (r.stderr or r.stdout or "")[-400:]))
+            failed.append((script, ((r.stdout or "") + (r.stderr or "")).strip()))
 
     for script, err in failed:
         print(f"\n  {script}:\n{err}")
+        _annotate(script, err)
     for script in skipped:
         print(f"  пропущено: {script} — нечем выполнить на этой машине")
     return 1 if failed else 0
