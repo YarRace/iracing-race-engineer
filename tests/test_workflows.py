@@ -96,3 +96,42 @@ def test_the_repo_is_read_from_origin_not_hardcoded():
                 "git@github.com:YarRace/iracing-race-engineer.git",
                 "  https://github.com/YarRace/iracing-race-engineer/  \n"):
         assert repo_from_url(url) == "YarRace/iracing-race-engineer", url
+
+
+def test_no_step_hides_a_failure_behind_a_later_command():
+    """На Windows оболочка по умолчанию — pwsh, и она смотрит код ПОСЛЕДНЕЙ
+    команды. Несколько команд в одном шаге означают, что падение первой не
+    заметит никто: шаг зелёный, а работа не сделана.
+
+    Так и было: `refresh_assets` падал за спиной у зелёного pytest, `tests`
+    показывал галочку, а `release` и `site` валились на том же самом месте
+    — и это выглядело загадкой.
+
+    Лечится не разбиением, а оболочкой: bash на GitHub запускается с
+    `set -eo pipefail` и падает на первой ошибке. Значит шаг из нескольких
+    команд обязан её объявить.
+    """
+    bad = []
+    for f in FLOWS:
+        d = yaml.safe_load(f.read_text(encoding="utf-8"))
+        for job in d["jobs"].values():
+            if "windows" not in str(job.get("runs-on", "")):
+                continue
+            for step in job.get("steps", []):
+                cmds = [ln.strip() for ln in step.get("run", "").splitlines()
+                        if ln.strip() and not ln.strip().startswith("#")]
+                if len(cmds) < 2 or step.get("shell") in ("bash", "sh"):
+                    continue
+                # Настоящий скрипт на PowerShell — другое дело: он сам
+                # объявляет, когда считать себя упавшим. Шаг «сборка вообще
+                # запускается?» именно такой, и ломать его ради правила
+                # значило бы менять работающую проверку на формальность.
+                run = step.get("run", "")
+                if step.get("shell") == "pwsh" and ("throw" in run
+                                                    or "exit 1" in run):
+                    continue
+                bad.append(f"{f.name} / {step.get('name', '?')}: "
+                           f"{len(cmds)} команд, оболочка "
+                           f"{step.get('shell', 'pwsh по умолчанию')}")
+    assert not bad, ("\n  ".join(
+        ["падение первой команды никто не увидит:"] + bad))

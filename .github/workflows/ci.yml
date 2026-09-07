@@ -37,6 +37,13 @@ jobs:
           cache: pip
 
       - name: Install dependencies
+        # shell: bash — не прихоть. Оболочка по умолчанию на Windows это
+        # pwsh, и она смотрит код ТОЛЬКО последней команды: упавший
+        # `pip install -r requirements.txt` спрятался бы за успешным
+        # `pip install pyinstaller`, и сборка пошла бы дальше без половины
+        # зависимостей. bash на GitHub запускается с `set -eo pipefail` и
+        # падает на первой же ошибке.
+        shell: bash
         # pyirsdk ставится, но без сима ничего не читает — это нормально,
         # весь код вокруг него ветвится по is_connected.
         run: |
