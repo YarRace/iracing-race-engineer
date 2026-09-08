@@ -271,6 +271,24 @@ class OverlayWidget(QWidget):
         p.setBrush(QColor(lvl, lvl + 2, lvl + 5, int(a * 255)))
         p.drawRoundedRect(QRectF(0, 0, self.width(), self.height()), r, r)
 
+    def elide(self, p, s, width, size=12, bold=False, key=None):
+        """Обрезать строку ПО ШИРИНЕ, с многоточием.
+
+        Раньше имена резались по числу букв: `nm[:12]`. «Marek Ostrowski»
+        превращался в «Marek Ostrowsk» — не в обрезанное имя, а в ДРУГОЕ,
+        и по нему человека в таблице не узнать. Буква вдобавок не равна
+        букве: «Ostrowski» и «Иванов» занимают разную ширину, и предел в
+        двенадцать знаков подобран под одну из них.
+
+        Многоточие важно не меньше обрезки: оно говорит «здесь не всё».
+        """
+        s = str(s)
+        p.setFont(self._font_for(key, size, bold))
+        fm = p.fontMetrics()
+        if fm.horizontalAdvance(s) <= width:
+            return s
+        return fm.elidedText(s, Qt.ElideRight, int(max(width, 8)))
+
     def text(self, p, x, y, s, color="#e8eaed", size=12, bold=False, key=None):
         p.setFont(self._font_for(key, size, bold))
         if self._opt("text_shadow", False):                        # Kapps «Text Shadow»

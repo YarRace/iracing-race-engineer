@@ -13,6 +13,22 @@ from PySide6.QtGui import QColor, QPen, QPainterPath, QFont, QPolygonF
 
 from overlay.base import OverlayWidget, lap_time
 
+
+def _edges(corner, tl, tr):
+    """(внутренняя, внешняя) кромка колеса.
+
+    Соглашение живёт в `ire.metrics.tire`: tl/tr — стороны в координатах
+    МАШИНЫ, поэтому у левых колёс внутренняя это tr, у правых — tl. Один
+    раз его уже перепутали, и совет по развалу выходил ровно обратным.
+    Оверлей должен подниматься и без пакета инженера рядом, отсюда запасной
+    вариант — но он повторяет ту же формулу, а не другую.
+    """
+    try:
+        from ire.metrics.tire import edges
+        return edges(corner, tl, tr)
+    except Exception:                                    # noqa: BLE001
+        return (tr, tl) if corner[0] == "L" else (tl, tr)
+
 GREEN, RED, AMBER, BLUE, MUTED, WHITE, PURPLE = "#2ecc71", "#e74c3c", "#f1c40f", "#3ea6ff", "#9099a6", "#e8eaed", "#c77dff"
 
 
@@ -103,6 +119,33 @@ def _draw_logo(p, px, x, cy, size):
         return
     scaled = px.scaled(int(size * 2.4), int(size), Qt.KeepAspectRatio, Qt.SmoothTransformation)
     p.drawPixmap(int(x), int(cy - scaled.height() / 2), scaled)
+
+
+def fastest_laps(rows):
+    """Кто держит быстрейший круг — по классам. {класс: время}.
+
+    Фиолетовый в гонках означает ОДНО: быстрейший круг. Таблица красила им
+    столбец BEST у всех подряд, и признак, который существует ровно затем,
+    чтобы выделить одного, не выделял никого.
+
+    По классам, а не в общем: в мультиклассе GT3 никогда не побьёт LMP2 по
+    времени круга, и общий фиолетовый означал бы «ты не прототип». Нет
+    класса — считаем всех одним.
+    """
+    best = {}
+    for r in rows or []:
+        t = r.get("best")
+        # `t != t` — проверка на NaN, и она здесь не для красоты: NaN
+        # проходит и через isinstance, и через `t <= 0` (любое сравнение с
+        # NaN ложно), после чего оседает как «быстрейший круг» и уже
+        # никогда никому не проигрывает — `t < best[k]` тоже ложно.
+        # Фиолетовый достался бы мусору и больше не сдвинулся.
+        if not isinstance(t, (int, float)) or t != t or t <= 0:
+            continue
+        k = r.get("car_class") or ""
+        if k not in best or t < best[k]:
+            best[k] = t
+    return best
 
 
 def fmt_driver_name(raw, style="full", case="normal"):
@@ -1136,11 +1179,24 @@ class TireTempsWidget(OverlayWidget):
             if skew_on:
                 l, r = corner.get("tl"), corner.get("tr")
                 if isinstance(l, (int, float)) and isinstance(r, (int, float)):
-                    d = l - r
-                    if abs(d) >= thr:
-                        # какой край горит: внутренний у левых колёс — это tl,
-                        # у правых — tr, поэтому пишем стороной, а не «inner»
-                        label = f"{c}  {'◀' if d > 0 else '▶'}{abs(d):.0f}°"
+                    if abs(l - r) >= thr:
+                        # Раньше здесь стояли треугольники ◀ и ▶ — и Segoe UI
+                        # их не содержит: в блоке «геометрические фигуры» у
+                        # неё нет глифов, они живут в Segoe UI Symbol. На
+                        # экране вместо стрелки висел пустой квадрат, у всех
+                        # четырёх колёс сразу.
+                        #
+                        # Заодно чинится и смысл. Стрелка показывала СТОРОНУ
+                        # (левый край колеса против правого) — по ней надо
+                        # ещё сообразить, левое это колесо или правое, и что
+                        # с этим делать. Внутренний и внешний края отвечают
+                        # на вопрос сразу: горячий внутренний — избыток
+                        # развала. Соответствие берём из tire.edges, где оно
+                        # проверено дважды, а не выводим здесь заново.
+                        inner, outer = _edges(c, l, r)
+                        d = inner - outer
+                        side = "inner" if d > 0 else "outer"
+                        label = f"{c}  {side} +{abs(d):.0f}°"
             self.text(p, x, y, label, MUTED, 9)
             for i, k in enumerate(("tl", "tm", "tr")):
                 v = corner.get(k)
@@ -1241,7 +1297,9 @@ class RelativeWidget(CycleBind, OverlayWidget):
             self.text(p, 22 - len(num) * 3.2, base, num, "#0d0f12", 10, True)
             self.text(p, 42, base, f"P{c.get('pos', '')}", MUTED, 10)
             nm = fmt_driver_name(c.get("name") or "", nstyle)
-            self.text(p, 72, base, nm[:14 if show_ir else 17], WHITE, 11, player)
+            wname = (self.width() - 72 - (86 if show_ir else 52))
+            self.text(p, 72, base, self.elide(p, nm, wname, 11, player),
+                      WHITE, 11, player)
             if show_logos:                               # логотип — справа от имени, слева от iR
                 _draw_logo(p, _logo(c.get("manufacturer")), w - 122 - int(logo_size * 2.4),
                            y + self.ROW / 2, logo_size)
@@ -1311,13 +1369,17 @@ class Head2HeadWidget(CycleBind, OverlayWidget):
             return
         rival = self._pick_rival(rows, me)
         w, h = self.width(), self.height()
-        self._line(p, 26, me, True)
+        # Кто из двоих держит круг быстрее — только его время фиолетовое.
+        mb0, rb0 = me.get("best"), (rival or {}).get("best")
+        num = lambda v: isinstance(v, (int, float)) and v > 0        # noqa: E731
+        mine_faster = num(mb0) and (not num(rb0) or mb0 <= rb0)
+        self._line(p, 26, me, True, bool(mine_faster))
         p.setPen(QPen(QColor("#2a2f38")))                # тонкий разделитель
         p.drawLine(10, int(h / 2 - 4), w - 10, int(h / 2 - 4))
         if not rival:
             self._ctext(p, w / 2, h / 2 + 24, "no rival (class leader)", MUTED, 11)
             return
-        self._line(p, h - 40, rival, False)
+        self._line(p, h - 40, rival, False, bool(num(rb0) and not mine_faster))
         mg, rg = me.get("gap"), rival.get("gap")         # разрыв между нами (сек)
         if isinstance(mg, (int, float)) and isinstance(rg, (int, float)):
             d = mg - rg                                  # >0 — я позади соперника
@@ -1327,7 +1389,7 @@ class Head2HeadWidget(CycleBind, OverlayWidget):
             db = mb - rb                                 # <0 — мой лучший круг быстрее
             self._ctext(p, w / 2, h / 2 + 30, f"Δbest {db:+.2f}", self._cb(GREEN if db <= 0 else RED), 11)
 
-    def _line(self, p, y, r, mine):
+    def _line(self, p, y, r, mine, faster=False):
         w = self.width()
         logo_size = int(self._opt("logo_size", 20))
         self.text(p, 8, y + 16, f"P{r.get('pos', '')}", AMBER if mine else "#9aa4b0", 13, True)
@@ -1341,9 +1403,13 @@ class Head2HeadWidget(CycleBind, OverlayWidget):
             _draw_logo(p, _logo(r.get("manufacturer")), x, y + 11, logo_size)
             x += int(logo_size * 2.4) + 6
         nm = fmt_driver_name(r.get("name") or "", self._opt("name_style", "last"))
-        self.text(p, x, y + 16, nm[:14], WHITE if mine else "#cdd3dc", 12, mine)
+        self.text(p, x, y + 16, self.elide(p, nm, self.width() / 2 - 20, 12, mine),
+                  WHITE if mine else "#cdd3dc", 12, mine)
         self.text_right(p, w - 66, y + 16, lap_time(r.get("last")), "#cdd3dc", 11)
-        self.text_right(p, w - 8, y + 16, lap_time(r.get("best")), PURPLE, 11)
+        # Фиолетовый — быстрейший из двоих. Красить им оба круга значит
+        # стереть единственное, что этот цвет и означает.
+        self.text_right(p, w - 8, y + 16, lap_time(r.get("best")),
+                        PURPLE if faster else "#cdd3dc", 11)
 
     def _ctext(self, p, cx, y, s, color, size, bold=True):
         f = QFont("Segoe UI")
@@ -1568,7 +1634,8 @@ class HStandingsWidget(CycleBind, OverlayWidget):
             if show_logos:
                 _draw_logo(p, _logo(r.get("manufacturer")), x + 74, 20, logo_size)
             nm = fmt_driver_name(r.get("name") or "", nstyle)
-            self.text(p, x + 8, 47, nm[:12], WHITE if player else "#cdd3dc", 11, player)
+            self.text(p, x + 8, 47, self.elide(p, nm, cw - 14, 11, player),
+                      WHITE if player else "#cdd3dc", 11, player)
             gc = AMBER if (r.get("laps_down") or 0) >= 1 else MUTED
             self.text(p, x + 8, 63, r.get("gap_txt") or "", gc, 9)
 
@@ -1652,6 +1719,9 @@ class StandingsWidget(CycleBind, OverlayWidget):
         logo_size = int(self._opt("logo_size", 26))      # регулируемый размер логотипа
         logo_dx = (int(logo_size * 2.4) + 6) if show_logos else 0
         show_gain = self._opt("show_ir_gain", False)     # прогноз ± iRating
+        # Фиолетовый — быстрейший круг, и он один на класс. Раньше им был
+        # покрашен весь столбец, то есть признак не выделял никого.
+        fastest = fastest_laps(rows)
         for i, r in enumerate(rows[:nrows]):
             y = y0 + i * self.ROW
             player = bool(r.get("is_player"))
@@ -1666,7 +1736,10 @@ class StandingsWidget(CycleBind, OverlayWidget):
             dim = "#6b7280" if r.get("out") else None    # сошедший — приглушённо
             self.text(p, X["pos"], base, r.get("pos", ""), dim or WHITE, 11, True)
             nm = self._fmt_name(r.get("name") or "", nstyle, ncase)
-            self.text(p, X["name"] + logo_dx, base, nm[:20], dim or WHITE, 11, player)
+            wname = X["ir"] - X["name"] - logo_dx - 6 if show_ir else \
+                    X["gap"] - X["name"] - logo_dx - 6
+            self.text(p, X["name"] + logo_dx, base,
+                      self.elide(p, nm, wname, 11, player), dim or WHITE, 11, player)
             if show_logos:                               # логотип марки слева от имени
                 _draw_logo(p, _logo(r.get("manufacturer")), X["name"], y + self.ROW / 2, logo_size)
             if show_ir:
@@ -1682,7 +1755,11 @@ class StandingsWidget(CycleBind, OverlayWidget):
             self.text(p, X["gap"], base, r.get("gap_txt") or "—", dim or self._cb(gap_c), 10)
             self.text(p, X["last"], base, lap_time(r.get("last")), dim or "#cdd3dc", 10)
             if show_best:
-                self.text(p, X["best"], base, lap_time(r.get("best")), dim or self._cb(PURPLE), 10)
+                bt = r.get("best")
+                is_fast = (isinstance(bt, (int, float)) and bt > 0
+                           and bt <= fastest.get(r.get("car_class") or "", 0))
+                self.text(p, X["best"], base, lap_time(bt),
+                          dim or (self._cb(PURPLE) if is_fast else "#cdd3dc"), 10)
             if show_pit and r.get("on_pit"):
                 self.text(p, X["pit"], base, "P", AMBER, 10, True)
             if player and lr:                            # подсветка: машина сбоку

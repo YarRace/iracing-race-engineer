@@ -158,9 +158,18 @@ class DemoFeed:
                 "track_temp": 31.5 + math.sin(el / 90) * 1.6,
                 "air_temp": 22.4, "oil_temp": 104.0, "water_temp": 91.0,
                 "brake_bias": 54.5, "on_track": True,
-                "tires": {c: {"tl": 78 + i * 3 + v * 14, "tm": 82 + i * 3 + v * 14,
-                              "tr": 86 + i * 3 + v * 14}
-                          for i, c in enumerate(("LF", "RF", "LR", "RR"))},
+                # tl/tm/tr — стороны в координатах МАШИНЫ, поэтому у правых
+                # колёс градиент зеркальный. Раньше он был одинаковым, и
+                # витрина показывала невозможную машину: слева греется
+                # внутренняя кромка, справа — внешняя. Отрицательный развал
+                # стоит на обеих сторонах и греет внутреннюю у всех четырёх.
+                "tires": {c: dict(zip(("tl", "tm", "tr"),
+                                      (edge, mid, hot) if c[0] == "L"
+                                      else (hot, mid, edge)))
+                          for i, c in enumerate(("LF", "RF", "LR", "RR"))
+                          for edge, mid, hot in [(78 + i * 3 + v * 14,
+                                                  82 + i * 3 + v * 14,
+                                                  86 + i * 3 + v * 14)]},
                 "shock_defl": {},
             }
 
@@ -210,17 +219,37 @@ class DemoFeed:
                 "TiresAero.RightRear.StartingPressure": "148 kPa"})
 
         if ep == "standings":
+            # Поля добираются ТЕМ ЖЕ кодом, что и в бою: `_add_gaps` считает
+            # `gap_txt`, `parse_license` разбирает лицензию на букву и число.
+            # Раньше их просто не было, и витрина показывала таблицу с двумя
+            # пустыми колонками — SR и GAP. Угадывать структуру ответа тут
+            # уже пробовали, ниже об этом стоит отдельная запись.
+            from ire.collector.standings import LICENSE_COLORS, _add_gaps, parse_license
+
             rows = []
             for i, (name, ir) in enumerate(DRIVERS):
+                lic = ["A 3.42", "A 4.10", "B 3.28", "A 2.95", "B 4.51",
+                       "C 3.07"][i % 6]
+                letter, sr = parse_license(lic)
                 rows.append({
                     "pos": i + 1, "name": name, "is_player": i == ME,
+                    "number": 10 + i,
                     "best": LAP_TIME - 1.0 + i * 0.35,
                     "last": LAP_TIME - 0.4 + i * 0.4,
-                    "gap": (i - ME) * 1.3,
+                    # Разрыв ДО ЛИДЕРА, как его отдаёт сим, а не до меня:
+                    # у боевого сборщика это `f2[idx]` и он всегда ≥ 0.
+                    # С отрицательными числами `_add_gaps` печатал «—» у
+                    # тех, кто впереди меня, — две пустые строки в колонке.
+                    "gap": i * 1.3,
+                    "lap": 8,
                     "car": "Ferrari 499P", "car_path": "ferrari499p",
+                    "car_class": "GTP",
                     "manufacturer": "ferrari", "class_color": 0xF1C40F,
-                    "irating": ir, "lic_color": "#00c000", "license": "A 3.2",
+                    "irating": ir, "license": lic, "lic": letter, "sr": sr,
+                    "lic_color": LICENSE_COLORS.get(letter, "#9099a6"),
+                    "on_pit": False, "out": False,
                 })
+            _add_gaps(rows, True)
             return rows
 
         if ep == "relative":

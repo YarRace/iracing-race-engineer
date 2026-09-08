@@ -52,7 +52,13 @@ def load_fonts():
     from PySide6.QtGui import QFontDatabase
     got = []
     for name in ("segoeui.ttf", "segoeuib.ttf", "segoeuisb.ttf",
-                 "arial.ttf", "arialbd.ttf"):
+                 "arial.ttf", "arialbd.ttf",
+                 # Symbol и Emoji — не украшение. Segoe UI НЕ содержит блок
+                 # геометрических фигур: без них ◀ ▶ ⚙ ✖ ↺ выходят пустыми
+                 # квадратами. На машине человека Qt подберёт их сам, а
+                 # безголовому раннеру подбирать не из чего — и витрина
+                 # показывала товар с дырами вместо значков.
+                 "seguisym.ttf", "seguiemj.ttf"):
         p = pathlib.Path(r"C:\Windows\Fonts") / name
         if p.exists() and QFontDatabase.addApplicationFont(str(p)) != -1:
             got.append(name)
