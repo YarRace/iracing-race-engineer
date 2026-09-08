@@ -4,10 +4,10 @@
 вторую версию, которая через месяц начнёт находить другое. Поэтому
 повороты приезжают вместе с картой, а страница их только рисует.
 """
-import json
 import pathlib
 
 import pytest
+from conftest import make_circuit
 from fastapi.testclient import TestClient
 
 import ire.dashboard.server as S
@@ -17,9 +17,8 @@ client = TestClient(S.app)
 
 
 def _map():
-    f = next(iter(sorted((ROOT / "data" / "trackmaps").glob("official_v3_*.json"))))
-    d = json.loads(f.read_text(encoding="utf-8"))
-    return d.get("points") if isinstance(d, dict) else d
+    """Своя трасса: data/trackmaps в .gitignore, на чистой копии её нет."""
+    return make_circuit(corners=8)
 
 
 @pytest.fixture(autouse=True)
@@ -40,7 +39,7 @@ def test_an_empty_map_answers_without_corners():
 def test_a_real_map_comes_with_numbered_turns():
     S.STATE["trackmap"] = {"points": _map(), "track": "T", "source": "official"}
     corners = client.get("/api/trackmap").json()["corners"]
-    assert 8 <= len(corners) <= 20
+    assert len(corners) == 16, "восемь волн — шестнадцать поворотов"
     assert [c["n"] for c in corners] == list(range(1, len(corners) + 1))
     for c in corners:
         assert 0.0 <= c["pct"] <= 1.0

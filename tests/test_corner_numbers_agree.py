@@ -9,11 +9,9 @@
 через шов круга тоже, один номер уходит одному сегменту, а когда карты нет
 или пара не нашлась — честный None вместо выдуманного номера.
 """
-import json
-import math
 import pathlib
 
-import pytest
+from conftest import make_circuit
 
 from ire.metrics import corners as C
 from ire.metrics import track_corners as tc
@@ -22,9 +20,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 def _map():
-    f = sorted((ROOT / "data" / "trackmaps").glob("official_v3_*.json"))[0]
-    d = json.loads(f.read_text(encoding="utf-8"))
-    return d.get("points") if isinstance(d, dict) else d
+    """Трасса СВОЯ, а не из data/: та папка в .gitignore и на чистой копии
+    её нет — ровно на этом прогон и упал девятью тестами."""
+    return make_circuit(corners=8)
 
 
 def test_an_apex_on_the_corner_gets_that_corner_number():

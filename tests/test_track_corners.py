@@ -15,6 +15,7 @@ import math
 import pathlib
 
 import pytest
+from conftest import CACHED_MAPS, make_circuit, needs_cached_maps
 
 from ire.metrics import track_corners as tc
 
@@ -85,8 +86,8 @@ def test_broken_points_are_skipped_not_guessed():
     assert len(tc.find(pts)) == 1
 
 
-@pytest.mark.parametrize("f", sorted(
-    (ROOT / "data" / "trackmaps").glob("official_v3_*.json")))
+@needs_cached_maps
+@pytest.mark.parametrize("f", CACHED_MAPS or [None])
 def test_real_tracks_land_in_the_range_the_steering_agrees_with(f):
     """12–15 поворотов на официальных контурах.
 
@@ -113,3 +114,19 @@ def test_two_close_corners_get_labels_that_do_not_overlap():
     corners = [{"x": 90.0, "y": 50.0}, {"x": 89.0, "y": 53.0}]
     (x1, y1), (x2, y2) = tc.place(pts, corners, reach=7.0, apart=9.0)
     assert math.hypot(x1 - x2, y1 - y2) >= 9.0
+
+
+def test_a_circuit_with_a_known_number_of_corners_is_counted_right():
+    """Настоящие карты есть не у всех, а проверить счёт надо везде.
+
+    Раньше проверка стояла только на кэше из `data/`, а папка в .gitignore:
+    на чистой копии тестов не оставалось ВОВСЕ — параметров ноль, пропуск
+    молчаливый, и ноль тестов выглядел как ноль проблем.
+    """
+    for waves in (5, 8, 11):
+        pts = make_circuit(corners=waves)
+        got = tc.find(pts)
+        assert len(got) == waves * 2, f"{waves} волн -> {len(got)} поворотов"
+        # Повороты чередуются: выступ наружу, выступ внутрь.
+        dirs = [c["dir"] for c in got]
+        assert all(a != b for a, b in zip(dirs, dirs[1:])), dirs
