@@ -127,22 +127,29 @@ def _write_baseline(rows):
     """
     from ire.metrics import tyre_baseline as tb
 
-    samples = {}
+    samples, crowns = {}, {}
     for r in rows:
-        samples.setdefault((r["car"], tb.axle(r["corner"])), []).append(r["camber"])
+        pair = (r["car"], tb.axle(r["corner"]))
+        samples.setdefault(pair, []).append(r["camber"])
+        crowns.setdefault(pair, []).append(r["crown"])
 
-    baseline = tb.build(samples)
+    baseline = tb.build(samples, crowns)
     print("\nПОРОГИ ПО МАШИНАМ И ОСЯМ")
     for (car, ax), vals in sorted(samples.items()):
-        got = (baseline["cars"].get(car) or {}).get(ax)
-        if got:
-            print(f"  {car:<26}{ax}  > {got['much']:>5.2f} °C   "
+        got = (baseline["cars"].get(tb.key(car)) or {}).get(ax)
+        if got and got.get("much"):
+            print(f"  {car:<26}{ax}  развал > {got['much']:>5.2f} °C   "
                   f"по {got['n']} колёсам (медиана {got['median']:+.2f})")
-        else:
-            why = ("колёс мало" if len(vals) < tb.MIN_WHEELS
-                   else "порог ниже шума — машина не даёт читаемого перекоса")
-            print(f"  {car:<26}{ax}  — не записан: {why} "
-                  f"({len(vals)} из {tb.MIN_WHEELS})")
+        if got and got.get("crown"):
+            cr = got["crown"]
+            print(f"  {'':<26}{ax}  корона {cr['low']:+.2f} … {cr['high']:+.2f} °C   "
+                  f"по {cr['n']} колёсам (медиана {cr['median']:+.2f})")
+        if got:
+            continue
+        why = ("колёс мало" if len(vals) < tb.MIN_WHEELS
+               else "порог ниже шума — машина не даёт читаемого перекоса")
+        print(f"  {car:<26}{ax}  — не записан: {why} "
+              f"({len(vals)} из {tb.MIN_WHEELS})")
     if not baseline["cars"]:
         print("  Ни одной пары не хватило на порог — остаётся общее число.")
         return

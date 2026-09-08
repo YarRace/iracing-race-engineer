@@ -70,7 +70,13 @@ SETUP_CORNER = {"LF": "LeftFront", "RF": "RightFront",
 # разошлись, и 15 колёс из 96 получали «even» от одного модуля и «too much
 # camber» от другого.
 #
-# Корона: σ 1.33 на чистых данных, 95-й процентиль +2.45.
+# Корона: σ 1.33 на чистых данных, 95-й процентиль +2.45 — по ВСЕМУ парку.
+# На Porsche 963 GTP эта полоса срабатывает на 0% колёс и спереди, и
+# сзади, то есть не говорит ничего и никогда. Своя полоса на машину и
+# ось приходит из metrics/tyre_baseline (перед -1.76…+0.59, зад 0…+1.49
+# по его 36 колёсам). Ноль в ней не двигается: середина горячее кромок —
+# перекачано, кромки горячее середины — недокачано, и полоса за ноль не
+# уходит, иначе ровная корона получала бы вердикт.
 CROWN_BAND = 2.5
 
 # Сессия, в которой машина не ездила, всё равно даёт температуры — от
@@ -128,14 +134,22 @@ def pressures(fields):
     return out
 
 
-def crown(mid, inner, outer):
-    """Середина против кромок: перекачано / недокачано / в норме."""
+def crown(mid, inner, outer, high=None, low=None):
+    """Середина против кромок: перекачано / недокачано / в норме.
+
+    `high`/`low` — полоса. По умолчанию общая ±CROWN_BAND, и она НЕ
+    универсальна ровно так же, как порог развала: на Porsche 963 GTP она
+    срабатывает на 0% колёс и спереди, и сзади, то есть не говорит ничего
+    и никогда. Своя полоса приходит из `metrics/tyre_baseline`.
+    """
     if None in (mid, inner, outer):
         return "unknown", None
+    hi = CROWN_BAND if high is None else high
+    lo = -CROWN_BAND if low is None else low
     d = round(mid - (inner + outer) / 2, 1)
-    if d > CROWN_BAND:
+    if d > hi:
         return "high", d
-    if d < -CROWN_BAND:
+    if d < lo:
         return "low", d
     return "even", d
 
@@ -187,8 +201,10 @@ def report(temps, fields=None, frames=None, baseline=None, car=None):
     for c in CORNERS:
         t = temps.get(c) or {}
         ref = tyre_baseline.ref_for(baseline, car, c)
+        cref = tyre_baseline.crown_ref(baseline, car, c)
         cam, cam_d = camber(t.get("inner"), t.get("outer"), ref["much"])
-        crw, crw_d = crown(t.get("tm"), t.get("inner"), t.get("outer"))
+        crw, crw_d = crown(t.get("tm"), t.get("inner"), t.get("outer"),
+                           cref["high"], cref["low"])
         corners[c] = {
             "inner": t.get("inner"), "middle": t.get("tm"), "outer": t.get("outer"),
             "camber": cam, "camber_delta": cam_d, "camber_why": WHY[cam],
@@ -196,6 +212,8 @@ def report(temps, fields=None, frames=None, baseline=None, car=None):
             # ответа на вопрос «по сравнению с чем» — это не измерение.
             "camber_much": ref["much"], "camber_basis": ref["basis"],
             "camber_n": ref["n"],
+            "crown_high": cref["high"], "crown_low": cref["low"],
+            "crown_basis": cref["basis"], "crown_n": cref["n"],
             "crown": crw, "crown_delta": crw_d, "crown_why": WHY[crw],
             "pressure": press.get(c) or {},
         }

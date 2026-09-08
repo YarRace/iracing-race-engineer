@@ -31,6 +31,7 @@ from ire.collector.live_state import (live_frame, is_on_track, strategy_inputs,
                                        tire_wear_by_corner, session_info)
 from ire.setup.sto_reader import read_sto
 from ire.metrics.tire import tire_metrics
+from ire import paths
 from ire.metrics import tyre_baseline
 from ire.metrics.tyres import report as tyre_report
 from ire.collector.race_state import (race_extras, SectorTimer, sector_starts,
@@ -147,6 +148,10 @@ def main():
     STATE["live"] = {"status": "waiting for iRacing…"}
 
     ir = irsdk.IRSDK()
+    # Папки для файлов человека (логотипы марок, фото трасс) — с запиской
+    # внутри. Иначе про эту возможность не узнаёт никто: пустой папки нет,
+    # а в документацию к оверлею не заглядывают.
+    paths.ensure_user_folders()
     hist = history.connect()                      # база истории (круги/стинты) — Фаза 1
     print(f"History: {history.default_path()}")
     # Пороги развала, измеренные на его собственных заездах. Файл лежит на

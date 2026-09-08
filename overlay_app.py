@@ -32,6 +32,9 @@ def main():
     # Раскладка — данные ПОЛЬЗОВАТЕЛЯ: рядом с программой, а не внутри
     # сборки, иначе обновление .exe стёрло бы всю настройку (ire.paths).
     from ire import paths
+    # Папки для логотипов марок и фото трасс — с запиской внутри. Оверлей
+    # запускают и отдельно от инженера, а возможность одна и та же.
+    paths.ensure_user_folders()
     config = Config(str(paths.data_dir() / "overlay_config.json"))
     panel = ControlPanel(store, config, WIDGETS)
 

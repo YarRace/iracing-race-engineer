@@ -83,8 +83,13 @@ def key(car):
     return re.sub(r"[^a-z0-9]", "", (car or "").lower())
 
 
-def build(samples, now=None):
+def build(samples, crown_samples=None, now=None):
     """samples: {(машина, ось): [разницы кромок]} -> опись порогов.
+
+    crown_samples — то же самое для КОРОНЫ (середина минус кромки). Она
+    страдала ровно тем же: общая полоса 2.5 °C срабатывает на 0% колёс
+    Porsche 963 GTP и спереди, и сзади, то есть не срабатывает никогда. И
+    ось здесь тоже разная: перед p50 −0.31, зад p50 +0.80.
 
     Пары, где данных мало, В ОПИСЬ НЕ ПОПАДАЮТ вовсе. Записать порог с
     пометкой «ненадёжный» значит рано или поздно им воспользоваться.
@@ -103,6 +108,22 @@ def build(samples, now=None):
         entry = cars.setdefault(key(car), {"name": car})
         entry[ax] = {
             "much": much,
+            "n": len(vals),
+            "median": round(_p(vals, 0.5), 2),
+        }
+
+    for (car, ax), vals in sorted((crown_samples or {}).items()):
+        vals = [v for v in vals if isinstance(v, (int, float))]
+        if len(vals) < MIN_WHEELS:
+            continue
+        # Ноль здесь не произвольная точка, а физика: середина горячее кромок
+        # — перекачано, кромки горячее середины — недокачано. Порог, ушедший
+        # за ноль, называл бы «недокачано» колесо с ровной короной. Поэтому
+        # хвост машины ограничен нулём с нужной стороны.
+        entry = cars.setdefault(key(car), {"name": car})
+        entry.setdefault(ax, {})["crown"] = {
+            "high": round(max(_p(vals, TAIL), 0.0), 2),
+            "low": round(min(_p(vals, 1.0 - TAIL), 0.0), 2),
             "n": len(vals),
             "median": round(_p(vals, 0.5), 2),
         }
@@ -156,13 +177,33 @@ def ref_for(baseline, car, corner):
             "median": None, "car": car}
 
 
-def from_stints(stints):
-    """Сырьё из истории: сохранённые стинты -> {(машина, ось): [разницы]}.
+def crown_ref(baseline, car, corner):
+    """Полоса короны для этого колеса: своя или общая — и всегда сказано, чья.
 
-    Копится само по мере езды. Стинты, записанные до появления колонки
-    `tyre_temps`, температур не содержат и просто пропускаются.
+    Возвращает {"high", "low", "basis", "n"}. Общая полоса ±2.5 °C
+    срабатывает на 0% колёс Porsche 963 GTP — то есть на этой машине не
+    говорит ничего и никогда.
     """
-    out = {}
+    from ire.metrics.tyres import CROWN_BAND
+
+    entry = ((baseline or {}).get("cars") or {}).get(key(car)) or {}
+    ref = (entry.get(axle(corner)) or {}).get("crown") if corner else None
+    if isinstance(ref, dict) and ref.get("n"):
+        return {"high": float(ref["high"]), "low": float(ref["low"]),
+                "basis": "car", "n": int(ref["n"]),
+                "median": ref.get("median"), "car": entry.get("name") or car}
+    return {"high": CROWN_BAND, "low": -CROWN_BAND, "basis": "default",
+            "n": 0, "median": None, "car": car}
+
+
+def from_stints(stints):
+    """Сырьё из истории: сохранённые стинты -> (развал, корона).
+
+    Оба словаря вида {(машина, ось): [значения]}. Копится само по мере
+    езды. Стинты, записанные до появления колонки `tyre_temps`,
+    температур не содержат и просто пропускаются.
+    """
+    cam, crn = {}, {}
     for s in stints or []:
         # car_path устойчив, отображаемое имя — запасной вариант.
         car = (s.get("car_path") or s.get("car") or "").strip()
@@ -172,10 +213,14 @@ def from_stints(stints):
         for corner, t in temps.items():
             if not isinstance(t, dict):
                 continue
-            inner, outer = t.get("inner"), t.get("outer")
-            if isinstance(inner, (int, float)) and isinstance(outer, (int, float)):
-                out.setdefault((car, axle(corner)), []).append(inner - outer)
-    return out
+            inner, outer, mid = t.get("inner"), t.get("outer"), t.get("middle")
+            num = lambda v: isinstance(v, (int, float))              # noqa: E731
+            if num(inner) and num(outer):
+                cam.setdefault((car, axle(corner)), []).append(inner - outer)
+                if num(mid):
+                    crn.setdefault((car, axle(corner)), []).append(
+                        mid - (inner + outer) / 2)
+    return cam, crn
 
 
 def refresh_from_history(conn, data_dir=None, limit=400):
@@ -190,8 +235,8 @@ def refresh_from_history(conn, data_dir=None, limit=400):
     """
     from ire.storage import history
 
-    samples = from_stints(history.recent_stints(conn, limit=limit))
-    baseline = build(samples)
+    cam, crown = from_stints(history.recent_stints(conn, limit=limit))
+    baseline = build(cam, crown)
     if not baseline["cars"]:
         return None
     save(baseline, data_dir)
