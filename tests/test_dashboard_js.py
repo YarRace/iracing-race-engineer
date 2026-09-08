@@ -75,3 +75,36 @@ def test_the_sector_card_accounts_for_every_lap_of_the_run():
            ).read_text(encoding="utf-8")
     assert "r.dropped" in src, "поле dropped не доходит до карточки"
     assert "${drop}" in src, "строка про dropped собрана, но не вставлена"
+
+
+def test_the_wear_card_reads_a_corner_as_three_zones_not_one_number():
+    """Угол — это {l, m, r, min}, а карточка множила объект на сто.
+
+    На экране висело NaN% по всем четырём колёсам: не «нет данных», а
+    поломка арифметики, которая выглядит как поломка программы. Данные при
+    этом были на месте — сломался только читатель, когда у угла появились
+    зоны, а карточку никто не поправил.
+    """
+    src = HTML.read_text(encoding="utf-8")
+    body = src[src.index("function renderWear("):]
+    body = body[:body.index("\n}")]
+    flat = body.replace(" ", "")
+    # Худшая зона достаётся ЯВНО, а не берётся угол целиком.
+    assert "worst(" in flat and "min" in flat, "угол снова читается как число"
+    assert "constv=w[c]" not in flat, "объект уходит в арифметику как есть"
+    # Отсутствие данных обязано выглядеть как отсутствие, а не как NaN.
+    assert "isFinite" in flat
+
+
+def test_the_wear_payload_really_has_zones():
+    """Контракт между сборщиком и карточкой — здесь, а не в голове."""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from overlay.demo import DemoFeed
+
+    w = DemoFeed().get("wear")
+    assert set(w) == {"LF", "RF", "LR", "RR"}
+    for corner, zones in w.items():
+        assert isinstance(zones, dict), f"{corner}: снова одно число?"
+        assert {"l", "m", "r", "min"} <= set(zones), corner

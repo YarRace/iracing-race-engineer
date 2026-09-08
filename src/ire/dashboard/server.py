@@ -117,8 +117,34 @@ def setup_advise(phase: str = Query(""), symptom: str = Query(""),
 @app.get("/api/session")
 def session(): return STATE["session"]
 
+_CORNERS_CACHE = {}
+
+
 @app.get("/api/trackmap")
-def trackmap(): return STATE["trackmap"]
+def trackmap():
+    """Карта плюс найденные повороты и подписи к ним.
+
+    Считается ЗДЕСЬ, а не в браузере: детектор один и тот же для оверлея и
+    дашборда, он измерен и покрыт тестами, и переписывать его на JS значит
+    завести вторую версию, которая через месяц начнёт находить другое.
+
+    Результат кэшируется: карта за сессию не меняется, а страница
+    спрашивает её раз в три секунды.
+    """
+    from ire.metrics import track_corners
+
+    tm = STATE["trackmap"]
+    pts = (tm or {}).get("points") or []
+    if not pts:
+        return tm
+    key = (tm.get("track"), tm.get("config"), tm.get("source"), len(pts))
+    if key not in _CORNERS_CACHE:
+        _CORNERS_CACHE.clear()          # карта одна за раз, копить нечего
+        found = track_corners.find(pts)
+        spots = track_corners.place(pts, found)
+        _CORNERS_CACHE[key] = [dict(c, lx=round(x, 2), ly=round(y, 2))
+                               for c, (x, y) in zip(found, spots)]
+    return dict(tm, corners=_CORNERS_CACHE[key])
 
 
 @app.get("/api/news")

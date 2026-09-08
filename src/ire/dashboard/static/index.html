@@ -737,9 +737,26 @@ function renderTrackRing(data){
 }
 function renderWear(w){
   if(!w || !Object.keys(w).length) return;
-  const cell=(c,name)=>{ const v=w[c], pct=v!=null?Math.round(v*100):null, col=v==null?'#333':(v>0.5?'var(--good)':(v>0.3?'var(--warn)':'var(--bad)'));
+  // Угол — это ТРИ зоны плюс худшая из них: {l, m, r, min}. Карточка читала
+  // угол как одно число и множила объект на сто — на экране висело NaN% по
+  // всем четырём колёсам. Число, которого нет, обязано выглядеть как «—»,
+  // а не как поломка арифметики.
+  const worst = v => (v && typeof v === 'object')
+    ? (typeof v.min === 'number' ? v.min
+       : Math.min(...['l','m','r'].map(k=>v[k]).filter(x=>typeof x==='number')))
+    : (typeof v === 'number' ? v : null);
+  const cell=(c,name)=>{ const raw=w[c], v=worst(raw);
+    const ok = typeof v === 'number' && isFinite(v);
+    const pct = ok ? Math.round(v*100) : null;
+    const col = !ok ? '#333' : (v>0.5?'var(--good)':(v>0.3?'var(--warn)':'var(--bad)'));
+    // Зоны рядом: протектор садится не равномерно, и «85%» без того, КАКАЯ
+    // зона села, не говорит, что крутить в гараже.
+    const zones = (raw && typeof raw === 'object')
+      ? ['l','m','r'].map(k=>typeof raw[k]==='number'?Math.round(raw[k]*100)+'%':'—').join(' · ')
+      : '';
     return `<div class="tire"><div class="cn">${name}</div><div style="font-size:20px;font-weight:700;color:${col}">${pct!=null?pct+'%':'—'}</div>
-      <div class="bar" style="height:8px;margin-top:4px"><span style="width:${pct||0}%;background:${col};display:block;height:100%"></span></div></div>`; };
+      <div class="bar" style="height:8px;margin-top:4px"><span style="width:${ok?Math.max(0,Math.min(100,pct)):0}%;background:${col};display:block;height:100%"></span></div>
+      ${zones?`<div class="why" style="font-size:11px;margin-top:3px">${zones}</div>`:''}</div>`; };
   $('wear').innerHTML = `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`;
 }
 // Tyre tool: что кромки протектора говорят про развал и давление.
@@ -946,6 +963,9 @@ function mapCarDot(x, y, c){
   const ring = c.is_player ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r+2).toFixed(1)}" fill="none" stroke="var(--good)" stroke-width="0.9" opacity="0.75"/>` : '';
   return `${ring}<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" stroke="var(--bg)" stroke-width="0.6"/>${txt}`;
 }
+let _trackCorners = [];
+let _showTurns = (() => { try{ return localStorage.getItem('showTurns') !== '0'; }
+                          catch{ return true; } })();
 function renderTrackMap(){
   const pts=_trackShape;
   if(!pts || !pts.length){ return; }
@@ -967,12 +987,28 @@ function renderTrackMap(){
               fill="var(--bad)" style="font-weight:700">${c.index}</text>`;
   }).join('');
 
+  // Номера поворотов — те же, что в оверлее: считает их сервер, детектор
+  // один на обе карты. Это НЕ официальная нумерация iRacing (её негде
+  // взять), а повороты, найденные по форме, — так и подписано ниже.
+  const turns = _showTurns ? (_trackCorners||[]).map(c=>
+    `<line x1="${c.x}" y1="${c.y}" x2="${c.lx}" y2="${c.ly}" stroke="#ffffff"
+       stroke-opacity="0.22" stroke-width="1" vector-effect="non-scaling-stroke"/>
+     <text x="${c.lx}" y="${c.ly+1.3}" font-size="3.6" text-anchor="middle"
+       fill="#c3cbd6" style="font-weight:700;paint-order:stroke;stroke:#0d0f12;stroke-width:1.4px"
+       >${c.n}</text>`).join('') : '';
+
   $('trackmap').innerHTML = `${_trackName?`<div style="text-align:center;font-weight:700;font-size:14px;margin-bottom:4px">${_trackName}</div>`:''}
-    <svg viewBox="0 0 100 100" style="width:100%;max-width:340px;display:block;margin:0 auto">
+    <svg viewBox="-8 -8 116 116" style="width:100%;max-width:340px;display:block;margin:0 auto">
     <polyline points="${line}" fill="none" stroke="#8b97a6" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
-    ${marks}${cars}</svg>
+    ${turns}${marks}${cars}</svg>
     <div class="why" style="text-align:center;margin-top:6px">map: ${_trackSource||'—'} · cars: ${(_lastRelCars||[]).length} · you are green${
-      (_worstCorners||[]).length ? ' · red = where you lose most' : ''}</div>`;
+      (_worstCorners||[]).length ? ' · red = where you lose most' : ''}${
+      (_showTurns && (_trackCorners||[]).length) ? ` · ${_trackCorners.length} turns found from the shape, not iRacing numbering` : ''}
+      <label style="margin-left:8px;cursor:pointer"><input type="checkbox" id="turnsOn" ${_showTurns?'checked':''}> turn numbers</label></div>`;
+  const t = $('turnsOn');
+  if(t) t.onchange = () => { _showTurns = t.checked;
+                             try{ localStorage.setItem('showTurns', t.checked?'1':'0'); }catch{}
+                             renderTrackMap(); };
 }
 async function tickTrackmap(){
   let m; try{ m=await (await fetch('/api/trackmap')).json(); }catch{ return; }
@@ -981,6 +1017,7 @@ async function tickTrackmap(){
     // официальное имя трассы из SDK; конфиг дописываем, только если он не вошёл в имя
     _trackName = !m.track ? '' : (m.config && !m.track.toLowerCase().includes(m.config.toLowerCase())
                  ? `${m.track} · ${m.config}` : m.track);
+    _trackCorners = Array.isArray(m.corners) ? m.corners : [];
     _st.trackmap=m; renderTrackMap();
   }
 }
