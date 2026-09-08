@@ -249,3 +249,49 @@ def test_only_one_demo_row_holds_the_fastest_lap():
     fast = W.fastest_laps(rows)
     winners = [r for r in rows if r["best"] <= fast.get(r.get("car_class") or "", 0)]
     assert len(winners) == 1, [r["name"] for r in winners]
+
+
+def test_the_two_tyre_cards_describe_the_same_car():
+    """Tire temps и Tyre Tool стояли на разных числах.
+
+    В живой телеметрии демо было 90–105 °C, а в Tyre Tool — 60 °C, снятые
+    с настоящей сессии на другой трассе. В одном шкафу с товаром стояли две
+    разные машины, и вердикт «too much camber» относился к колёсам, которых
+    на соседней карточке нет.
+    """
+    from overlay.demo import DemoFeed
+
+    f = DemoFeed()
+    live = f.get("live")["tires"]
+    tool = f.get("tyres")
+    assert tool["ok"]
+    for c in ("LF", "RF", "LR", "RR"):
+        assert abs(tool["corners"][c]["middle"] - live[c]["tm"]) < 0.05, c
+
+
+def test_the_demo_shows_the_tool_telling_wheels_apart():
+    """Одинаковый перекос на всех четырёх — и Tyre Tool ругается всегда.
+
+    Ради того он и нужен, чтобы отличать колесо, где развал работает, от
+    колеса, где его перебор. Витрина обязана это показывать.
+    """
+    from overlay.demo import DemoFeed
+
+    corners = DemoFeed().get("tyres")["corners"]
+    verdicts = {c: corners[c]["camber"] for c in ("LF", "RF", "LR", "RR")}
+    assert len(set(verdicts.values())) > 1, verdicts
+    assert "working" in verdicts.values()
+    assert "too_much" in verdicts.values()
+
+
+def test_no_tyre_has_more_tread_than_a_new_one():
+    """Карточка печатала «105%»: протектора больше, чем у новой шины, нет.
+
+    Ошибка была видна ровно там, где на неё смотрят, — и ровно поэтому её
+    никто не искал.
+    """
+    from overlay.demo import DemoFeed
+
+    for corner, zones in DemoFeed().get("wear").items():
+        for k, v in zones.items():
+            assert 0.0 <= v <= 1.0, f"{corner}.{k} = {v}"

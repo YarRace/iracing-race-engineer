@@ -163,13 +163,21 @@ class DemoFeed:
                 # витрина показывала невозможную машину: слева греется
                 # внутренняя кромка, справа — внешняя. Отрицательный развал
                 # стоит на обеих сторонах и греет внутреннюю у всех четырёх.
+                #
+                # Перекос РАЗНЫЙ по колёсам, и это не украшательство: когда
+                # он одинаковый, Tyre Tool пишет «too much camber» на всех
+                # четырёх сразу, и инструмент выглядит так, будто ругается
+                # всегда. Ради этого он и нужен — отличать колесо, где
+                # развал работает, от колеса, где его перебор.
                 "tires": {c: dict(zip(("tl", "tm", "tr"),
-                                      (edge, mid, hot) if c[0] == "L"
-                                      else (hot, mid, edge)))
+                                      (out, mid, inn) if c[0] == "L"
+                                      else (inn, mid, out)))
                           for i, c in enumerate(("LF", "RF", "LR", "RR"))
-                          for edge, mid, hot in [(78 + i * 3 + v * 14,
-                                                  82 + i * 3 + v * 14,
-                                                  86 + i * 3 + v * 14)]},
+                          for skew in [(3.0, 4.0, 3.5, 8.0)[i]]
+                          for base in [80 + i * 3 + v * 14]
+                          for out, mid, inn in [(base - skew / 2,
+                                                 base + 1.0,
+                                                 base + skew / 2)]},
                 "shock_defl": {},
             }
 
@@ -201,17 +209,20 @@ class DemoFeed:
             }
 
         if ep == "tyres":
-            # Правые колёса греют внутреннюю кромку сильнее левых — ровно так
-            # это выглядит в его настоящей телеметрии с Road America.
-            temps = {"LF": (61.2, 60.8, 63.3), "RF": (60.4, 56.7, 53.6),
-                     "LR": (60.7, 61.3, 63.0), "RR": (62.0, 60.3, 54.8)}
+            # Берём ТЕ ЖЕ температуры, что показывает виджет Tire temps.
+            #
+            # Раньше здесь стояли числа, снятые с настоящей сессии на Road
+            # America (60 °C), а живая телеметрия демо давала 90–105 °C. В
+            # одном шкафу с товаром стояли две разные машины: виджет
+            # температур показывал одно, Tyre Tool — другое, и вердикт «too
+            # much camber» относился к колёсам, которых на соседней карточке
+            # нет. Числа из настоящего заезда честнее по происхождению, но
+            # витрина должна описывать ОДНУ сессию.
+            from ire.metrics.tire import edges, tire_metrics
             from ire.metrics.tyres import report as _tyre_report
-            t = {}
-            for c, (l, m, r) in temps.items():
-                inner, outer = (r, l) if c[0] == "L" else (l, r)
-                t[c] = {"tl": l, "tm": m, "tr": r, "inner": inner, "outer": outer,
-                        "spread": round(max(l, m, r) - min(l, m, r), 1)}
-            t["front_rear_balance"] = -1.0
+
+            live_t = self.get("live")["tires"]
+            t = tire_metrics([{"tires": live_t}])
             return _tyre_report(t, {
                 "TiresAero.LeftFront.StartingPressure": "152 kPa",
                 "TiresAero.RightFront.StartingPressure": "152 kPa",
@@ -284,10 +295,19 @@ class DemoFeed:
             }
 
         if ep == "wear":
-            return {c: {"l": round(wear + 0.05 - i * 0.02, 3),
-                        "m": round(wear - i * 0.02, 3),
-                        "r": round(wear - 0.06 - i * 0.02, 3),
-                        "min": round(wear - 0.06 - i * 0.02, 3)}
+            # Остаток протектора — доля от нового, то есть НЕ БОЛЬШЕ единицы.
+            # Раньше внешняя зона получала `wear + 0.05` и на первых кругах
+            # выходила 1.05: карточка честно печатала «105%», а протектора
+            # больше, чем у новой шины, не бывает. Ошибка была видна ровно
+            # там, где на неё смотрят, и ровно поэтому её никто не искал.
+            def zones(i):
+                mid = min(1.0, wear - i * 0.02)
+                return {"l": round(min(1.0, mid + 0.05), 3),
+                        "m": round(mid, 3),
+                        "r": round(max(0.0, mid - 0.06), 3),
+                        "min": round(max(0.0, mid - 0.06), 3)}
+
+            return {c: zones(i)
                     for i, c in enumerate(("LF", "RF", "LR", "RR"))}
 
         if ep == "session":
