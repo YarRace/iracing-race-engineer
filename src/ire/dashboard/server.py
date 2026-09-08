@@ -257,6 +257,10 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
         hit = next((m for m in meta if os.path.basename(m["path"]) == safe), None)
         return hit                       # чужой путь сюда не пройдёт: только имя
 
+    # Точки карты — чтобы у сегментов появились номера, КАК НА КАРТЕ.
+    # Без них у поворотов два разных счёта, и «теряешь в седьмом» показывает
+    # пальцем не туда.
+    mp = (STATE.get("trackmap") or {}).get("points") or None
     latest = max(meta, key=lambda m: m.get("ts") or "")
     lap_meta = pick(lap, latest)
     if lap_meta is None:
@@ -275,7 +279,7 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
                                       slower_than=mine.get("lap_time"))
         if not g:
             return {"ok": False, "reason": why or "no Garage 61 lap"}
-        res = C.analyse(mine, g)
+        res = C.analyse(mine, g, mp)
         res["lap_file"] = os.path.basename(lap_meta["path"])
         res["ref_file"] = f"g61:{g.get('g61_id')}"
         res["ref_driver"] = g.get("driver")
@@ -287,7 +291,7 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
         return {"ok": False, "reason": "no second lap on this track and car yet"}
 
     mine = L.load_lap(lap_meta["path"])
-    res = C.analyse(mine, L.load_lap(ref_meta["path"]))
+    res = C.analyse(mine, L.load_lap(ref_meta["path"]), mp)
 
     # Свой эталон не подошёл (у одного из кругов обрезана телеметрия) —
     # пробуем Garage 61, прежде чем показать отказ. Отказ верен, но это
@@ -298,7 +302,7 @@ def corners_analysis(lap: str = Query(""), ref: str = Query("")):
             g, _ = G.best_reference(mine.get("track"), mine.get("car"),
                                     slower_than=mine.get("lap_time"))
             if g:
-                alt = C.analyse(mine, g)
+                alt = C.analyse(mine, g, mp)
                 if alt.get("ok"):
                     alt["lap_file"] = os.path.basename(lap_meta["path"])
                     alt["ref_file"] = f"g61:{g.get('g61_id')}"

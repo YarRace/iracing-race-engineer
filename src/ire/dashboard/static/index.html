@@ -2000,6 +2000,12 @@ function renderG61Board(r){
 }
 
 // ===== Corner by corner (Race analysis) =====
+// Как назвать сегмент. Номер с КАРТЫ, если он нашёлся: у поворотов два
+// разных счёта — карта режет трассу по форме, разбор по телеметрии, — и
+// «теряешь 0.3 с в седьмом» показывало пальцем не туда. Не нашлось пары —
+// показываем номер сегмента и не притворяемся, что это поворот с карты.
+const segName = s => (s && s.turn != null) ? `T${s.turn}` : `#${s.index}`;
+const segFull = s => (s && s.turn != null) ? `Turn ${s.turn}` : `Segment ${s.index}`;
 // Три сектора iRacing — слишком крупно, чтобы что-то с этим делать. Здесь круг
 // режется по минимумам скорости, и у каждого поворота свой вердикт из
 // телеметрии: раньше затормозил / ниже апекс / позже газ.
@@ -2039,7 +2045,8 @@ async function tickCorners(){
   _worstCorners = !r.ok ? [] : (r.segments||[])
     .filter(x=>x.loss > 0.02)
     .sort((a,b)=>b.loss-a.loss).slice(0,3)
-    .map(x=>({index: x.index, pct: (x.apex||0) / (r.points||1000), loss: x.loss}));
+    .map(x=>({index: x.turn != null ? x.turn : x.index,
+              pct: (x.apex||0) / (r.points||1000), loss: x.loss}));
   safe(renderCorners, r, laps);
 }
 
@@ -2092,7 +2099,7 @@ function cornerChart(r, i){
     }
   }
   const tabs = (r.segments||[]).map((s,k)=>
-    `<button class="segbtn ${k===i?'on':''}" data-seg="${k}">${s.index}</button>`).join('');
+    `<button class="segbtn ${k===i?'on':''}" data-seg="${k}">${segName(s)}</button>`).join('');
 
   return `<div style="margin-top:12px">
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${tabs}</div>
@@ -2103,7 +2110,7 @@ function cornerChart(r, i){
       <text x="${pad}" y="14" fill="var(--muted)" font-size="11">${Math.round(hi)} km/h</text>
       <text x="${pad}" y="${H-6}" fill="var(--muted)" font-size="11">${Math.round(lo)} km/h</text>
     </svg>
-    <div class="why">Corner ${seg.index}: <b style="color:var(--accent)">your lap</b>
+    <div class="why">${segFull(seg)}: <b style="color:var(--accent)">your lap</b>
       vs <b style="color:var(--muted)">reference</b>. Shaded = where you were slower.</div>
   </div>`;
 }
@@ -2117,7 +2124,7 @@ function cornerBars(r){
     const f = Math.min(1, Math.abs(s.loss)/worst);
     const col = s.loss > 0.005 ? `rgba(231,76,60,${0.25+0.6*f})`
               : (s.loss < -0.005 ? `rgba(46,204,113,${0.25+0.6*f})` : 'var(--panel2)');
-    return `<div title="Corner ${s.index}: ${s.loss>0?'+':''}${s.loss.toFixed(2)}s"
+    return `<div title="${segFull(s)}: ${s.loss>0?'+':''}${s.loss.toFixed(2)}s"
       style="width:${w}%;background:${col};border-right:1px solid var(--bg);
       display:flex;align-items:center;justify-content:center;font-size:10px;
       color:var(--muted)">${s.index}</div>`;
@@ -2150,7 +2157,7 @@ function renderCorners(r, laps){
   const rows = (r.segments||[]).map(s=>{
     const col = s.loss > 0.005 ? 'var(--bad)' : (s.loss < -0.005 ? 'var(--good)' : 'var(--muted)');
     return `<tr data-seg="${(r.segments||[]).indexOf(s)}">
-      <td style="width:34px;color:var(--muted)">${s.index}</td>
+      <td style="width:42px;color:var(--muted)">${segName(s)}</td>
       <td style="width:70px;color:${col};font-weight:700;font-variant-numeric:tabular-nums">
         ${s.loss>0?'+':''}${s.loss.toFixed(3)}</td>
       <td>${s.text}</td></tr>`;

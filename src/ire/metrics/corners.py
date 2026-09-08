@@ -230,11 +230,32 @@ def verdict(lap, ref, seg, trace):
             "text": f"Lost {loss:.2f}s here, most of it {where}."}
 
 
-def analyse(lap, ref):
+def _map_turns(apex_pcts, map_points):
+    """Номера поворотов карты для апексов. Нет карты — список None."""
+    if not map_points:
+        return [None] * len(apex_pcts)
+    try:
+        from ire.metrics import track_corners
+
+        return track_corners.match(apex_pcts, track_corners.find(map_points))
+    except Exception:                                    # noqa: BLE001
+        # Карта — украшение разбора, а не его условие. Сломается она —
+        # цифры по сегментам остаются верными.
+        return [None] * len(apex_pcts)
+
+
+def analyse(lap, ref, map_points=None):
     """Полный разбор круга против эталона.
 
     Возвращает всё, что нужно нарисовать: сегменты с потерями и вердиктом,
     накопленную дельту и обе трассы скорости для графика.
+
+    map_points — точки карты трассы, если она уже построена. По ним у
+    каждого сегмента появляется `turn`: номер поворота, КАК ОН ПОДПИСАН НА
+    КАРТЕ. Без этого у поворотов два разных счёта — карта режет трассу по
+    форме, разбор по телеметрии, — и «теряешь 0.3 с в седьмом» показывает
+    пальцем не туда. Не нашлось пары — `turn` остаётся None, и на экране
+    виден номер сегмента: соврать номером хуже.
     """
     if not lap or not ref or not lap.get("channels") or not ref.get("channels"):
         return {"ok": False, "reason": "need two laps with telemetry"}
@@ -264,6 +285,12 @@ def analyse(lap, ref):
     for seg in segments(lap["channels"], n):
         v = verdict(lap, ref, seg, trace)
         segs.append({**seg, **v})
+
+    # Номера с карты. Апекс лежит на сетке в 1000 точек, то есть его доля
+    # круга — это просто индекс, делённый на длину сетки.
+    turns = _map_turns([sg["apex"] / n for sg in segs], map_points)
+    for sg, t in zip(segs, turns):
+        sg["turn"] = t
 
     return {
         "ok": True,
