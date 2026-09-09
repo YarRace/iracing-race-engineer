@@ -231,6 +231,11 @@ class ControlPanel(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        # Список не ездит вбок. Кнопки строк шире колонки, и появлялась
+        # горизонтальная полоса: заголовок группы уезжал за край, и кнопка
+        # «hide all» читалась как «hide a». Вбок в списке смотреть незачем —
+        # длинное имя лучше обрезать, чем возить колонку.
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         inner = QWidget()
         il = QVBoxLayout(inner)
         il.setContentsMargins(0, 0, 6, 0)

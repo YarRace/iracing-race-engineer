@@ -1590,6 +1590,14 @@ class LaptimeSpreadWidget(OverlayWidget):
         self.text(p, x0, axis_y + 34, lap_time(best), self._cb(PURPLE), 9)
         self.text_right(p, x0 + pw, axis_y + 34, lap_time(worst), self._cb(RED), 9)
 
+    def extra_settings(self, lay):
+        # Виджет ЧИТАЛ `laps`, но поменять их было негде: настройка жила
+        # только в коде. У соседнего Laptime graph такой ползунок есть, и
+        # разница между «последние 15» и «последние 30» тут решает всё —
+        # на тридцати кругах разброс размазывается по всей оси.
+        self.opt_slider(lay, "Laps shown", "laps", 5, 60, 30)
+
+
 class HStandingsWidget(CycleBind, OverlayWidget):
     """Горизонтальная таблица заезда (идея RaceLab H. standings): карточки пилотов в РЯД —
     позиция + номер + имя + отрыв. Окно: от P1 или вокруг меня. С логотипами марок."""
@@ -2239,19 +2247,31 @@ class TrackMapWidget(OverlayWidget):
         self.opt_slider(lay, "Track line width", "line_w", 1, 14, 4)
         self.opt_slider(lay, "Car dot size", "car_r", 4, 18, 7)
         self.opt_check(lay, "Show track name", "show_name", True)
-        self.opt_check(lay, "Colour the track by the flag", "flag_line", True)
-        self.opt_check(lay, "Show the safety car", "show_pace", True)
+        self.opt_check(lay, "Flag colour", "flag_line", True,
+                       hint="Under a full course yellow the track itself turns "
+                            "yellow — you see it without reading anything.")
+        self.opt_check(lay, "Safety car", "show_pace", True,
+                       hint="Where the pace car is. Under a yellow that is the "
+                            "one thing you want on the map.")
         # Номера СВОИ, найденные по форме: официальных iRacing не отдаёт.
-        self.opt_check(lay, "Number the turns (found from the shape)",
-                       "show_corners", True)
-        self.opt_slider(lay, "A turn is at least, degrees", "corner_angle", 15, 60, 30)
+        self.opt_check(lay, "Turn numbers", "show_corners", True,
+                       hint="Turns found from the shape of the track. This is "
+                            "not iRacing's own numbering — there is nowhere to "
+                            "take that from.")
+        self.opt_slider(lay, "Turn is over", "corner_angle", 15, 60, 30,
+                        hint="How much the track has to bend before it counts "
+                             "as a turn, in degrees.")
         self.opt_choice(lay, "Driver names", "show_names",
                         [("off", "Off"), ("near", "Cars near me"), ("all", "Everyone")])
-        self.opt_slider(lay, "Near me means, % of a lap", "name_range", 1, 20, 3)
+        self.opt_slider(lay, "Near me is", "name_range", 1, 20, 3,
+                        hint="How close a car has to be to get a name, as a "
+                             "percentage of the lap.")
         self.opt_choice(lay, "Name style", "name_style",
                         [("last", "Last"), ("jlast", "J. Last"),
                          ("lastj", "Last J."), ("full", "Full")])
-        self.opt_check(lay, "Track photo behind the map", "photo", True)
+        self.opt_check(lay, "Track photo", "photo", True,
+                       hint="Drop a picture into data/trackphotos and it shows "
+                            "behind the map. The file name is the track.")
         self.opt_slider(lay, "Photo brightness", "photo_dim", 5, 100, 35)
 
     @staticmethod

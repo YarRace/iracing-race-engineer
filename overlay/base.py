@@ -162,22 +162,33 @@ class OverlayWidget(QWidget):
         """Виджет может добавить свои ползунки в диалог ⚙ (напр. трек-мапа: ширина/размер)."""
         return
 
-    def _form_row(self, lay, title, control):
-        """Строка настройки в стиле Kapps: подпись справа-выровнена слева | контрол справа."""
+    def _form_row(self, lay, title, control, hint=None):
+        """Строка настройки: подпись слева | контрол справа.
+
+        `hint` — пояснение под курсором. Длинная подпись переносилась на
+        три-четыре строки, и одна настройка занимала высоту четырёх; но и
+        выбрасывать объяснение нельзя — «Number the turns» без оговорки
+        «found from the shape» обещает нумерацию iRacing. Поэтому короткая
+        подпись плюс подсказка.
+        """
         from PySide6.QtWidgets import QLabel, QHBoxLayout, QWidget
         row = QWidget()
         h = QHBoxLayout(row)
         h.setContentsMargins(0, 2, 0, 2)
         h.setSpacing(8)
         lbl = QLabel(title, objectName="flabel")
-        lbl.setFixedWidth(96)
+        # 88, а не 96: восьми пикселей не хватало самой длинной строке
+        # вариантов («Number BG»), и она обрезалась на последней букве.
+        lbl.setFixedWidth(88)
         lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         lbl.setWordWrap(True)
         h.addWidget(lbl)
         h.addWidget(control, 1)
+        if hint:
+            row.setToolTip(hint)
         lay.addWidget(row)
 
-    def opt_slider(self, lay, title, name, lo, hi, default):
+    def opt_slider(self, lay, title, name, lo, hi, default, hint=None):
         """Ползунок с боксом значения справа (как в Kapps)."""
         from PySide6.QtWidgets import QLabel, QSlider, QHBoxLayout, QWidget
         box = QWidget()
@@ -198,17 +209,17 @@ class OverlayWidget(QWidget):
         s.valueChanged.connect(upd)
         h.addWidget(s, 1)
         h.addWidget(val)
-        self._form_row(lay, title, box)
+        self._form_row(lay, title, box, hint)
 
-    def opt_check(self, lay, title, name, default=True):
+    def opt_check(self, lay, title, name, default=True, hint=None):
         """Галочка вкл/выкл — подпись слева, чекбокс справа (стиль Kapps)."""
         from PySide6.QtWidgets import QCheckBox
         cb = QCheckBox()
         cb.setChecked(bool(self._opt(name, default)))
         cb.toggled.connect(lambda on: (self.config.set_widget_opt(self.KEY, name, bool(on)), self.update()))
-        self._form_row(lay, title, cb)
+        self._form_row(lay, title, cb, hint)
 
-    def opt_choice(self, lay, title, name, choices):
+    def opt_choice(self, lay, title, name, choices, hint=None):
         """Выбор из вариантов: радио-кнопки (≤5) как в Kapps, иначе выпадашка. choices=[(value, подпись)]."""
         from PySide6.QtWidgets import (QHBoxLayout, QGridLayout, QComboBox, QWidget,
                                        QRadioButton, QButtonGroup)
@@ -220,8 +231,14 @@ class OverlayWidget(QWidget):
                 self.config.set_widget_opt(self.KEY, name, v)
                 self.update()
 
-        if len(choices) <= 6:                              # радио-кнопки (перенос по 3, чтобы влезло в узкую панель)
-            per = 3 if len(choices) > 4 else len(choices)
+        # Сколько влезает в колонку настроек — вопрос ШИРИНЫ ПОДПИСИ, а не
+        # числа вариантов. Раньше их всегда клали по три в ряд, и «Cars near
+        # me» с «Everyone» обрезались до «Car» и «Eve»: выбор, который
+        # нельзя прочитать, хуже выпадашки. Теперь длинные уходят в список,
+        # а средние ложатся по двое в ряд.
+        widest = max((len(lbl) for _, lbl in choices), default=0)
+        if len(choices) <= 6 and widest <= 10:
+            per = 3 if widest <= 5 else 2
             g = QGridLayout(box)
             g.setContentsMargins(0, 0, 0, 0)
             g.setHorizontalSpacing(10)
@@ -244,9 +261,9 @@ class OverlayWidget(QWidget):
             cb.currentIndexChanged.connect(
                 lambda i: (self.config.set_widget_opt(self.KEY, name, cb.itemData(i)), self.update()))
             h.addWidget(cb, 1)
-        self._form_row(lay, title, box)
+        self._form_row(lay, title, box, hint)
 
-    def opt_number(self, lay, title, name, lo, hi, default):
+    def opt_number(self, lay, title, name, lo, hi, default, hint=None):
         """Число-инпут (Kapps «Rows»): подпись слева | спинбокс справа."""
         from PySide6.QtWidgets import QSpinBox
         sb = QSpinBox()
@@ -254,7 +271,7 @@ class OverlayWidget(QWidget):
         sb.setValue(int(self._opt(name, default)))
         sb.setFixedWidth(72)
         sb.valueChanged.connect(lambda v: (self.config.set_widget_opt(self.KEY, name, v), self.update()))
-        self._form_row(lay, title, sb)
+        self._form_row(lay, title, sb, hint)
 
     # ---------- помощники отрисовки (для наследников) ----------
     def _mark(self, key, x, y, w, h):

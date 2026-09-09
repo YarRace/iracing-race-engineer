@@ -68,6 +68,23 @@ class WidgetSettingsDialog(QWidget):
         lay.setSpacing(8)
         lay.addWidget(QLabel(f"<b>⚙ {widget.TITLE}</b>"))
 
+        # Свои настройки виджета идут ПЕРВЫМИ, до общих.
+        #
+        # Раньше они стояли четвёртой секцией — после фона, шрифта и цвета
+        # значений. Человек открывал «Track map» и видел прозрачность,
+        # яркость, радиус, шрифт и палитру; чтобы добраться до ширины линии
+        # и номеров поворотов — то есть до того, ради чего он сюда и зашёл,
+        # — надо было прокрутить три чужие секции. Общее одинаково у всех
+        # сорока семи виджетов, особенное — только здесь.
+        opt = self._section(lay, "OPTIONS")
+        widget.extra_settings(opt)
+        if opt.count() <= 1:                                # только заголовок → опций нет → убрать
+            card = opt.parentWidget()
+            if card is not None:
+                card.setParent(None)
+                card.deleteLater()
+
+
         sec = self._section(lay, "BACKGROUND")
         self.bg = QSlider(Qt.Horizontal)
         self.bg.setRange(0, 100)
@@ -137,14 +154,6 @@ class WidgetSettingsDialog(QWidget):
         self._paint_accents(cur)
         self._opt_check(sec, "Colour-blind", "colorblind", False)
 
-        opt = self._section(lay, "OPTIONS")                 # свои ползунки виджета
-        widget.extra_settings(opt)
-        if opt.count() <= 1:                                # добавился только заголовок → опций нет → убрать
-            card = opt.parentWidget()
-            if card is not None:
-                card.setParent(None)
-                card.deleteLater()
-
         if widget.parts():
             sec = self._section(lay, "ELEMENTS")
             sec.addWidget(QLabel("color / size / font — click an element on the overlay", objectName="hint"))
@@ -176,7 +185,12 @@ class WidgetSettingsDialog(QWidget):
         h.setContentsMargins(0, 2, 0, 2)
         h.setSpacing(8)
         t = QLabel(title, objectName="flabel")
-        t.setFixedWidth(70)
+        # 70 пикселей хватало общим подписям («Opacity», «Radius»), но не
+        # своим настройкам виджета: «Colour the track by the flag»
+        # разъезжалось на четыре строки, и одна настройка занимала высоту
+        # четырёх. Ширина подобрана по самой длинной подписи, какие есть.
+        t.setFixedWidth(104)
+        t.setWordWrap(True)
         t.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         h.addWidget(t)
         h.addWidget(control, 1)
