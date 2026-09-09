@@ -299,7 +299,13 @@ def race_extras(ir):
     st_ahead, st_behind = _standing_gaps(ir)
     best = g["best_lap_time"]
     delta = g["delta_best"]
-    predicted = round(best + delta, 2) if best and best > 0 else None  # прогноз круга
+    # Дельту проверяем ОТДЕЛЬНО от лучшего круга. SDK отдаёт None, когда
+    # канала в текущем наборе телеметрии нет, и `best + None` роняет весь
+    # сбор гоночного состояния — а он один на позицию, разрывы, флаги и
+    # таблицу. Один такой обрыв уже стоил замерших виджетов на всю сессию.
+    predicted = (round(best + delta, 2)
+                 if isinstance(best, (int, float)) and best > 0
+                 and isinstance(delta, (int, float)) else None)  # прогноз круга
     return {
         "position": g["position"], "class_position": g["class_position"],
         "cur_lap_time": g["cur_lap_time"], "last_lap_time": g["last_lap_time"],

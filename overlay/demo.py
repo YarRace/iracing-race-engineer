@@ -196,7 +196,10 @@ class DemoFeed:
                 "warnings": [],
                 "energy_pct": 0.35 + 0.4 * (1 - u), "deploy_pct": 0.68,
                 "wind_vel": 3.2, "wind_dir": 1.9, "humidity": 0.41,
-                "track_wetness": 1, "incidents": 2, "laps_total": 30,
+                "track_wetness": 2, "incidents": 2, "laps_total": 30,
+                # Лёгкий дождь: на витрине должно быть видно, что
+                # виджет про дождь правда про дождь.
+                "precipitation": 0.18, "declared_wet": False, "fog": 0.0,
                 "lap_log": [{"lap": lap - i,
                              "time": LAP_TIME + (i % 4) * 0.3 - 0.4,
                              "track_temp": 31.5 + (i % 3) * 0.7,

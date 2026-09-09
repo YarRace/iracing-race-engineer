@@ -295,3 +295,46 @@ def test_no_tyre_has_more_tread_than_a_new_one():
     for corner, zones in DemoFeed().get("wear").items():
         for k, v in zones.items():
             assert 0.0 <= v <= 1.0, f"{corner}.{k} = {v}"
+
+
+# --- «Weather radar» без радара -------------------------------------------
+#
+# Виджет обещал «Rain approaching the circuit, and how soon» и показывал
+# температуру с ветром. Прогноза сим не отдаёт — обещание, которого
+# программа не держит, хуже отсутствующей возможности: по нему человек не
+# поедет за дождевой резиной, потому что «радар молчит». Зато рядом лежали
+# НЕПРОЧИТАННЫЕ каналы: Precipitation, WeatherDeclaredWet, FogLevel.
+
+@pytest.mark.parametrize("rain,wet,fog,expect", [
+    (0.60, False, 0.0, "heavy"),
+    (0.30, False, 0.0, "rain"),
+    (0.05, False, 0.0, "spitting"),
+    (0.00, True, 0.0, "declared wet"),      # дождь кончился, правила мокрые
+    (0.00, False, 0.4, "fog"),
+    (0.00, False, 0.0, "no rain"),
+])
+def test_the_rain_line_says_what_is_happening(rain, wet, fog, expect):
+    text, _, _ = W.rain_line(rain, wet, fog)
+    assert expect in text
+
+
+def test_rain_beats_declared_wet_beats_fog():
+    """Порядок по срочности: идущий дождь важнее всего остального."""
+    assert "rain" in W.rain_line(0.3, True, 0.9)[0]
+    assert "declared" in W.rain_line(0.0, True, 0.9)[0]
+
+
+def test_no_channel_is_not_the_same_as_no_rain():
+    """«no rain» без канала было бы обещанием, которого никто не давал."""
+    text, _, _ = W.rain_line(None, None, None)
+    assert "no data" in text
+    assert W.rain_line(0.0, False, 0.0)[0] == "no rain"
+
+
+def test_the_widget_no_longer_promises_a_forecast():
+    # Смотрим на то, что ЧИТАЕТ человек: заголовок и подпись в каталоге.
+    # Объяснение, почему обещания больше нет, само это слово содержит.
+    assert W.WeatherRadarWidget.BLURB.startswith("Rain on track now")
+    assert "approaching" not in W.WeatherRadarWidget.BLURB.lower()
+    assert "radar" not in W.WeatherRadarWidget.TITLE.lower(), (
+        "радара нет — имя не должно его обещать")

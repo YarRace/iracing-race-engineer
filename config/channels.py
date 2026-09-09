@@ -111,6 +111,12 @@ RACE_SCALAR = {
     "humidity": "RelativeHumidity",           # 0..1
     "skies": "Skies",                         # 0=ясно..3=пасмурно
     "track_wetness": "TrackWetness",          # 1=сухо..7
+    # Дождь. Каналы в телеметрии есть с самого начала, читать их никто не
+    # начал — а виджет «Weather radar» обещал «Rain approaching the circuit»
+    # и показывал только температуру и ветер.
+    "precipitation": "Precipitation",         # 0..1 — сколько льёт СЕЙЧАС
+    "declared_wet": "WeatherDeclaredWet",     # сессия объявлена мокрой
+    "fog": "FogLevel",                        # 0..1 — туман
     "energy_pct": "EnergyERSBatteryPct",      # заряд гибридной батареи 0..1 (GTP)
     "deploy_pct": "EnergyMGU_KLapDeployPct",  # деплой энергии за круг 0..1
     "on_pit": "OnPitRoad",

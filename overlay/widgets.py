@@ -2393,12 +2393,50 @@ class SpotterWidget(OverlayWidget):
         p.drawPolygon(QPolygonF(pts))
 
 
+def rain_line(rain, declared_wet, fog):
+    """Что сказать про дождь: (текст, цвет, жирный).
+
+    Не прогноз — прогноза сим не отдаёт, и придумывать его нельзя: по
+    выдуманному «через шесть минут» человек поедет менять резину и потеряет
+    гонку. Только то, что известно сейчас.
+
+    Порядок веток — по срочности. Идущий дождь важнее объявленной мокрой
+    сессии, та важнее тумана. И отдельная ветка на «канала нет»: «no rain»
+    в этом случае было бы обещанием, которого никто не давал.
+    """
+    wet = isinstance(rain, (int, float))
+    if wet and rain > 0.005:
+        hard = "heavy" if rain > 0.5 else ("rain" if rain > 0.15 else "spitting")
+        return f"{hard} · {rain * 100:.0f}%", BLUE, True
+    if declared_wet:
+        # Дождь кончился, а трасса мокрая и правила ещё мокрые.
+        return "declared wet · not raining", AMBER, True
+    if isinstance(fog, (int, float)) and fog > 0.05:
+        return f"fog {fog * 100:.0f}%", AMBER, True
+    if wet:
+        return "no rain", MUTED, False
+    return "rain: no data", MUTED, False
+
+
 class WeatherRadarWidget(OverlayWidget):
-    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "weatherradar", "Weather radar", (250, 130), "solo", ("race", "live")
-    BLURB = "Rain approaching the circuit, and how soon."
+    """Дождь, ветер и состояние покрытия — то, что сим правда сообщает.
+
+    Виджет назывался «Weather radar» и обещал «Rain approaching the circuit,
+    and how soon». Радара у нас нет и взять его негде: прогноза в телеметрии
+    не бывает, есть только текущее состояние. Обещание, которого программа
+    не держит, хуже отсутствующей возможности — по нему человек не поедет в
+    боксы за дождевой резиной, потому что «радар молчит».
+
+    Зато рядом лежали НЕПРОЧИТАННЫЕ каналы: Precipitation (сколько льёт
+    сейчас), WeatherDeclaredWet (сессия объявлена мокрой) и FogLevel. Их и
+    показываем — а имя теперь описывает то, что есть.
+    """
+
+    KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = "weatherradar", "Rain & wind", (250, 150), "solo", ("race", "live")
+    BLURB = "Rain on track now, wind direction, and whether it is declared wet."
 
     def draw(self, p):
-        self.title(p, "WEATHER")
+        self.title(p, "RAIN & WIND")
         r, l = self.store.get("race"), self.store.get("live")
         cx, cy = 54.0, self.height() * 0.58
         R = min(cx - 12, self.height() * 0.30)
@@ -2420,6 +2458,13 @@ class WeatherRadarWidget(OverlayWidget):
         self.text(p, x, 66, f"air {round(at)}°" if isinstance(at, (int, float)) else "air —", "#cdd3dc", 11)
         self.text(p, x, 86, f"wind {wv:.1f} m/s" if isinstance(wv, (int, float)) else "wind —", "#cdd3dc", 11)
         self.text(p, x, 106, "surface: " + wetness(wet), GREEN if (wet or 0) <= 1 else AMBER, 11)
+
+        # Дождь СЕЙЧАС. Не прогноз — прогноза сим не отдаёт, и придумывать
+        # его нельзя: по выдуманному «через 6 минут» человек поедет менять
+        # резину и потеряет гонку.
+        text, col, bold = rain_line(r.get("precipitation"),
+                                    r.get("declared_wet"), r.get("fog"))
+        self.text(p, 12, self.height() - 10, text, col, 12 if bold else 11, bold)
 
 
 # ================= ENDURANCE =================

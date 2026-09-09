@@ -509,14 +509,14 @@
   },
   {
     "key": "weatherradar",
-    "title": "Weather radar",
+    "title": "Rain & wind",
     "group": "solo",
     "size": [
       250,
-      130
+      150
     ],
     "file": "weatherradar.png",
-    "doc": "Rain approaching the circuit, and how soon.",
+    "doc": "Rain on track now, wind direction, and whether it is declared wet.",
     "sets": []
   },
   {

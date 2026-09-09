@@ -244,7 +244,7 @@
     </div>
     <div class="card" data-card="summary" data-title="🏆 Session summary">
       <h2 id="summary-title">🏆 Session summary</h2>
-      <div id="summary"><div class="empty">Position, best lap, consistency and incidents — live through the session (becomes a final report after the checkered flag).</div></div>
+      <div id="summary"><div class="empty">Appears once you are on track — position, best lap, consistency and incidents, and it turns into a final report after the checkered flag.</div></div>
     </div>
     <div class="card" data-card="tiretemps" data-title="🌡️ Tire temps">
       <h2>🌡️ Tire temps</h2>
@@ -378,7 +378,7 @@
     <div class="col">
       <div class="card" data-card="changes" data-title="🛠️ Setup changes">
         <h2>🛠️ Setup changes (enter in the garage)</h2>
-        <div id="setup"><div class="empty">—</div></div>
+        <div id="setup"><div class="empty">Appears once the sim hands over the setup — that is any time you are in the car.</div></div>
       </div>
       <div class="card" data-card="s_tires" data-title="🌡️ Tire temps">
         <h2>🌡️ Tire temps (for setup)</h2>
@@ -426,11 +426,11 @@
   <div class="grid">
     <div class="col">
       <div class="card" data-card="records" data-title="🏆 Personal bests"><h2>🏆 Personal bests</h2><div id="records"><div class="empty">Put in some laps — your track records show up here (they carry over between sessions).</div></div></div>
-      <div class="card" data-card="r_track" data-title="🥇 Track record"><h2>🥇 Track record</h2><div id="r_track" class="empty">Fastest lap on this track / car.</div></div>
+      <div class="card" data-card="r_track" data-title="🥇 Track record"><h2>🥇 Track record</h2><div id="r_track" class="empty">Set a lap on this track and car — the record is kept between sessions.</div></div>
     </div>
     <div class="col">
       <div class="card" data-card="r_rivals" data-title="👥 Rivals' times"><h2>👥 Rivals' times</h2><div id="r_rivals" class="empty">Coming: official iRacing Data API (your account, legit).</div></div>
-      <div class="card" data-card="r_progress" data-title="📈 Progress"><h2>📈 Progress</h2><div id="r_progress" class="empty">Your laptime progress over time.</div></div>
+      <div class="card" data-card="r_progress" data-title="📈 Progress"><h2>📈 Progress</h2><div id="r_progress" class="empty">Put in a few sessions — your pace across them shows up here.</div></div>
     </div>
   </div>
 </div>
@@ -439,11 +439,11 @@
   <div class="grid">
     <div class="col">
       <div class="card" data-card="strategy" data-title="⛽ Fuel & pit"><h2>⛽ Fuel & pit</h2><div id="strategy"><div class="empty">Drive a few laps — fuel burn and predictions will appear.</div></div></div>
-      <div class="card" data-card="st_stints" data-title="📝 Stint plan"><h2>📝 Stint plan</h2><div id="st_stints" class="empty">Stints, driver swaps, pit laps.</div></div>
+      <div class="card" data-card="st_stints" data-title="📝 Stint plan"><h2>📝 Stint plan</h2><div id="st_stints" class="empty">Appears once the race length and your fuel burn are both known.</div></div>
     </div>
     <div class="col">
-      <div class="card" data-card="st_window" data-title="🎯 Pit window"><h2>🎯 Pit window</h2><div id="st_window" class="empty">When to pit, target lap.</div></div>
-      <div class="card" data-card="st_uc" data-title="🔀 Undercut / Overcut"><h2>🔀 Undercut / Overcut</h2><div id="st_uc" class="empty">Strategy vs rivals around you.</div></div>
+      <div class="card" data-card="st_window" data-title="🎯 Pit window"><h2>🎯 Pit window</h2><div id="st_window" class="empty">Appears once the burn is measured — a lap or two of green running.</div></div>
+      <div class="card" data-card="st_uc" data-title="🔀 Undercut / Overcut"><h2>🔀 Undercut / Overcut</h2><div id="st_uc" class="empty">Appears in a race, when someone is close enough to undercut.</div></div>
     </div>
   </div>
 </div>
@@ -455,7 +455,7 @@
         <div id="an_cleanup"><div class="empty">Checking the reference laps…</div></div></div>
       <div class="card" data-card="g61_sectors" data-title="🟪 Sectors vs everyone">
         <h2>🟪 Sectors vs everyone</h2>
-        <div id="g61_sectors"><div class="empty">Where you are first and where you are eighth.</div></div></div>
+        <div id="g61_sectors"><div class="empty">Needs a Garage 61 token — then you see which sectors you win and which you lose.</div></div></div>
       <div class="card" data-card="g61_board" data-title="🌍 Lap times — everyone">
         <h2>🌍 Lap times — everyone</h2>
         <div class="mini" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
@@ -464,15 +464,15 @@
           <label class="tire"><div class="cn">Only clean laps</div>
             <select id="g61_clean" class="tpin"><option value="1">yes</option><option value="0">no</option></select></label>
         </div>
-        <div id="g61_board"><div class="empty">Lap times from Garage 61 for this track and car.</div></div></div>
+        <div id="g61_board"><div class="empty">Needs a Garage 61 token in data/garage61 — then other people's laps on this track and car appear here.</div></div></div>
       <div class="card" data-card="an_corners" data-title="🎯 Corner by corner"><h2>🎯 Corner by corner</h2>
         <div id="an_corners"><div class="empty">Drive two laps on the same track and car — the corner-by-corner comparison appears here.</div></div></div>
-      <div class="card" data-card="an_sectors" data-title="⏱️ Time lost (sectors)"><h2>⏱️ Time lost (sectors)</h2><div id="an_sectors"><div class="empty">Optimal minus actual — where you lost time per sector.</div></div></div>
+      <div class="card" data-card="an_sectors" data-title="⏱️ Time lost (sectors)"><h2>⏱️ Time lost (sectors)</h2><div id="an_sectors"><div class="empty">Drive a few laps with sector times — then this shows where they went.</div></div></div>
       <div class="card" data-card="driving" data-title="🧠 AI review"><h2>🧠 AI review</h2><div id="driving"><div class="empty">Drive a stint and come into the box — the AI analysis appears here.</div></div></div>
     </div>
     <div class="col">
-      <div class="card" data-card="an_result" data-title="🏁 Race result"><h2>🏁 Race result</h2><div id="an_result"><div class="empty">Race summary: position, laps, incidents, best lap.</div></div></div>
-      <div class="card" data-card="an_driving" data-title="🛞 Driving / line"><h2>🛞 Driving / line</h2><div id="an_driving" class="empty">Trail braking, throttle smoothness, balance.</div></div>
+      <div class="card" data-card="an_result" data-title="🏁 Race result"><h2>🏁 Race result</h2><div id="an_result"><div class="empty">Appears when the session ends — position, laps, incidents and your best lap.</div></div></div>
+      <div class="card" data-card="an_driving" data-title="🛞 Driving / line"><h2>🛞 Driving / line</h2><div id="an_driving" class="empty">Drive a stint and come into the box — how you work the pedals is measured then.</div></div>
     </div>
   </div>
 </div>
