@@ -27,6 +27,11 @@ from overlay.panel import ControlPanel                              # noqa: E402
 from overlay.store import Store                                     # noqa: E402
 from overlay.widgets import WIDGETS                                 # noqa: E402
 
+# Каждый тест здесь строит НАСТОЯЩЕЕ окно со всеми виджетами — это секунды,
+# а не миллисекунды. Делить фикстуру между тестами не будем: общее окно
+# копит состояние, и падение одного теста начинает зависеть от порядка.
+pytestmark = pytest.mark.slow
+
 
 @pytest.fixture(scope="module")
 def app():

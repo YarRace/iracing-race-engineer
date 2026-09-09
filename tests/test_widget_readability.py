@@ -338,3 +338,82 @@ def test_the_widget_no_longer_promises_a_forecast():
     assert "approaching" not in W.WeatherRadarWidget.BLURB.lower()
     assert "radar" not in W.WeatherRadarWidget.TITLE.lower(), (
         "радара нет — имя не должно его обещать")
+
+
+# --- сломанный виджет обязан выглядеть сломанным --------------------------
+
+def _broken_widget():
+    class Boom(W.OverlayWidget):
+        KEY, TITLE, DEFAULT, GROUP, ENDPOINTS = ("boom", "Broken", (240, 90),
+                                                 "solo", ())
+
+        def draw(self, p):
+            raise ValueError("channel vanished mid-lap")
+
+    return Boom(_Store(), _Cfg())
+
+
+class _Store:
+    def get(self, k):
+        return {}
+
+
+class _Cfg:
+    def geometry(self, key):
+        return None
+
+    def widget_opt(self, key, name, default=None):
+        return default
+
+    def set_widget_opt(self, *a):
+        pass
+
+    def set_geometry(self, *a):
+        pass
+
+    def opacity(self):
+        return 1.0
+
+    def edit_mode(self):
+        return False
+
+
+def test_a_widget_that_crashes_says_so_on_screen(capsys):
+    """Исключение из draw() глоталось молча, и оставался пустой
+    прямоугольник — ровно такой же, как у виджета, который просто ждёт
+    данных. Человек ждёт круг, другой, потом идёт искать, что не так с
+    симом. А не так с программой, и она об этом молчала.
+    """
+    from PySide6.QtGui import QColor, QPixmap
+
+    w = _broken_widget()
+    w.resize(240, 90)
+    px = QPixmap(240, 90)
+    px.fill(QColor(30, 33, 38))
+    w.render(px)                                  # рисуем как на экране
+
+    out = capsys.readouterr().out
+    assert "failed to draw" in out and "ValueError" in out, out
+
+    # На картинке должен появиться красный текст — раньше она оставалась
+    # ровно того цвета, которым её залили.
+    img = px.toImage()
+    reds = sum(1 for y in range(0, img.height(), 2)
+               for x in range(0, img.width(), 2)
+               if QColor(img.pixel(x, y)).red() > 150
+               and QColor(img.pixel(x, y)).green() < 110)
+    assert reds > 20, f"красных точек {reds} — отметки о поломке не видно"
+
+
+def test_the_same_failure_is_logged_once_not_every_frame(capsys):
+    """Тридцать кадров в секунду забили бы вывод так, что в нём нельзя
+    было бы найти ничего другого."""
+    from PySide6.QtGui import QColor, QPixmap
+
+    w = _broken_widget()
+    w.resize(240, 90)
+    px = QPixmap(240, 90)
+    px.fill(QColor(30, 33, 38))
+    for _ in range(5):
+        w.render(px)
+    assert capsys.readouterr().out.count("failed to draw") == 1

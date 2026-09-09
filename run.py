@@ -180,12 +180,25 @@ def main():
     record = None         # кэш рекорда трассы (запрос к БД — дорогой, обновляем реже)
     official_map = False  # есть официальная геометрия трассы (тогда не строим из телеметрии)
     sof_frozen = None     # SoF снимаем ОДИН раз на входе в сессию (см. ниже)
+    stale_cleared = False  # уже вычистили состояние после ухода сима?
     try:
         while True:
             if not _connected(ir):
                 STATE["live"] = {"status": "waiting for iRacing… (start the sim and get in the car)"}
+                # Всё остальное тоже обязано исчезнуть. Раньше пропадал
+                # только `live`, а таблица заезда, разрывы, топливо и шины
+                # оставались как были — и выглядели ЖИВЫМИ. Человек
+                # закрывает сим, смотрит на оверлей и видит 54 литра,
+                # которых нет уже минуту. Пустая карточка честнее.
+                if not stale_cleared:
+                    print("iRacing gone — clearing the live data.")
+                    for key in ("race", "standings", "relative", "strategy",
+                                "wear", "damage", "result", "tyres", "setup"):
+                        STATE[key] = [] if key == "standings" else {}
+                    stale_cleared = True
                 time.sleep(1)
                 continue
+            stale_cleared = False
             ir.freeze_var_buffer_latest()
             # авто-сброс при заходе в ДРУГУЮ сессию (новая гонка/практика/смена пилота)
             sess = _session_key(ir)

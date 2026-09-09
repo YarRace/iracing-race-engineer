@@ -79,6 +79,11 @@
   .err{background:#2a1414;border:1px solid #5a2020;color:#e8a0a0;padding:10px 12px;border-radius:10px;font-size:13px}
   .empty{color:var(--muted);font-style:italic;padding:8px 0}
   /* News on the main tab: what changed, and whether a newer build is out. */
+  /* Not-on-track banner: one clear answer instead of thirty empty cards. */
+  #offline{display:none;background:var(--panel);border:1px solid var(--warn,#e0a800);
+    border-radius:12px;padding:14px 16px;margin-bottom:18px}
+  #offline b{display:block;font-size:15px;margin-bottom:4px}
+  #offline span{color:var(--muted);font-size:13.5px}
   #news{margin-bottom:18px}
   .newsbar{display:flex;align-items:center;gap:12px;background:var(--panel);
     border:1px solid var(--accent);border-radius:12px;padding:12px 14px;
@@ -182,6 +187,7 @@
 </div>
 <div id="customizeMenu" style="display:none"></div>
 <div id="tab-solo" class="mpane">
+<div id="offline"></div>
 <div id="news"></div>
 <div class="grid">
   <!-- ЛЕВО -->
@@ -1143,11 +1149,37 @@ function tempColor(t){
   return "var(--bad)";                  // перегрев
 }
 
+// Один ясный ответ вместо тридцати пустых карточек.
+//
+// Человек ставит программу, открывает дашборд и видит три десятка
+// карточек, каждая из которых пишет «appears once on track». Ни одна из
+// них не врёт, но вместе они читаются как «всё сломано»: состояние
+// программы было написано серым шрифтом в углу заголовка.
+function setOffline(state, detail){
+  const el = $('offline'); if(!el) return;
+  if(!state){ el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `<b>${esc(state)}</b><span>${esc(detail)}</span>`;
+}
+
 async function tickLive(){
-  let l; try{ l = await (await fetch('/api/live')).json(); }catch{ return; }
+  let l;
+  try{ l = await (await fetch('/api/live')).json(); }
+  catch{
+    // Не отвечает сам инженер — это другая беда, чем закрытый сим, и
+    // чинится она иначе: запустить программу, а не сесть в машину.
+    setOffline('The engineer is not answering',
+               'Start it again — the dashboard is served by run.py (or the ' +
+               'Race Engineer app). Nothing here updates until it is back.');
+    $('dot').className = 'dot';
+    return;
+  }
   const live = l && l.speed!=null;
   $('dot').className = 'dot' + (live?' live':'');
   $('hdr').textContent = live ? 'on track' : (l && l.status ? l.status : '');
+  setOffline(live ? '' : 'Waiting for iRacing',
+             'Start the sim and get in the car. Everything on this page fills ' +
+             'in from your own laps — nothing is shown until you drive.');
   if(!live){ return; }
   $('speed').textContent = fix(l.speed*3.6,0);          // м/с → км/ч
   _lastSpeedKmh = l.speed*3.6; _st.live = l;
@@ -2528,25 +2560,30 @@ setInterval(tickStandings, 2000);
 setInterval(tickRelative, 240);  // машинки на карте/relative (легче, данные с сервера 20/сек)
 setInterval(tickWearSession, 2000);
 setInterval(tickTrackmap, 3000);
-setInterval(tickEndurance, 500);
-setInterval(tickSetupExtra, 1500);
+tickEndurance(); setInterval(tickEndurance, 500);
+tickSetupExtra(); setInterval(tickSetupExtra, 1500);
 // Разбор круга меняется раз в круг, план команды — от ввода и темпа.
 // Дёргать их часто незачем: оба читают с диска и считают по всей гонке.
 // tpInit ПОСЛЕ объявлений: он читает TPKEY, а const до своей строки
 // лежит в мёртвой зоне — вызов выше по файлу упал бы и оборвал
 // весь скрипт вместе с регистрацией тиков.
 tpInit();
-setInterval(tickCorners, 6000);
+// Первый вызов СРАЗУ, потом по таймеру. Четыре карточки ждали своего
+// первого тика по 6, 15, 20 и 25 секунд и всё это время показывали
+// заглушку: «Checking the reference laps…» висело четверть минуты и
+// читалось как «что-то зависло». Остальные тики так и устроены — эти
+// четыре просто забыли.
+tickCorners(); setInterval(tickCorners, 6000);
 // Раз в 10 секунд: круги ложатся в базу по одному, чаще смотреть незачем.
 tickSectorHistory(); setInterval(tickSectorHistory, 10000);
 // Новости меняются с выходом версии, а не в секунду: раз в полчаса.
 tickNews(); setInterval(tickNews, 1800000);
 // Анкета отвечает на действия человека, а не по таймеру.
 tickOptimiser();
-setInterval(tickG61Board, 20000);
-setInterval(tickG61Sectors, 25000);
-setInterval(tickCleanup, 15000);   // чужие круги меняются раз в день, не в секунду
-setInterval(tickTeamPlan, 3000);
+tickG61Board(); setInterval(tickG61Board, 20000);
+tickG61Sectors(); setInterval(tickG61Sectors, 25000);
+tickCleanup(); setInterval(tickCleanup, 15000);   // чужие круги меняются раз в день, не в секунду
+tickTeamPlan(); setInterval(tickTeamPlan, 3000);
 </script>
 </body>
 </html>

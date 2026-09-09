@@ -35,6 +35,11 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import render_dashboard as RD                                    # noqa: E402
 
+# Каждый тест здесь строит НАСТОЯЩЕЕ окно со всеми виджетами — это секунды,
+# а не миллисекунды. Делить фикстуру между тестами не будем: общее окно
+# копит состояние, и падение одного теста начинает зависеть от порядка.
+pytestmark = pytest.mark.slow
+
 CHROME = RD.find_chrome()
 
 # `null` намеренно НЕ ищем в тексте: слово встречается в английских
@@ -72,10 +77,16 @@ def _dom():
                 time.sleep(0.1)
         r = subprocess.run(
             [CHROME, "--headless=new", "--disable-gpu",
+             # Консоль браузера — в stderr. Без неё сломанный скрипт
+             # выглядит как «страница просто пустая»: ровно так я и
+             # пропустил свою же опечатку, из-за которой НЕ РИСОВАЛОСЬ
+             # НИЧЕГО, а проверка ругалась на одну карточку износа.
+             "--enable-logging=stderr", "--v=0",
              "--virtual-time-budget=6000", "--dump-dom",
              f"http://127.0.0.1:{port}/"],
             capture_output=True, timeout=180)
-        return r.stdout.decode("utf-8", errors="replace")
+        return (r.stdout.decode("utf-8", errors="replace"),
+                r.stderr.decode("utf-8", errors="replace"))
     finally:
         stop.set()
         server.should_exit = True
@@ -87,11 +98,33 @@ def _dom():
 
 
 @pytest.fixture(scope="module")
-def screen():
-    dom = _dom()
+def page():
+    """(текст страницы, журнал браузера) — один запуск на весь модуль."""
+    dom, log = _dom()
     # Внутри <script> «undefined» — это код, а не то, что видит человек.
     body = re.sub(r"(?is)<script.*?</script>", " ", dom)
-    return re.sub(r"(?s)<[^>]+>", " ", body)
+    return re.sub(r"(?s)<[^>]+>", " ", body), log
+
+
+@pytest.fixture(scope="module")
+def screen(page):
+    return page[0]
+
+
+@needs_chrome
+def test_the_script_on_the_page_actually_runs(page):
+    """Опечатка в скрипте гасит ВСЮ страницу, а выглядит это как пустые
+    карточки — то есть как нормальное «данных ещё нет».
+
+    Я склеил две строки по-питоновски (в JavaScript соседние литералы не
+    складываются), весь скрипт перестал разбираться, и не нарисовалось
+    ничего. Проверки выше этого не заметили: они смотрели на текст,
+    который стоит в разметке и без всякого скрипта.
+    """
+    bad = [ln for ln in page[1].splitlines()
+           if "CONSOLE" in ln and ("Uncaught" in ln or "SyntaxError" in ln
+                                   or "TypeError" in ln)]
+    assert not bad, "браузер ругается:\n  " + "\n  ".join(b[-160:] for b in bad[:5])
 
 
 @needs_chrome

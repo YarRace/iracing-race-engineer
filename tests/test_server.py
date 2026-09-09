@@ -580,10 +580,17 @@ def test_a_widget_never_starts_reading_the_live_sim_by_itself():
         telemetry._FEED = before
 
 
-def test_every_plain_api_endpoint_answers_without_parameters():
+def test_every_plain_api_endpoint_answers_without_parameters(no_network):
     """Дешёвый пояс на все карточки сразу. Setup Optimiser в первой редакции
     падал с KeyError на двух фазах из трёх и отдавал бы 500 ровно на самых
-    частых вопросах — такой тест поймал бы это за секунду."""
+    частых вопросах — такой тест поймал бы это за секунду.
+
+    БЕЗ СЕТИ, и это не для скорости. Четыре адреса (профиль iRacing и три
+    гаражных) ходили наружу на КАЖДОМ прогоне: 7.3 секунды из 8.8 и
+    зависимость результата от того, жив ли чужой сервер. Заодно
+    проверяется то, что важнее скорости: у нового человека токена нет и
+    сети может не быть — страница обязана отвечать, а не отдавать 500.
+    """
     from fastapi.testclient import TestClient
 
     from ire.dashboard.server import app

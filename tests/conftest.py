@@ -58,3 +58,25 @@ needs_cached_maps = pytest.mark.skipif(
     not CACHED_MAPS,
     reason="нет кэша карт в data/trackmaps — проверка настоящих трасс "
            "работает только там, где человек уже ездил")
+
+
+@pytest.fixture
+def no_network(monkeypatch):
+    """Запретить выход наружу на время теста.
+
+    Тесты ходили в интернет: профиль iRacing и три адреса Garage 61 —
+    7.3 секунды из 8.8 в одном тесте и результат, зависящий от чужого
+    сервера. Прогон, который краснеет из-за чужого downtime, перестают
+    читать.
+
+    Заглушка стоит на `urllib`, а не на конкретном сборщике: так её не
+    обойдёт новый код, который тоже решит сходить наружу.
+    """
+    import urllib.request
+
+    def blocked(*a, **kw):
+        raise OSError("сеть в тестах запрещена")
+
+    monkeypatch.setattr(urllib.request, "urlopen", blocked)
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", blocked)
+    return blocked

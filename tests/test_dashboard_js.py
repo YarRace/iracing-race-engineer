@@ -131,3 +131,23 @@ def test_the_clock_never_prints_NaN():
     line = next(ln for ln in src.splitlines() if "const fmtClock" in ln)
     flat = line.replace(" ", "")
     assert "typeofs!=='number'" in flat and "isFinite" in flat
+
+
+def test_every_repeating_tick_also_runs_once_at_boot():
+    """Карточка, ждущая своего первого тика, показывает заглушку.
+
+    «Checking the reference laps…» висело пятнадцать секунд, разбор по
+    поворотам — шесть, гаражные — двадцать и двадцать пять. Читается это
+    как «что-то зависло», а не как «сейчас посчитаю». Большинство тиков
+    так и написаны — вызов, потом setInterval; четыре просто забыли.
+    """
+    import re
+
+    src = HTML.read_text(encoding="utf-8")
+    late = []
+    for m in re.finditer(r"setInterval\((tick\w+),", src):
+        name = m.group(1)
+        # Вызов без аргументов где-то в файле, кроме самого setInterval.
+        if not re.search(re.escape(name) + r"\(\)\s*;", src):
+            late.append(name)
+    assert not late, f"ждут первого тика: {', '.join(late)}"

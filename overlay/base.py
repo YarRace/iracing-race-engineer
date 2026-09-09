@@ -375,6 +375,30 @@ class OverlayWidget(QWidget):
         self.text(p, 12, 20, name, "#9099a6", 8, True)
 
     # ---------- отрисовка ----------
+    def _draw_failed(self, p, exc):
+        """Отметка «этот виджет упал» плюс ОДНА строка в журнал.
+
+        Одна, а не на каждый кадр: при тридцати кадрах в секунду
+        повторяющееся исключение забило бы вывод так, что в нём нельзя
+        было бы найти ничего другого. Имя ошибки повторяться перестаёт,
+        а вот СМЕНА ошибки — новость, её печатаем.
+        """
+        name = f"{type(exc).__name__}: {exc}"
+        if getattr(self, "_last_fail", None) != name:
+            self._last_fail = name
+            print(f"Overlay: {self.KEY} failed to draw — {name}")
+        try:
+            p.setPen(QPen(QColor("#e74c3c")))
+            f = QFont("Segoe UI")
+            f.setPointSizeF(9.0)
+            p.setFont(f)
+            p.drawText(QRectF(6, 4, max(10, self.width() - 12),
+                              max(10, self.height() - 8)),
+                       Qt.AlignTop | Qt.AlignLeft | Qt.TextWordWrap,
+                       f"{self.TITLE}: this widget crashed.\n{name}")
+        except Exception:                                    # noqa: BLE001
+            pass                                             # рисовать больше нечем
+
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -382,8 +406,18 @@ class OverlayWidget(QWidget):
         self._bg(p)
         try:
             self.draw(p)
-        except Exception:
-            pass
+        except Exception as exc:                             # noqa: BLE001
+            # Сломанный виджет ОБЯЗАН выглядеть сломанным.
+            #
+            # Раньше исключение из draw() глоталось молча, и на экране
+            # оставался пустой прямоугольник — ровно такой же, как у
+            # виджета, который просто ждёт данных. Человек ждёт круг,
+            # другой, третий, потом идёт искать, что не так с симом. А не
+            # так — с программой, и она об этом промолчала.
+            #
+            # Рисовать нечем (исключение могло случиться посреди
+            # рисования), поэтому painter сбрасываем и пишем одну строку.
+            self._draw_failed(p, exc)
         if self.config.edit_mode():                        # правка: подсветка + шестерёнка + уголок
             if self._sel_key:                              # рамка вокруг выбранного элемента
                 for k, r in self._elrects:

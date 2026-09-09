@@ -40,6 +40,7 @@ class Store:
         self._lock = threading.Lock()
         self._run = True
         self.ok = False
+        self._ok_at = None                               # время последнего ответа
 
     def set_active(self, endpoints):
         """Опрашивать только эти эндпоинты (объединение по включённым виджетам)."""
@@ -79,10 +80,22 @@ class Store:
                 except Exception:
                     self._last[ep] = now              # не долбим упавший эндпоинт
             self.ok = ok                                  # достучались ли до инженера
+            if ok:
+                self._ok_at = time.monotonic()            # когда в последний раз ответил
             time.sleep(0.05)                              # ~20 опросов/сек — свежо и легко (в фоне, GUI не трогает)
+
+    #: Сколько данные считаются свежими после последнего УСПЕШНОГО ответа
+    #: инженера. Опрос идёт двадцать раз в секунду, так что три секунды —
+    #: это шестьдесят пропущенных попыток подряд: связи точно нет.
+    STALE_AFTER = 3.0
 
     def get(self, ep: str):
         v = self._d.get(ep)
-        if v is None:
+        # Инженер молчит — отдаём пустоту, а не вчерашние числа. Раньше
+        # виджеты продолжали показывать последний ответ бесконечно: закрыл
+        # программу, а на экране по-прежнему топливо, разрывы и позиция,
+        # неотличимые от живых. Пустая карточка честнее старой.
+        if v is None or (self._ok_at is not None
+                         and time.monotonic() - self._ok_at > self.STALE_AFTER):
             return [] if ep == "standings" else {}
         return v
