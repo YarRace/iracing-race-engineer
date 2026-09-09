@@ -693,7 +693,11 @@ function renderFuelGraph(){
 const _clr = c => (c ? '#'+(c>>>0).toString(16).padStart(6,'0') : 'var(--bad)');
 const fmtTime = s => { if(s==null) return '—'; s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;
   return h?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`; };
-const fmtClock = s => { if(s==null) return '—'; s=Math.round(s)%86400; return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}`; };
+// Секунды от полуночи -> ЧЧ:ММ. Не число — прочерк: раньше здесь выходило
+// «NaN:NaN», то есть отсутствие данных выглядело как поломка арифметики.
+const fmtClock = s => { if(typeof s!=='number' || !isFinite(s)) return '—';
+  s=Math.round(s)%86400; if(s<0) s+=86400;
+  return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}`; };
 
 // бейдж «номер машины в цвете класса» (GTP жёлтый / LMP2 синий / GT3 алый — цвет с сервера)
 function numBadge(c){
@@ -735,8 +739,12 @@ function renderTrackRing(data){
     <circle cx="50" cy="50" r="40" fill="none" stroke="var(--line)" stroke-width="3"/>${dots}</svg>
     <div class="why" style="text-align:center;margin-top:6px">all cars on the lap (you are green)</div>`;
 }
-function renderWear(w){
-  if(!w || !Object.keys(w).length) return;
+// Плитки износа — ОДНА функция на обе вкладки.
+//
+// Их было две, слово в слово, и я починил одну: Endurance так и печатал
+// NaN% по всем четырём колёсам. Копия расходится ровно в тот момент, когда
+// первую правят, и заметить это можно только глазами на второй вкладке.
+function wearTiles(w){
   // Угол — это ТРИ зоны плюс худшая из них: {l, m, r, min}. Карточка читала
   // угол как одно число и множила объект на сто — на экране висело NaN% по
   // всем четырём колёсам. Число, которого нет, обязано выглядеть как «—»,
@@ -757,7 +765,12 @@ function renderWear(w){
     return `<div class="tire"><div class="cn">${name}</div><div style="font-size:20px;font-weight:700;color:${col}">${pct!=null?pct+'%':'—'}</div>
       <div class="bar" style="height:8px;margin-top:4px"><span style="width:${ok?Math.max(0,Math.min(100,pct)):0}%;background:${col};display:block;height:100%"></span></div>
       ${zones?`<div class="why" style="font-size:11px;margin-top:3px">${zones}</div>`:''}</div>`; };
-  $('wear').innerHTML = `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`;
+  return `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`;
+}
+
+function renderWear(w){
+  if(!w || !Object.keys(w).length) return;
+  $('wear').innerHTML = wearTiles(w);
 }
 // Tyre tool: что кромки протектора говорят про развал и давление.
 // Число ВСЕГДА рядом с вердиктом. Полосы измерены по 32 сессиям Ярослава на
@@ -1083,9 +1096,7 @@ function tickEndurance(){
       return `<tr${you}><td>${numBadge(c)}</td><td>${c.pos?'P'+c.pos:'—'}</td><td>${c.name||'—'}</td><td class="chg" style="text-align:right;color:${c.is_player?'var(--txt)':(c.gap>0?'var(--bad)':'var(--good)')}">${g}</td></tr>`;}).join('')}</table>`); }
   if(stand.length) set('e_standings', `<div style="overflow-x:auto"><table><tr><th style="text-align:right">P</th><th>#</th><th>Driver</th><th style="text-align:right">Gap</th><th style="text-align:right">Best</th></tr>${stand.map(d=>{
     const you=d.is_player?' style="background:var(--good-bg)"':''; return `<tr${you}><td style="text-align:right;color:var(--muted)">${d.pos}</td><td>${numBadge(d)}</td><td>${d.name||'—'}${d.on_pit?' <span style="color:var(--warn)">P</span>':''}</td><td class="chg" style="text-align:right">${d.gap?'+'+fix(d.gap,1):'—'}</td><td class="chg" style="text-align:right;color:var(--best)">${lapTime(d.best)}</td></tr>`;}).join('')}</table></div>`);
-  if(Object.keys(wear).length){ const cell=(c,n)=>{ const v=wear[c],p=v!=null?Math.round(v*100):null,col=v==null?'#333':(v>0.5?'var(--good)':(v>0.3?'var(--warn)':'var(--bad)'));
-    return `<div class="tire"><div class="cn">${n}</div><div style="font-size:20px;font-weight:700;color:${col}">${p!=null?p+'%':'—'}</div><div class="bar" style="height:8px;margin-top:4px"><span style="width:${p||0}%;background:${col};display:block;height:100%"></span></div></div>`; };
-    set('e_wear', `<div class="tires" style="max-width:none">${cell('LF','Front left')}${cell('RF','Front right')}${cell('LR','Rear left')}${cell('RR','Rear right')}</div>`); }
+  if(Object.keys(wear).length) set('e_wear', wearTiles(wear));
   if(live.tires) set('e_tires', tireTempTiles(live.tires));
   if(race.wind_vel!=null) set('e_weather', `<div class="mini" style="grid-template-columns:1fr 1fr">
     ${card('Wind', `${fix(race.wind_vel,1)} m/s`, windDir(race.wind_dir))}
@@ -1297,12 +1308,18 @@ async function tickStrategy(){
   const pl = g.plan;
   if(pl){
     const pb = [];
+    // Пропущенное поле JavaScript печатает СЛОВОМ: на экране висело
+    // «stint ~undefined laps». Число, которого нет, обязано выглядеть как
+    // прочерк — иначе это читается как поломка программы, а не как
+    // «пока не посчитано».
     pb.push(card('Pit stops', pl.stops===0 ? 'not needed' : `${pl.stops} ${pl.stops===1?'stop':'stops'}`,
-      `stint ~${pl.stint_laps} ${pl.stint_laps===1?'lap':'laps'}`));
+      pl.stint_laps!=null ? `stint ~${pl.stint_laps} ${pl.stint_laps===1?'lap':'laps'}` : ''));
     if(pl.stops>0){
       const when = pl.next_stop_lap ? `lap ${pl.next_stop_lap}` : (pl.laps_until_stop!=null ? `in ${pl.laps_until_stop} laps` : '—');
       pb.push(card('First pit', when, pl.fuel_per_stop!=null ? `add ~${pl.fuel_per_stop} L` : ''));
-      pb.push(card('Total to add', `${pl.fuel_to_add_total} L`, `for ${pl.laps_to_go} ${pl.laps_to_go===1?'lap':'laps'} to the finish`));
+      pb.push(card('Total to add',
+        pl.fuel_to_add_total!=null ? `${pl.fuel_to_add_total} L` : '—',
+        pl.laps_to_go!=null ? `for ${pl.laps_to_go} ${pl.laps_to_go===1?'lap':'laps'} to the finish` : ''));
     }
     if(pl.save_to_skip!=null){
       pb.push(`<div class="tire" style="border-color:var(--warn)"><div class="cn">Drop a stop</div>

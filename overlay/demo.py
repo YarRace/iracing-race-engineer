@@ -281,6 +281,8 @@ class DemoFeed:
             return {"cars": cars}
 
         if ep == "strategy":
+            from ire.metrics.strategy import plan_race as _plan_race
+
             return {
                 "fuel": round(fuel, 1), "tank": TANK, "avg_burn": BURN_PER_LAP,
                 "last_burn": BURN_PER_LAP + 0.06, "min_burn": BURN_PER_LAP - 0.3,
@@ -291,7 +293,15 @@ class DemoFeed:
                 "tire_min": round(wear, 3), "tire_wear_per_lap": 0.011,
                 "tire_laps_left": round(max(0.0, (wear - 0.3) / 0.011), 1),
                 "change_tires": wear < 0.35,
-                "plan": {"stops": 1, "first_stop_lap": lap + 6, "add_each": 34.0},
+                # План считает ТОТ ЖЕ `plan_race`, что и в бою. Здесь стоял
+                # словарь с выдуманными именами полей — `first_stop_lap` и
+                # `add_each`, — а страница читает `next_stop_lap` и
+                # `fuel_per_stop`. Отсутствующие поля JavaScript печатает
+                # словом: на витрине висело «stint ~undefined laps» и
+                # «undefined L». Второй раз на тех же граблях, поэтому
+                # больше не выдумываем — зовём.
+                "plan": _plan_race(max(1, 30 - (lap - 8)), BURN_PER_LAP,
+                                   fuel, TANK, cur_lap=lap),
             }
 
         if ep == "wear":
@@ -315,7 +325,10 @@ class DemoFeed:
                     "laps_remain": max(0, 30 - (lap - 8)),
                     "time_remain": max(0.0, 30 * LAP_TIME - el),
                     "record": LAP_TIME - 1.2, "sof": 2840,
-                    "time_of_day": "15:42"}
+                    # Секунды от полуночи — ровно то, что отдаёт
+                    # SessionTimeOfDay. Здесь стояла строка «15:42», и
+                    # страница честно печатала «NaN:NaN»: она делит на 3600.
+                    "time_of_day": 15 * 3600 + 42 * 60}
 
         if ep == "damage":
             return {"incidents": 2, "team_incidents": 6, "team": []}

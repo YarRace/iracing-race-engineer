@@ -86,7 +86,7 @@ def test_the_wear_card_reads_a_corner_as_three_zones_not_one_number():
     зоны, а карточку никто не поправил.
     """
     src = HTML.read_text(encoding="utf-8")
-    body = src[src.index("function renderWear("):]
+    body = src[src.index("function wearTiles("):]
     body = body[:body.index("\n}")]
     flat = body.replace(" ", "")
     # Худшая зона достаётся ЯВНО, а не берётся угол целиком.
@@ -108,3 +108,26 @@ def test_the_wear_payload_really_has_zones():
     for corner, zones in w.items():
         assert isinstance(zones, dict), f"{corner}: снова одно число?"
         assert {"l", "m", "r", "min"} <= set(zones), corner
+
+
+def test_the_wear_tiles_are_drawn_by_one_function_not_two():
+    """Их было две, слово в слово. Я починил одну.
+
+    Endurance так и печатал NaN% по всем четырём колёсам, потому что вторая
+    копия осталась старой. Копия расходится ровно тогда, когда первую
+    правят, и увидеть это можно только глазами на второй вкладке.
+    """
+    src = HTML.read_text(encoding="utf-8")
+    assert src.count("function wearTiles(") == 1
+    # Признак старой копии: угол уходит в арифметику целиком.
+    assert "constv=wear[c]" not in src.replace(" ", "")
+    # Обе вкладки зовут одну функцию.
+    assert src.count("wearTiles(") >= 3, "кто-то снова рисует плитки сам"
+
+
+def test_the_clock_never_prints_NaN():
+    """«NaN:NaN» на экране — это отсутствие данных, притворившееся поломкой."""
+    src = HTML.read_text(encoding="utf-8")
+    line = next(ln for ln in src.splitlines() if "const fmtClock" in ln)
+    flat = line.replace(" ", "")
+    assert "typeofs!=='number'" in flat and "isFinite" in flat
